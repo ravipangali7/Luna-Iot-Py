@@ -5,7 +5,16 @@ from .models import User
 
 class TokenAuthMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        # Skip authentication for public endpoints
+        # Skip authentication for Django system paths
+        system_paths = [
+            '/admin/',
+            '/static/',
+            '/media/',
+            '/__debug__/',
+            '/favicon.ico',
+        ]
+        
+        # Skip authentication for public API endpoints
         public_paths = [
             '/api/auth/send_registration_otp/',
             '/api/auth/verify_otp_and_register/',
@@ -17,8 +26,18 @@ class TokenAuthMiddleware(MiddlewareMixin):
             '/api/popup/active/',
         ]
         
+        # Check if it's a system path (skip our auth)
+        for system_path in system_paths:
+            if request.path.startswith(system_path):
+                return None
+        
+        # Check if it's a public API path (skip our auth)
         if request.path in public_paths:
             request.user = AnonymousUser()
+            return None
+        
+        # Only apply our custom auth to API requests
+        if not request.path.startswith('/api/'):
             return None
         
         phone = request.headers.get('x-phone')
