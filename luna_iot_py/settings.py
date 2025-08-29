@@ -63,6 +63,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'app.authentication.HeaderTokenAuthentication',
     ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'app.renderers.EnvelopeJSONRenderer',
+    ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
