@@ -112,6 +112,14 @@ class User(models.Model):
     def __str__(self):
         return f"{self.name} ({self.phone})"
 
+    @property
+    def is_authenticated(self):
+        return True
+    
+    @property
+    def is_anonymous(self):
+        return False
+
 class Role(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100, unique=True)
