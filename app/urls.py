@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from . import views
 
@@ -34,4 +34,5 @@ urlpatterns = [
     path('api/vehicle/<str:imei>/', views.VehicleViewSet.as_view({'get': 'get_by_imei'}), name='vehicle_by_imei'),
     path('api/geofence/vehicle/<str:imei>/', views.GeofenceViewSet.as_view({'get': 'get_by_imei'}), name='geofence_by_imei'),
     path('api/relay/status/<str:imei>/', views.RelayViewSet.as_view({'get': 'get_relay_status'}), name='relay_status'),
+    re_path(r'^api/notifications/?$', views.NotificationViewSet.as_view({'get': 'list', 'post': 'create'})),
 ]

@@ -1206,7 +1206,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             # Return only notifications they have access to
             return Notification.objects.filter(usernotification__user=user)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='unread-count')
     def unread_count(self, request):
         user = self.request.user
         count = UserNotification.objects.filter(
