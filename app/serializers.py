@@ -63,11 +63,11 @@ class DeviceSerializer(serializers.ModelSerializer):
             'vehicleNo': v.vehicle_no,
             'vehicleType': v.vehicle_type,
             'userVehicle': {
-                'isMain': uv.is_main,
+                'isMain': v.is_main,
                 'user': {
-                    'id': uv.user.id,
-                    'name': uv.user.name,
-                    'phone': uv.user.phone
+                    'id': v.user.id,
+                    'name': v.user.name,
+                    'phone': v.user.phone
                 }
             } if hasattr(v, 'uservehicle') else None
         } for v in vehicles]
