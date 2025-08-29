@@ -2,8 +2,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 
-router = DefaultRouter()
-router.trailing_slash = r'/?'
+class OptionalSlashRouter(DefaultRouter):
+    # Accept both with and without trailing slash
+    trailing_slash = r'/?'
+
+router = OptionalSlashRouter()
 router.register(r'auth', views.AuthViewSet, basename='auth')
 router.register(r'device', views.DeviceViewSet, basename='device')
 router.register(r'vehicle', views.VehicleViewSet, basename='vehicle')
