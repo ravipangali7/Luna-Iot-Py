@@ -35,5 +35,6 @@ urlpatterns = [
     path('api/geofence/vehicle/<str:imei>/', views.GeofenceViewSet.as_view({'get': 'get_by_imei'}), name='geofence_by_imei'),
     path('api/relay/status/<str:imei>/', views.RelayViewSet.as_view({'get': 'get_relay_status'}), name='relay_status'),
     re_path(r'^api/notifications/?$', views.NotificationViewSet.as_view({'get': 'list', 'post': 'create'})),
+    re_path(r'^api/permissions/?$', views.RoleViewSet.as_view({'get': 'permissions'})),
     re_path(r'^api/users/?$', views.UserViewSet.as_view({'get': 'list', 'post': 'create'})),
 ]

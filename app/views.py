@@ -541,7 +541,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
         
         return Response({'success': True, 'data': assignment, 'message': 'Vehicle access assigned successfully'})
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='access/available')
     def get_vehicles_for_access_assignment(self, request):
         user = self.request.user
         
@@ -557,7 +557,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(vehicles, many=True)
         return Response({'success': True, 'data': serializer.data, 'message': 'Vehicles for access assignment retrieved successfully'})
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path=r'access/assignments/(?P<imei>[^/.]+/access)')
     def get_vehicle_access_assignments(self, request, imei=None):
         if not imei:
             return Response({'success': False, 'message': 'IMEI is required'}, status=400)
@@ -612,7 +612,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
         
         return Response({'success': True, 'data': data, 'message': 'Vehicle access assignments retrieved successfully'})
 
-    @action(detail=False, methods=['put'])
+    @action(detail=False, methods=['put'], url_path='access')
     def update_vehicle_access(self, request):
         imei = request.data.get('imei')
         user_id = request.data.get('userId')
@@ -657,7 +657,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
         
         return Response({'success': True, 'data': assignment, 'message': 'Vehicle access updated successfully'})
 
-    @action(detail=False, methods=['delete'])
+    @action(detail=False, methods=['delete'], url_path='access')
     def remove_vehicle_access(self, request):
         imei = request.data.get('imei')
         user_id = request.data.get('userId')

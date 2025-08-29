@@ -59,7 +59,7 @@ class DeviceSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def get_user_devices(self, obj):
-        user_devices = obj.userdevice_set.all()
+        user_devices = obj.userDevices.all()
         return [{
             'user': {
                 'id': ud.user.id,
@@ -70,7 +70,7 @@ class DeviceSerializer(serializers.ModelSerializer):
         } for ud in user_devices]
     
     def get_vehicles(self, obj):
-        vehicles = obj.vehicle_set.all()
+        vehicles = obj.vehicles.all()
         return [{
             'id': v.id,
             'name': v.name,
