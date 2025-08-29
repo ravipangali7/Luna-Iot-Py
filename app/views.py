@@ -24,12 +24,12 @@ class AuthViewSet(viewsets.ViewSet):
         if User.objects.filter(phone=phone).exists():
             return Response({'success': False, 'message': 'User already exists'}, status=400)
         
-        # Generate OTP
+        # Generate Otp
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
         
-        # Save OTP
-        OTP.objects.filter(phone=phone).delete()  # Remove old OTPs
-        OTP.objects.create(
+        # Save Otp
+        Otp.objects.filter(phone=phone).delete()  # Remove old Otps
+        Otp.objects.create(
             phone=phone,
             otp=otp,
             expires_at=timezone.now() + timedelta(minutes=10)
@@ -38,7 +38,7 @@ class AuthViewSet(viewsets.ViewSet):
         # TODO: Send SMS here
         return Response({
             'success': True,
-            'data': {'phone': phone, 'message': 'OTP sent to your phone number'}
+            'data': {'phone': phone, 'message': 'Otp sent to your phone number'}
         })
     
     @action(detail=False, methods=['post'])
@@ -51,11 +51,11 @@ class AuthViewSet(viewsets.ViewSet):
         if not all([name, phone, password, otp]):
             return Response({'success': False, 'message': 'All fields are required'}, status=400)
         
-        # Verify OTP
+        # Verify Otp
         try:
-            otp_obj = OTP.objects.get(phone=phone, otp=otp, expires_at__gt=timezone.now())
-        except OTP.DoesNotExist:
-            return Response({'success': False, 'message': 'Invalid or expired OTP'}, status=400)
+            otp_obj = Otp.objects.get(phone=phone, otp=otp, expires_at__gt=timezone.now())
+        except Otp.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid or expired Otp'}, status=400)
         
         # Get default role
         try:
@@ -76,7 +76,7 @@ class AuthViewSet(viewsets.ViewSet):
             role=default_role
         )
         
-        # Delete OTP
+        # Delete Otp
         otp_obj.delete()
         
         return Response({
@@ -90,7 +90,7 @@ class AuthViewSet(viewsets.ViewSet):
             }
         }, status=201)
     
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=['post'], url_path='login')
     def login(self, request):
         phone = request.data.get('phone')
         password = request.data.get('password')
@@ -173,12 +173,12 @@ class AuthViewSet(viewsets.ViewSet):
         if User.objects.filter(phone=phone).exists():
             return Response({'success': False, 'message': 'User already exists'}, status=400)
         
-        # Generate new OTP
+        # Generate new Otp
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
         
-        # Save OTP
-        OTP.objects.filter(phone=phone).delete()  # Remove old OTPs
-        OTP.objects.create(
+        # Save Otp
+        Otp.objects.filter(phone=phone).delete()  # Remove old Otps
+        Otp.objects.create(
             phone=phone,
             otp=otp,
             expires_at=timezone.now() + timedelta(minutes=10)
@@ -187,7 +187,7 @@ class AuthViewSet(viewsets.ViewSet):
         # TODO: Send SMS here
         return Response({
             'success': True,
-            'data': {'phone': phone, 'message': 'New OTP sent to your phone number'}
+            'data': {'phone': phone, 'message': 'New Otp sent to your phone number'}
         })
 
     @action(detail=False, methods=['post'])
@@ -200,12 +200,12 @@ class AuthViewSet(viewsets.ViewSet):
         if not User.objects.filter(phone=phone).exists():
             return Response({'success': False, 'message': 'User not found with this phone number'}, status=404)
         
-        # Generate OTP
+        # Generate Otp
         otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
         
-        # Save OTP
-        OTP.objects.filter(phone=phone).delete()  # Remove old OTPs
-        OTP.objects.create(
+        # Save Otp
+        Otp.objects.filter(phone=phone).delete()  # Remove old Otps
+        Otp.objects.create(
             phone=phone,
             otp=otp,
             expires_at=timezone.now() + timedelta(minutes=10)
@@ -214,7 +214,7 @@ class AuthViewSet(viewsets.ViewSet):
         # TODO: Send SMS here
         return Response({
             'success': True,
-            'data': {'phone': phone, 'message': 'OTP sent to your phone number'}
+            'data': {'phone': phone, 'message': 'Otp sent to your phone number'}
         })
 
     @action(detail=False, methods=['post'])
@@ -223,17 +223,17 @@ class AuthViewSet(viewsets.ViewSet):
         otp = request.data.get('otp')
         
         if not phone or not otp:
-            return Response({'success': False, 'message': 'Phone number and OTP are required'}, status=400)
+            return Response({'success': False, 'message': 'Phone number and Otp are required'}, status=400)
         
         # Check if user exists
         if not User.objects.filter(phone=phone).exists():
             return Response({'success': False, 'message': 'User not found'}, status=404)
         
-        # Verify OTP
+        # Verify Otp
         try:
-            otp_obj = OTP.objects.get(phone=phone, otp=otp, expires_at__gt=timezone.now())
-        except OTP.DoesNotExist:
-            return Response({'success': False, 'message': 'Invalid or expired OTP'}, status=400)
+            otp_obj = Otp.objects.get(phone=phone, otp=otp, expires_at__gt=timezone.now())
+        except Otp.DoesNotExist:
+            return Response({'success': False, 'message': 'Invalid or expired Otp'}, status=400)
         
         # Generate reset token
         reset_token = secrets.token_hex(64)
@@ -281,8 +281,8 @@ class AuthViewSet(viewsets.ViewSet):
         user.token = new_token
         user.save()
         
-        # Delete OTP
-        OTP.objects.filter(phone=phone).delete()
+        # Delete Otp
+        Otp.objects.filter(phone=phone).delete()
         
         return Response({
             'success': True,
