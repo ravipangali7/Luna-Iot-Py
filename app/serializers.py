@@ -18,8 +18,15 @@ class RoleSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def get_permissions(self, obj):
-        return [{'permission': {'id': rp.permission.id, 'name': rp.permission.name}} 
-                for rp in obj.rolepermission_set.all()]
+        return [
+            {
+                'permission': {
+                    'id': rp.permission.id,
+                    'name': rp.permission.name,
+                }
+            }
+            for rp in obj.permissions.all()
+        ]
     
     def get_users(self, obj):
         return [{'id': user.id, 'name': user.name, 'phone': user.phone} 
@@ -33,8 +40,15 @@ class PermissionSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     def get_roles(self, obj):
-        return [{'role': {'id': rp.role.id, 'name': rp.role.name}} 
-                for rp in obj.rolepermission_set.all()]
+        return [
+            {
+                'role': {
+                    'id': rp.role.id,
+                    'name': rp.role.name,
+                }
+            }
+            for rp in obj.roles.all()
+        ]
 
 class DeviceSerializer(serializers.ModelSerializer):
     user_devices = serializers.SerializerMethodField()

@@ -1475,7 +1475,8 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        if not self.request.user.is_staff:
+        role = getattr(self.request.user, 'role', None)
+        if role and role.name == 'Super Admin':
             return User.objects.none()
         return User.objects.all()
     
