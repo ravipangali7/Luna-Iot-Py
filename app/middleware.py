@@ -15,16 +15,15 @@ class TokenAuthMiddleware(MiddlewareMixin):
         ]
         
         # Skip authentication for public API endpoints
-        normalized = request.path.rstrip('/') or '/'
         public_paths = [
-            '/api/auth/send_registration_otp',
-            '/api/auth/verify_otp_and_register',
-            '/api/auth/login',
-            '/api/auth/resend_otp',
-            '/api/auth/send_forgot_password_otp',
-            '/api/auth/verify_forgot_password_otp',
-            '/api/auth/reset_password',
-            '/api/popup/active',
+            '/api/auth/send_registration_otp/',
+            '/api/auth/verify_otp_and_register/',
+            '/api/auth/login/',
+            '/api/auth/resend_otp/',
+            '/api/auth/send_forgot_password_otp/',
+            '/api/auth/verify_forgot_password_otp/',
+            '/api/auth/reset_password/',
+            '/api/popup/active/',
         ]
         
         # Check if it's a system path (skip our auth)
@@ -33,7 +32,7 @@ class TokenAuthMiddleware(MiddlewareMixin):
                 return None
         
         # Check if it's a public API path (skip our auth)
-        if normalized in public_paths:
+        if request.path in public_paths:
             request.user = AnonymousUser()
             return None
         
