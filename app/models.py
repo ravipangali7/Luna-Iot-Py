@@ -50,6 +50,10 @@ class UserStatus(models.TextChoices):
     INACTIVE = 'INACTIVE', 'Inactive'
     SUSPENDED = 'SUSPENDED', 'Suspended'
 
+class BloodDonationApplyType(models.TextChoices):
+    NEED = 'need', 'Need'
+    DONATE = 'donate', 'Donate'
+
 class PermissionType(models.TextChoices):
     # Device permissions
     DEVICE_READ = 'DEVICE_READ', 'Device Read'
@@ -97,7 +101,7 @@ class User(models.Model):
     token = models.CharField(max_length=500, unique=True, null=True, blank=True)
     fcm_token = models.CharField(max_length=500, null=True, blank=True)
     status = models.CharField(max_length=20, choices=UserStatus.choices, default=UserStatus.ACTIVE)
-    role = models.ForeignKey('Role', on_delete=models.CASCADE, related_name='users', null=True)
+    role = models.ForeignKey('Role', on_delete=models.CASCADE, related_name='users')
     
     # Timestamps matching Prisma
     created_at = models.DateTimeField(auto_now_add=True)
@@ -150,13 +154,23 @@ class RolePermission(models.Model):
         unique_together = ['role', 'permission']
         db_table = 'role_permissions'
 
+class UserPermission(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='userPermissions')
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE, related_name='users')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'permission']
+        db_table = 'user_permissions'
+
 class Device(models.Model):
     id = models.BigAutoField(primary_key=True)
     imei = models.CharField(max_length=15, unique=True)
     phone = models.CharField(max_length=20)
     sim = models.CharField(max_length=10, choices=SimType.choices)
     protocol = models.CharField(max_length=10, choices=ProtocolType.choices, default=ProtocolType.GT06)
-    iccid = models.CharField(max_length=255)
+    iccid = models.CharField(max_length=255, null=True, blank=True, default="")
     model = models.CharField(max_length=10, choices=DeviceModelType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -167,7 +181,7 @@ class Device(models.Model):
 class Vehicle(models.Model):
     id = models.BigAutoField(primary_key=True)
     imei = models.CharField(max_length=15, unique=True)
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='vehicles')
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='vehicles', to_field='imei')
     name = models.CharField(max_length=255)
     vehicle_no = models.CharField(max_length=255)
     vehicle_type = models.CharField(max_length=20, choices=VehicleType.choices, default=VehicleType.CAR)
@@ -175,15 +189,21 @@ class Vehicle(models.Model):
     mileage = models.DecimalField(max_digits=10, decimal_places=2)
     minimum_fuel = models.DecimalField(max_digits=10, decimal_places=2)
     speed_limit = models.IntegerField(default=60)
+    expire_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'vehicles'
+        indexes = [
+            models.Index(fields=['imei']),
+            models.Index(fields=['vehicle_type']),
+            models.Index(fields=['created_at']),
+        ]
 
 class Location(models.Model):
     id = models.BigAutoField(primary_key=True)
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='locations')
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='locations', to_field='imei')
     imei = models.CharField(max_length=15)
     latitude = models.DecimalField(max_digits=10, decimal_places=8)
     longitude = models.DecimalField(max_digits=11, decimal_places=8)
@@ -196,14 +216,15 @@ class Location(models.Model):
     class Meta:
         db_table = 'locations'
         indexes = [
-            models.Index(fields=['imei']),
+            models.Index(fields=['imei', 'created_at']),
             models.Index(fields=['created_at']),
             models.Index(fields=['latitude', 'longitude']),
+            models.Index(fields=['speed']),
         ]
 
 class Status(models.Model):
     id = models.BigAutoField(primary_key=True)
-    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='statuses')
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='statuses', to_field='imei')
     imei = models.CharField(max_length=15)
     battery = models.IntegerField()
     signal = models.IntegerField()
@@ -215,8 +236,10 @@ class Status(models.Model):
     class Meta:
         db_table = 'statuses'
         indexes = [
-            models.Index(fields=['imei']),
+            models.Index(fields=['imei', 'created_at']),
+            models.Index(fields=['imei', 'ignition']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['battery']),
         ]
 
 class UserDevice(models.Model):
@@ -252,6 +275,11 @@ class UserVehicle(models.Model):
     class Meta:
         unique_together = ['user', 'vehicle']
         db_table = 'user_vehicles'
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['vehicle']),
+            models.Index(fields=['user', 'is_main']),
+        ]
 
 class Otp(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -336,3 +364,37 @@ class Popup(models.Model):
 
     class Meta:
         db_table = 'popups'
+
+class BloodDonation(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20)
+    address = models.TextField()
+    blood_group = models.CharField(max_length=10)
+    apply_type = models.CharField(max_length=20, choices=BloodDonationApplyType.choices)
+    status = models.BooleanField(default=False)
+    last_donated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'blood_donations'
+        indexes = [
+            models.Index(fields=['apply_type']),
+            models.Index(fields=['blood_group']),
+            models.Index(fields=['status']),
+            models.Index(fields=['created_at']),
+        ]
+
+class Recharge(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='recharges')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'recharges'
+        indexes = [
+            models.Index(fields=['device']),
+            models.Index(fields=['created_at']),
+        ]

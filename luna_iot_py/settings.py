@@ -101,10 +101,11 @@ WSGI_APPLICATION = 'luna_iot_py.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'luna_iot',
-        'USER': 'luna_iot', 
-        'PASSWORD': 'Luna234321', 
-        'HOST': '5.189.159.178', 
+        'NAME': 'luna_iot_test',
+        'USER': 'root', 
+        'PASSWORD': '214fa86d5dfe4729', 
+        # 'HOST': '38.54.71.218', 
+        'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 60,
