@@ -41,7 +41,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'app',
+    
+    # Core modules
+    'core',
+    'shared',
+    'device',
+    'fleet',
+    'health',
+    
+    
+    # Third party
     'rest_framework',
     'corsheaders'
 ]
@@ -52,8 +61,6 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    # 'app.append_slash_api_middleware.AppendSlashAPIMiddleware',
-    # 'app.middleware.TokenAuthMiddleware', 
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -63,10 +70,10 @@ ROOT_URLCONF = 'luna_iot_py.urls'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'app.authentication.HeaderTokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
-        'app.renderers.EnvelopeJSONRenderer',
+        'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -75,8 +82,8 @@ REST_FRAMEWORK = {
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# AUTH_USER_MODEL = 'app.User'
-# DATABASE_ROUTERS = ['luna_iot_py.db_routers.NoAuthMigrationsRouter']
+# Custom User Model
+AUTH_USER_MODEL = 'core.User'
 
 TEMPLATES = [
     {
@@ -106,8 +113,8 @@ DATABASES = {
         'NAME': 'luna_iot_test',
         'USER': 'root', 
         'PASSWORD': '214fa86d5dfe4729', 
-        # 'HOST': '38.54.71.218', 
-        'HOST': 'localhost', 
+        'HOST': '38.54.71.218', 
+        # 'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 60,

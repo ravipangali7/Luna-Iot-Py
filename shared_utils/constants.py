@@ -1,0 +1,56 @@
+from django.db import models
+
+# Enums as choices
+class GeofenceType(models.TextChoices):
+    ENTRY = 'Entry', 'Entry'
+    EXIT = 'Exit', 'Exit'
+
+class NotificationType(models.TextChoices):
+    ALL = 'all', 'All'
+    SPECIFIC = 'specific', 'Specific'
+
+class SimType(models.TextChoices):
+    NTC = 'NTC', 'NTC'
+    NCELL = 'Ncell', 'Ncell'
+
+class ProtocolType(models.TextChoices):
+    GT06 = 'GT06', 'GT06'
+    FMB003 = 'FMB003', 'FMB003'
+
+class DeviceModelType(models.TextChoices):
+    EC08 = 'EC08', 'EC08'
+    VL149 = 'VL149', 'VL149'
+
+class VehicleType(models.TextChoices):
+    AMBULANCE = 'Ambulance', 'Ambulance'
+    BIKE = 'Bike', 'Bike'
+    BOAT = 'Boat', 'Boat'
+    BULLDOZER = 'Bulldozer', 'Bulldozer'
+    BUS = 'Bus', 'Bus'
+    CAR = 'Car', 'Car'
+    CRANE = 'Crane', 'Crane'
+    CYCLE = 'Cycle', 'Cycle'
+    DUMPER = 'Dumper', 'Dumper'
+    GARBAGE = 'Garbage', 'Garbage'
+    JCB = 'Jcb', 'JCB'
+    JEEP = 'Jeep', 'Jeep'
+    MIXER = 'Mixer', 'Mixer'
+    MPV = 'Mpv', 'MPV'
+    PICKUP = 'Pickup', 'Pickup'
+    SCHOOL_BUS = 'SchoolBus', 'School Bus'
+    SUV = 'Suv', 'SUV'
+    TANKER = 'Tanker', 'Tanker'
+    TEMPO = 'Tempo', 'Tempo'
+    TRACTOR = 'Tractor', 'Tractor'
+    TRAIN = 'Train', 'Train'
+    TRUCK = 'Truck', 'Truck'
+    VAN = 'Van', 'Van'
+
+
+class BloodDonationApplyType(models.TextChoices):
+    NEED = 'need', 'Need'
+    DONATE = 'donate', 'Donate'
+
+# OTP Configuration
+OTP_EXPIRY_HOURS = 2
+OTP_LENGTH = 6

@@ -1,0 +1,29 @@
+from django.contrib import admin
+from .models import Device, Location, Status, UserDevice
+
+@admin.register(Device)
+class DeviceAdmin(admin.ModelAdmin):
+    list_display = ('imei', 'phone', 'sim', 'protocol', 'model', 'createdAt')
+    list_filter = ('sim', 'protocol', 'model', 'createdAt')
+    search_fields = ('imei', 'phone')
+    readonly_fields = ('createdAt', 'updatedAt')
+
+@admin.register(Location)
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ('device', 'imei', 'latitude', 'longitude', 'speed', 'createdAt')
+    list_filter = ('createdAt', 'realTimeGps')
+    search_fields = ('imei', 'device__imei')
+    readonly_fields = ('createdAt',)
+
+@admin.register(Status)
+class StatusAdmin(admin.ModelAdmin):
+    list_display = ('device', 'imei', 'battery', 'signal', 'ignition', 'charging', 'relay', 'createdAt')
+    list_filter = ('ignition', 'charging', 'relay', 'createdAt')
+    search_fields = ('imei', 'device__imei')
+    readonly_fields = ('createdAt',)
+
+@admin.register(UserDevice)
+class UserDeviceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'device', 'createdAt')
+    list_filter = ('createdAt',)
+    search_fields = ('user__name', 'device__imei')

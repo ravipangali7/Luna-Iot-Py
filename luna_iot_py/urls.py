@@ -21,7 +21,22 @@ from django.conf.urls.static import static
 from django.urls import include
 
 urlpatterns = [
-    path('', include('app.urls')),
+    # Core module URLs
+    path('api/core/', include('core.urls')),
+    
+    # Shared module URLs
+    path('api/shared/', include('shared.urls')),
+    
+    # Device module URLs
+    path('api/device/', include('device.urls')),
+    
+    # Fleet module URLs
+    path('api/fleet/', include('fleet.urls')),
+    
+    # Health module URLs
+    path('api/health/', include('health.urls')),
+    
+    # Admin URLs
     path('admin/', admin.site.urls),
 ]
 

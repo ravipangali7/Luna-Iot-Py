@@ -1,0 +1,144 @@
+"""
+Status Views
+Handles status tracking endpoints
+Matches Node.js status_controller.js functionality exactly
+"""
+from django.http import JsonResponse
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+from datetime import datetime
+
+from device.models.status import Status
+from api_common.utils.response_utils import success_response, error_response
+from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
+from api_common.decorators.response_decorators import api_response
+from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+
+
+@api_view(['GET'])
+@api_response
+def get_status_by_imei(request, imei):
+    """
+    Get status history by IMEI
+    Matches Node.js StatusController.getStatusByImei
+    """
+    try:
+        statuses = Status.objects.filter(imei=imei).order_by('-created_at')
+        statuses_data = []
+        
+        for status_obj in statuses:
+            statuses_data.append({
+                'id': status_obj.id,
+                'imei': status_obj.imei,
+                'battery': status_obj.battery,
+                'signal': status_obj.signal,
+                'ignition': status_obj.ignition,
+                'charging': status_obj.charging,
+                'relay': status_obj.relay,
+                'createdAt': status_obj.created_at.isoformat()
+            })
+        
+        return success_response(
+            data=statuses_data,
+            message='Status history retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@api_response
+def get_latest_status(request, imei):
+    """
+    Get latest status by IMEI
+    Matches Node.js StatusController.getLatestStatus
+    """
+    try:
+        try:
+            status_obj = Status.objects.filter(imei=imei).order_by('-created_at').first()
+        except Status.DoesNotExist:
+            return error_response(
+                message='No status data found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        if not status_obj:
+            return error_response(
+                message='No status data found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        status_data = {
+            'id': status_obj.id,
+            'imei': status_obj.imei,
+            'battery': status_obj.battery,
+            'signal': status_obj.signal,
+            'ignition': status_obj.ignition,
+            'charging': status_obj.charging,
+            'relay': status_obj.relay,
+            'createdAt': status_obj.created_at.isoformat()
+        }
+        
+        return success_response(
+            data=status_data,
+            message='Latest status retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@api_response
+def get_status_by_date_range(request, imei):
+    """
+    Get status by date range
+    Matches Node.js StatusController.getStatusByDateRange
+    """
+    try:
+        start_date = request.GET.get('startDate')
+        end_date = request.GET.get('endDate')
+        
+        if not start_date or not end_date:
+            return error_response(
+                message='Start date and end date are required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+        
+        statuses = Status.objects.filter(
+            imei=imei,
+            created_at__range=[start, end]
+        ).order_by('-created_at')
+        
+        statuses_data = []
+        for status_obj in statuses:
+            statuses_data.append({
+                'id': status_obj.id,
+                'imei': status_obj.imei,
+                'battery': status_obj.battery,
+                'signal': status_obj.signal,
+                'ignition': status_obj.ignition,
+                'charging': status_obj.charging,
+                'relay': status_obj.relay,
+                'createdAt': status_obj.created_at.isoformat()
+            })
+        
+        return success_response(
+            data=statuses_data,
+            message='Status data retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
