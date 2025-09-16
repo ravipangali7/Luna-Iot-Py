@@ -1,9 +1,8 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-
-router = DefaultRouter()
-# Add viewsets here when we create them
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('shared/', include('shared.urls.geofence_urls')),
+    path('shared/', include('shared.urls.notification_urls')),
+    path('shared/', include('shared.urls.popup_urls')),
+    path('shared/', include('shared.urls.recharge_urls')),
 ]
