@@ -67,7 +67,7 @@ def create_location(request):
             'speed': float(location_obj.speed) if location_obj.speed else 0,
             'course': float(location_obj.course) if location_obj.course else 0,
             'satellite': location_obj.satellite,
-            'realTimeGps': location_obj.real_time_gps,
+            'realTimeGps': location_obj.realTimeGps,
             'createdAt': location_obj.createdAt.isoformat()
         }
         
