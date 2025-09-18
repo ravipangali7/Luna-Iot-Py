@@ -8,13 +8,74 @@ import re
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields, validate_imei
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
 from fleet.models import Vehicle, UserVehicle
 from device.models import Device
+from device.models.location import Location
+from device.models.status import Status
 from core.models import User
+from datetime import datetime, timedelta
+import math
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate distance between two points using Haversine formula
+    Returns distance in kilometers
+    """
+    R = 6371  # Earth's radius in kilometers
+    
+    lat1_rad = math.radians(float(lat1))
+    lon1_rad = math.radians(float(lon1))
+    lat2_rad = math.radians(float(lat2))
+    lon2_rad = math.radians(float(lon2))
+    
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    return R * c
+
+
+def calculate_today_km(imei):
+    """
+    Calculate today's kilometers for a vehicle based on location data
+    """
+    try:
+        today = datetime.now().date()
+        start_of_day = datetime.combine(today, datetime.min.time())
+        end_of_day = datetime.combine(today, datetime.max.time())
+        
+        # Get today's location data ordered by time
+        locations = Location.objects.filter(
+            imei=imei,
+            createdAt__gte=start_of_day,
+            createdAt__lte=end_of_day
+        ).order_by('createdAt')
+        
+        if len(locations) < 2:
+            return 0.0
+        
+        total_distance = 0.0
+        for i in range(1, len(locations)):
+            prev_loc = locations[i-1]
+            curr_loc = locations[i]
+            
+            distance = calculate_distance(
+                prev_loc.latitude, prev_loc.longitude,
+                curr_loc.latitude, curr_loc.longitude
+            )
+            total_distance += distance
+        
+        return round(total_distance, 2)
+    except Exception as e:
+        print(f"Error calculating today's km for {imei}: {e}")
+        return 0.0
 
 
 @csrf_exempt
@@ -28,53 +89,97 @@ def get_all_vehicles(request):
         user = request.user
         
         # Get vehicles based on user role
-        if user.role.name == 'Super Admin':
-            vehicles = Vehicle.objects.select_related('device').prefetch_related('uservehicle_set__user').all()
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                uservehicle__user=user
-            ).select_related('device').prefetch_related('uservehicle_set__user').distinct()
+                userVehicles__user=user
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         vehicles_data = []
         for vehicle in vehicles:
             # Get user vehicle relationship
-            user_vehicle = vehicle.uservehicle_set.filter(user=user).first()
+            user_vehicle = vehicle.userVehicles.filter(user=user).first()
             
-            # Get today's km (you'll need to implement this based on your location model)
-            today_km = 0  # Placeholder - implement based on location data
+            # Calculate today's km
+            today_km = calculate_today_km(vehicle.imei)
             
-            # Get latest status and location (you'll need to implement these)
-            latest_status = None  # Placeholder - implement based on status model
-            latest_location = None  # Placeholder - implement based on location model
+            # Get latest status
+            try:
+                latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_status = {
+                    'id': latest_status_obj.id,
+                    'imei': latest_status_obj.imei,
+                    'battery': latest_status_obj.battery,
+                    'signal': latest_status_obj.signal,
+                    'ignition': latest_status_obj.ignition,
+                    'charging': latest_status_obj.charging,
+                    'relay': latest_status_obj.relay,
+                    'createdAt': latest_status_obj.createdAt.isoformat()
+                } if latest_status_obj else None
+            except Exception as e:
+                latest_status = None
+            
+            # Get latest location
+            try:
+                latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_location = {
+                    'id': latest_location_obj.id,
+                    'imei': latest_location_obj.imei,
+                    'latitude': float(latest_location_obj.latitude),
+                    'longitude': float(latest_location_obj.longitude),
+                    'speed': latest_location_obj.speed,
+                    'course': latest_location_obj.course,
+                    'satellite': latest_location_obj.satellite,
+                    'realTimeGps': latest_location_obj.realTimeGps,
+                    'createdAt': latest_location_obj.createdAt.isoformat()
+                } if latest_location_obj else None
+            except Exception as e:
+                latest_location = None
             
             vehicle_data = {
                 'id': vehicle.id,
                 'imei': vehicle.imei,
                 'name': vehicle.name,
-                'vehicleNo': vehicle.vehicle_no,
-                'vehicleType': vehicle.vehicle_type,
-                'status': vehicle.status,
-                'createdAt': vehicle.created_at.isoformat() if vehicle.created_at else None,
-                'updatedAt': vehicle.updated_at.isoformat() if vehicle.updated_at else None,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'odometer': float(vehicle.odometer),
+                'mileage': float(vehicle.mileage),
+                'minimumFuel': float(vehicle.minimumFuel),
+                'speedLimit': vehicle.speedLimit,
+                'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'userVehicle': {
-                    'isMain': user_vehicle.is_main if user_vehicle else False,
-                    'permissions': user_vehicle.permissions if user_vehicle else []
+                    'isMain': user_vehicle.isMain if user_vehicle else False,
+                    'allAccess': getattr(user_vehicle, 'allAccess', False) if user_vehicle else False,
+                    'liveTracking': getattr(user_vehicle, 'liveTracking', False) if user_vehicle else False,
+                    'history': getattr(user_vehicle, 'history', False) if user_vehicle else False,
+                    'report': getattr(user_vehicle, 'report', False) if user_vehicle else False,
+                    'vehicleProfile': getattr(user_vehicle, 'vehicleProfile', False) if user_vehicle else False,
+                    'events': getattr(user_vehicle, 'events', False) if user_vehicle else False,
+                    'geofence': getattr(user_vehicle, 'geofence', False) if user_vehicle else False,
+                    'edit': getattr(user_vehicle, 'edit', False) if user_vehicle else False,
+                    'shareTracking': getattr(user_vehicle, 'shareTracking', False) if user_vehicle else False,
+                    'notification': getattr(user_vehicle, 'notification', False) if user_vehicle else False
                 } if user_vehicle else None,
                 'todayKm': today_km,
                 'latestStatus': latest_status,
-                'latestLocation': latest_location
+                'latestLocation': latest_location,
+                'ownershipType': 'Own' if user_vehicle and user_vehicle.isMain else 'Shared' if user_vehicle else 'Customer'
             }
             vehicles_data.append(vehicle_data)
         
         return success_response(vehicles_data, 'Vehicles retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve vehicles')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET"]) 
 @require_auth
 def get_all_vehicles_detailed(request):
     """
@@ -84,25 +189,37 @@ def get_all_vehicles_detailed(request):
         user = request.user
         
         # Get vehicles based on user role
-        if user.role.name == 'Super Admin':
-            vehicles = Vehicle.objects.select_related('device').prefetch_related('uservehicle_set__user').all()
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                uservehicle__user=user
-            ).select_related('device').prefetch_related('uservehicle_set__user').distinct()
+                userVehicles__user=user
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         vehicles_data = []
         for vehicle in vehicles:
             # Get all users with access to this vehicle
             users_with_access = []
-            for uv in vehicle.uservehicle_set.all():
+            for uv in vehicle.userVehicles.all():
                 users_with_access.append({
                     'id': uv.user.id,
                     'name': uv.user.name,
                     'phone': uv.user.phone,
-                    'isMain': uv.is_main,
-                    'permissions': uv.permissions
+                    'isMain': uv.isMain,
+                    'permissions': {
+                        'allAccess': uv.allAccess,
+                        'liveTracking': uv.liveTracking,
+                        'history': uv.history,
+                        'report': uv.report,
+                        'vehicleProfile': uv.vehicleProfile,
+                        'events': uv.events,
+                        'geofence': uv.geofence,
+                        'edit': uv.edit,
+                        'shareTracking': uv.shareTracking,
+                        'notification': uv.notification
+                    }
                 })
             
             # Get recharge info (you'll need to implement this based on your recharge model)
@@ -112,16 +229,23 @@ def get_all_vehicles_detailed(request):
                 'id': vehicle.id,
                 'imei': vehicle.imei,
                 'name': vehicle.name,
-                'vehicleNo': vehicle.vehicle_no,
-                'vehicleType': vehicle.vehicle_type,
-                'status': vehicle.status,
-                'createdAt': vehicle.created_at.isoformat() if vehicle.created_at else None,
-                'updatedAt': vehicle.updated_at.isoformat() if vehicle.updated_at else None,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'odometer': float(vehicle.odometer),
+                'mileage': float(vehicle.mileage),
+                'minimumFuel': float(vehicle.minimumFuel),
+                'speedLimit': vehicle.speedLimit,
+                'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
                     'id': vehicle.device.id,
                     'imei': vehicle.device.imei,
-                    'name': vehicle.device.name,
-                    'status': vehicle.device.status
+                    'phone': vehicle.device.phone,
+                    'sim': vehicle.device.sim,
+                    'protocol': vehicle.device.protocol,
+                    'iccid': vehicle.device.iccid,
+                    'model': vehicle.device.model
                 } if vehicle.device else None,
                 'users': users_with_access,
                 'rechargeInfo': recharge_info
@@ -131,7 +255,7 @@ def get_all_vehicles_detailed(request):
         return success_response(vehicles_data, 'Detailed vehicles retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve detailed vehicles')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -145,56 +269,115 @@ def get_vehicle_by_imei(request, imei):
         user = request.user
         
         # Get vehicle with access check
-        if user.role.name == 'Super Admin':
-            vehicle = Vehicle.objects.select_related('device').prefetch_related('uservehicle_set__user').filter(imei=imei).first()
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            vehicle = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').filter(imei=imei).first()
         else:
             vehicle = Vehicle.objects.filter(
                 imei=imei,
-                uservehicle__user=user
-            ).select_related('device').prefetch_related('uservehicle_set__user').first()
+                userVehicles__user=user
+            ).select_related('device').prefetch_related('userVehicles__user').first()
         
         if not vehicle:
-            return error_response('Vehicle not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Get user vehicle relationship
-        user_vehicle = vehicle.uservehicle_set.filter(user=user).first()
+        user_vehicle = vehicle.userVehicles.filter(user=user).first()
         
-        # Get today's km (you'll need to implement this based on your location model)
-        today_km = 0  # Placeholder - implement based on location data
+        # Calculate today's km 
+        today_km = calculate_today_km(vehicle.imei)
         
-        # Get latest status and location (you'll need to implement these)
-        latest_status = None  # Placeholder - implement based on status model
-        latest_location = None  # Placeholder - implement based on location model
+        # Get latest status
+        try:
+            latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+            latest_status = {
+                'id': latest_status_obj.id,
+                'imei': latest_status_obj.imei,
+                'battery': latest_status_obj.battery,
+                'signal': latest_status_obj.signal,
+                'ignition': latest_status_obj.ignition,
+                'charging': latest_status_obj.charging,
+                'relay': latest_status_obj.relay,
+                'createdAt': latest_status_obj.createdAt.isoformat()
+            } if latest_status_obj else None
+        except Exception as e:
+            latest_status = None
+        
+        # Get latest location
+        try:
+            latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+            latest_location = {
+                'id': latest_location_obj.id,
+                'imei': latest_location_obj.imei,
+                'latitude': float(latest_location_obj.latitude),
+                'longitude': float(latest_location_obj.longitude),
+                'speed': latest_location_obj.speed,
+                'course': latest_location_obj.course,
+                'satellite': latest_location_obj.satellite,
+                'realTimeGps': latest_location_obj.realTimeGps,
+                'createdAt': latest_location_obj.createdAt.isoformat()
+            } if latest_location_obj else None
+        except Exception as e:
+            latest_location = None
         
         # Get all users with access to this vehicle
         users_with_access = []
-        for uv in vehicle.uservehicle_set.all():
+        for uv in vehicle.userVehicles.all():
             users_with_access.append({
                 'id': uv.user.id,
                 'name': uv.user.name,
                 'phone': uv.user.phone,
-                'isMain': uv.is_main,
-                'permissions': uv.permissions
+                'isMain': uv.isMain,
+                'permissions': {
+                    'allAccess': uv.allAccess,
+                    'liveTracking': uv.liveTracking,
+                    'history': uv.history,
+                    'report': uv.report,
+                    'vehicleProfile': uv.vehicleProfile,
+                    'events': uv.events,
+                    'geofence': uv.geofence,
+                    'edit': uv.edit,
+                    'shareTracking': uv.shareTracking,
+                    'notification': uv.notification
+                }
             })
         
         vehicle_data = {
             'id': vehicle.id,
             'imei': vehicle.imei,
             'name': vehicle.name,
-            'vehicleNo': vehicle.vehicle_no,
-            'vehicleType': vehicle.vehicle_type,
-            'status': vehicle.status,
-            'createdAt': vehicle.created_at.isoformat() if vehicle.created_at else None,
-            'updatedAt': vehicle.updated_at.isoformat() if vehicle.updated_at else None,
+            'vehicleNo': vehicle.vehicleNo,
+            'vehicleType': vehicle.vehicleType,
+            'odometer': float(vehicle.odometer),
+            'mileage': float(vehicle.mileage),
+            'minimumFuel': float(vehicle.minimumFuel),
+            'speedLimit': vehicle.speedLimit,
+            'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+            'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+            'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
             'device': {
                 'id': vehicle.device.id,
                 'imei': vehicle.device.imei,
-                'name': vehicle.device.name,
-                'status': vehicle.device.status
+                'phone': vehicle.device.phone,
+                'sim': vehicle.device.sim,
+                'protocol': vehicle.device.protocol,
+                'iccid': vehicle.device.iccid,
+                'model': vehicle.device.model
             } if vehicle.device else None,
             'userVehicle': {
-                'isMain': user_vehicle.is_main if user_vehicle else False,
-                'permissions': user_vehicle.permissions if user_vehicle else []
+                'isMain': user_vehicle.isMain if user_vehicle else False,
+                'permissions': {
+                    'allAccess': user_vehicle.allAccess,
+                    'liveTracking': user_vehicle.liveTracking,
+                    'history': user_vehicle.history,
+                    'report': user_vehicle.report,
+                    'vehicleProfile': user_vehicle.vehicleProfile,
+                    'events': user_vehicle.events,
+                    'geofence': user_vehicle.geofence,
+                    'edit': user_vehicle.edit,
+                    'shareTracking': user_vehicle.shareTracking,
+                    'notification': user_vehicle.notification
+                } if user_vehicle else {}
             } if user_vehicle else None,
             'users': users_with_access,
             'todayKm': today_km,
@@ -205,7 +388,7 @@ def get_vehicle_by_imei(request, imei):
         return success_response(vehicle_data, 'Vehicle retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve vehicle')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -221,60 +404,93 @@ def create_vehicle(request):
         
         # Validate required fields
         required_fields = ['imei', 'name', 'vehicleNo', 'vehicleType']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         # Validate IMEI format
         if not validate_imei(data['imei']):
-            return error_response('IMEI must be exactly 15 digits', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('IMEI must be exactly 15 digits', HTTP_STATUS['BAD_REQUEST'])
         
         # Check if device IMEI exists
         try:
             device = Device.objects.get(imei=data['imei'])
         except Device.DoesNotExist:
-            return error_response('Device with this IMEI does not exist. Please create the device first.', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Device with this IMEI does not exist. Please create the device first.', HTTP_STATUS['BAD_REQUEST'])
         
         # Check if vehicle with this IMEI already exists
         if Vehicle.objects.filter(imei=data['imei']).exists():
-            return error_response('Vehicle with this IMEI already exists', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Vehicle with this IMEI already exists', HTTP_STATUS['BAD_REQUEST'])
         
         # Create vehicle
         with transaction.atomic():
+            # Handle expireDate - set to one year from now if not provided
+            expire_date = None
+            if 'expireDate' in data and data['expireDate']:
+                try:
+                    from datetime import datetime
+                    expire_date = datetime.fromisoformat(data['expireDate'].replace('Z', '+00:00'))
+                except ValueError:
+                    try:
+                        expire_date = datetime.strptime(data['expireDate'], '%Y-%m-%d')
+                    except ValueError:
+                        pass  # Will use default one year from now
+            else:
+                # Set to one year from creation date if not provided
+                from datetime import datetime, timedelta
+                expire_date = datetime.now() + timedelta(days=365)
+            
             vehicle = Vehicle.objects.create(
                 imei=data['imei'],
                 name=data['name'],
-                vehicle_no=data['vehicleNo'],
-                vehicle_type=data['vehicleType'],
+                vehicleNo=data['vehicleNo'],
+                vehicleType=data['vehicleType'],
                 device=device,
-                status=data.get('status', 'ACTIVE')
+                odometer=data.get('odometer', 0),
+                mileage=data.get('mileage', 0),
+                minimumFuel=data.get('minimumFuel', 0),
+                speedLimit=data.get('speedLimit', 60),
+                expireDate=expire_date
             )
             
             # Create user-vehicle relationship
             UserVehicle.objects.create(
                 vehicle=vehicle,
                 user=user,
-                is_main=True,
-                permissions=data.get('permissions', [])
+                isMain=True,
+                allAccess=True,  # Give full access to the creator
+                liveTracking=True,
+                history=True,
+                report=True,
+                vehicleProfile=True,
+                events=True,
+                geofence=True,
+                edit=True,
+                shareTracking=True,
+                notification=True
             )
         
         vehicle_data = {
             'id': vehicle.id,
             'imei': vehicle.imei,
             'name': vehicle.name,
-            'vehicleNo': vehicle.vehicle_no,
-            'vehicleType': vehicle.vehicle_type,
-            'status': vehicle.status,
-            'createdAt': vehicle.created_at.isoformat() if vehicle.created_at else None,
-            'updatedAt': vehicle.updated_at.isoformat() if vehicle.updated_at else None
+            'vehicleNo': vehicle.vehicleNo,
+            'vehicleType': vehicle.vehicleType,
+            'odometer': float(vehicle.odometer),
+            'mileage': float(vehicle.mileage),
+            'minimumFuel': float(vehicle.minimumFuel),
+            'speedLimit': vehicle.speedLimit,
+            'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+            'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+            'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None
         }
         
-        return success_response(vehicle_data, 'Vehicle created successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(vehicle_data, 'Vehicle created successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to create vehicle')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -289,16 +505,17 @@ def update_vehicle(request, imei):
         data = json.loads(request.body)
         
         # Get vehicle with access check
-        if user.role.name == 'Super Admin':
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
             vehicle = Vehicle.objects.select_related('device').filter(imei=imei).first()
         else:
             vehicle = Vehicle.objects.filter(
                 imei=imei,
-                uservehicle__user=user
+                userVehicles__user=user
             ).select_related('device').first()
         
         if not vehicle:
-            return error_response('Vehicle not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Only check for device existence and vehicle duplicates if IMEI is being changed
         if 'imei' in data and data['imei'] != imei:
@@ -306,11 +523,11 @@ def update_vehicle(request, imei):
             try:
                 device = Device.objects.get(imei=data['imei'])
             except Device.DoesNotExist:
-                return error_response('Device with this IMEI does not exist', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Device with this IMEI does not exist', HTTP_STATUS['BAD_REQUEST'])
             
             # Check if another vehicle with the new IMEI already exists
             if Vehicle.objects.filter(imei=data['imei']).exclude(id=vehicle.id).exists():
-                return error_response('Vehicle with this IMEI already exists', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Vehicle with this IMEI already exists', HTTP_STATUS['BAD_REQUEST'])
         
         # Update vehicle
         with transaction.atomic():
@@ -319,9 +536,31 @@ def update_vehicle(request, imei):
             if 'name' in data:
                 vehicle.name = data['name']
             if 'vehicleNo' in data:
-                vehicle.vehicle_no = data['vehicleNo']
+                vehicle.vehicleNo = data['vehicleNo']
             if 'vehicleType' in data:
-                vehicle.vehicle_type = data['vehicleType']
+                vehicle.vehicleType = data['vehicleType']
+            if 'odometer' in data:
+                vehicle.odometer = data['odometer']
+            if 'mileage' in data:
+                vehicle.mileage = data['mileage']
+            if 'minimumFuel' in data:
+                vehicle.minimumFuel = data['minimumFuel']
+            if 'speedLimit' in data:
+                vehicle.speedLimit = data['speedLimit']
+            if 'expireDate' in data:
+                if data['expireDate']:
+                    # Parse the date string and convert to datetime
+                    from datetime import datetime
+                    try:
+                        vehicle.expireDate = datetime.fromisoformat(data['expireDate'].replace('Z', '+00:00'))
+                    except ValueError:
+                        # If parsing fails, try alternative format
+                        try:
+                            vehicle.expireDate = datetime.strptime(data['expireDate'], '%Y-%m-%d')
+                        except ValueError:
+                            pass  # Keep existing value if parsing fails
+                else:
+                    vehicle.expireDate = None
             if 'status' in data:
                 vehicle.status = data['status']
             
@@ -331,19 +570,23 @@ def update_vehicle(request, imei):
             'id': vehicle.id,
             'imei': vehicle.imei,
             'name': vehicle.name,
-            'vehicleNo': vehicle.vehicle_no,
-            'vehicleType': vehicle.vehicle_type,
-            'status': vehicle.status,
-            'createdAt': vehicle.created_at.isoformat() if vehicle.created_at else None,
-            'updatedAt': vehicle.updated_at.isoformat() if vehicle.updated_at else None
+            'vehicleNo': vehicle.vehicleNo,
+            'vehicleType': vehicle.vehicleType,
+            'odometer': float(vehicle.odometer),
+            'mileage': float(vehicle.mileage),
+            'minimumFuel': float(vehicle.minimumFuel),
+            'speedLimit': vehicle.speedLimit,
+            'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+            'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+            'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None
         }
         
         return success_response(vehicle_data, 'Vehicle updated successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to update vehicle')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -359,7 +602,7 @@ def delete_vehicle(request, imei):
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
-            return error_response('Vehicle not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Delete vehicle and related data
         with transaction.atomic():
@@ -381,7 +624,7 @@ def delete_vehicle(request, imei):
         return success_response(None, 'Vehicle deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete vehicle')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -397,9 +640,9 @@ def assign_vehicle_access_to_user(request):
         
         # Validate required fields
         required_fields = ['imei', 'userPhone', 'permissions']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         imei = data['imei']
         user_phone = data['userPhone']
@@ -409,34 +652,35 @@ def assign_vehicle_access_to_user(request):
         try:
             target_user = User.objects.get(phone=user_phone)
         except User.DoesNotExist:
-            return error_response('User not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('User not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check if user has permission to assign access
-        if user.role.name != 'Super Admin':
+        user_group = user.groups.first()
+        if not user_group or user_group.name != 'Super Admin':
             try:
                 main_user_vehicle = UserVehicle.objects.get(
                     vehicle__imei=imei,
                     user=user,
-                    is_main=True
+                    isMain=True
                 )
             except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can assign access', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied. Only main user or Super Admin can assign access', HTTP_STATUS['FORBIDDEN'])
         
         # Check if vehicle exists
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
-            return error_response('Vehicle not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check if access is already assigned
         if UserVehicle.objects.filter(vehicle=vehicle, user=target_user).exists():
-            return error_response('Vehicle access is already assigned to this user', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Vehicle access is already assigned to this user', HTTP_STATUS['BAD_REQUEST'])
         
         # Assign vehicle access to user
         user_vehicle = UserVehicle.objects.create(
             vehicle=vehicle,
             user=target_user,
-            is_main=False,
+            isMain=False,
             permissions=permissions
         )
         
@@ -444,7 +688,7 @@ def assign_vehicle_access_to_user(request):
             'id': user_vehicle.id,
             'vehicleId': vehicle.id,
             'userId': target_user.id,
-            'isMain': user_vehicle.is_main,
+            'isMain': user_vehicle.isMain,
             'permissions': user_vehicle.permissions,
             'createdAt': user_vehicle.created_at.isoformat() if user_vehicle.created_at else None
         }
@@ -452,9 +696,9 @@ def assign_vehicle_access_to_user(request):
         return success_response(assignment_data, 'Vehicle access assigned successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to assign vehicle access')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -468,13 +712,14 @@ def get_vehicles_for_access_assignment(request):
         user = request.user
         
         # Get vehicles based on user role
-        if user.role.name == 'Super Admin':
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
             vehicles = Vehicle.objects.all()
         else:
             # Get vehicles where user is main user
             vehicles = Vehicle.objects.filter(
-                uservehicle__user=user,
-                uservehicle__is_main=True
+                userVehicles__user=user,
+                userVehicles__isMain=True
             ).distinct()
         
         vehicles_data = []
@@ -483,14 +728,14 @@ def get_vehicles_for_access_assignment(request):
                 'id': vehicle.id,
                 'imei': vehicle.imei,
                 'name': vehicle.name,
-                'vehicleNo': vehicle.vehicle_no,
+                'vehicleNo': vehicle.vehicleNo,
                 'vehicleType': vehicle.vehicle_type
             })
         
         return success_response(vehicles_data, 'Vehicles for access assignment retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve vehicles for access assignment')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -504,18 +749,19 @@ def get_vehicle_access_assignments(request, imei):
         user = request.user
         
         if not imei:
-            return error_response('IMEI is required', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('IMEI is required', HTTP_STATUS['BAD_REQUEST'])
         
         # Check if user has access to this vehicle
-        if user.role.name != 'Super Admin':
+        user_group = user.groups.first()
+        if not user_group or user_group.name != 'Super Admin':
             try:
                 UserVehicle.objects.get(
                     vehicle__imei=imei,
                     user=user,
-                    is_main=True
+                    isMain=True
                 )
             except UserVehicle.DoesNotExist:
-                return error_response('Access denied', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
         
         # Get vehicle access assignments
         user_vehicles = UserVehicle.objects.filter(
@@ -529,7 +775,7 @@ def get_vehicle_access_assignments(request, imei):
                 'userId': uv.user.id,
                 'userName': uv.user.name,
                 'userPhone': uv.user.phone,
-                'isMain': uv.is_main,
+                'isMain': uv.isMain,
                 'permissions': uv.permissions,
                 'createdAt': uv.created_at.isoformat() if uv.created_at else None
             })
@@ -537,7 +783,7 @@ def get_vehicle_access_assignments(request, imei):
         return success_response(assignments_data, 'Vehicle access assignments retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve vehicle access assignments')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -553,30 +799,31 @@ def update_vehicle_access(request):
         
         # Validate required fields
         required_fields = ['imei', 'userId', 'permissions']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         imei = data['imei']
         user_id = data['userId']
         permissions = data['permissions']
         
         # Check if user has permission to update access
-        if user.role.name != 'Super Admin':
+        user_group = user.groups.first()
+        if not user_group or user_group.name != 'Super Admin':
             try:
                 main_user_vehicle = UserVehicle.objects.get(
                     vehicle__imei=imei,
                     user=user,
-                    is_main=True
+                    isMain=True
                 )
             except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can update access', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied. Only main user or Super Admin can update access', HTTP_STATUS['FORBIDDEN'])
         
         # Check if vehicle exists
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
-            return error_response('Vehicle not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Update vehicle access
         try:
@@ -584,13 +831,13 @@ def update_vehicle_access(request):
             user_vehicle.permissions = permissions
             user_vehicle.save()
         except UserVehicle.DoesNotExist:
-            return error_response('Vehicle access assignment not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle access assignment not found', HTTP_STATUS['NOT_FOUND'])
         
         assignment_data = {
             'id': user_vehicle.id,
             'vehicleId': vehicle.id,
             'userId': user_vehicle.user.id,
-            'isMain': user_vehicle.is_main,
+            'isMain': user_vehicle.isMain,
             'permissions': user_vehicle.permissions,
             'createdAt': user_vehicle.created_at.isoformat() if user_vehicle.created_at else None
         }
@@ -598,9 +845,9 @@ def update_vehicle_access(request):
         return success_response(assignment_data, 'Vehicle access updated successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to update vehicle access')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -616,40 +863,41 @@ def remove_vehicle_access(request):
         
         # Validate required fields
         required_fields = ['imei', 'userId']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         imei = data['imei']
         user_id = data['userId']
         
         # Check if user has permission to remove access
-        if user.role.name != 'Super Admin':
+        user_group = user.groups.first()
+        if not user_group or user_group.name != 'Super Admin':
             try:
                 main_user_vehicle = UserVehicle.objects.get(
                     vehicle__imei=imei,
                     user=user,
-                    is_main=True
+                    isMain=True
                 )
             except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can remove access', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied. Only main user or Super Admin can remove access', HTTP_STATUS['FORBIDDEN'])
         
         # Check if vehicle exists
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
-            return error_response('Vehicle not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Remove vehicle access
         try:
             user_vehicle = UserVehicle.objects.get(vehicle=vehicle, user_id=user_id)
             user_vehicle.delete()
         except UserVehicle.DoesNotExist:
-            return error_response('Vehicle access assignment not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Vehicle access assignment not found', HTTP_STATUS['NOT_FOUND'])
         
         return success_response(None, 'Vehicle access removed successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to remove vehicle access')
+        return handle_api_exception(e)

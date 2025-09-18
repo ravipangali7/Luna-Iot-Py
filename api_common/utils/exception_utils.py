@@ -69,12 +69,20 @@ def handle_api_exception(exception):
     """
     Handle API exception and return appropriate response
     Args:
-        exception: APIException instance
+        exception: Exception instance (APIException or standard Python exception)
     Returns:
         JsonResponse: Error response
     """
-    return error_response(
-        message=exception.message,
-        status_code=exception.status_code,
-        data=exception.data
-    )
+    # If it's an APIException, use its attributes
+    if hasattr(exception, 'message') and hasattr(exception, 'status_code'):
+        return error_response(
+            message=exception.message,
+            status_code=exception.status_code,
+            data=getattr(exception, 'data', None)
+        )
+    else:
+        # For standard Python exceptions, use the exception message
+        return error_response(
+            message=str(exception),
+            status_code=500
+        )

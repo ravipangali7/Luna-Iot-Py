@@ -8,9 +8,9 @@ import json
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
 from shared.models import Recharge
 from device.models import Device
@@ -37,7 +37,7 @@ def get_all_recharges(request):
             ).select_related('device').distinct().order_by('-created_at')
         # Customer: no access to recharges
         else:
-            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
         
         recharges_data = []
         for recharge in recharges:
@@ -55,7 +55,7 @@ def get_all_recharges(request):
         return success_response(recharges_data, 'Recharges retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve recharges')
+        return handle_api_exception(e, 'Failed to retrieve recharges')
 
 
 @csrf_exempt
@@ -81,7 +81,7 @@ def get_recharges_with_pagination(request):
             ).select_related('device').distinct()
         # Customer: no access to recharges
         else:
-            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
         
         # Filter by device ID if provided
         if device_id:
@@ -122,7 +122,7 @@ def get_recharges_with_pagination(request):
         return success_response(result, 'Recharges retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve recharges')
+        return handle_api_exception(e, 'Failed to retrieve recharges')
 
 
 @csrf_exempt
@@ -140,7 +140,7 @@ def get_recharge_by_id(request, id):
             try:
                 recharge = Recharge.objects.select_related('device').get(id=id)
             except Recharge.DoesNotExist:
-                return error_response('Recharge not found', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Recharge not found', HTTP_STATUS['NOT_FOUND'])
         # Dealer: can only access recharges for assigned devices
         elif user.role.name == 'Dealer':
             try:
@@ -149,10 +149,10 @@ def get_recharge_by_id(request, id):
                     device__userdevice__user=user
                 ).select_related('device').get()
             except Recharge.DoesNotExist:
-                return error_response('Recharge not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Recharge not found or access denied', HTTP_STATUS['NOT_FOUND'])
         # Customer: no access to recharges
         else:
-            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
         
         recharge_data = {
             'id': recharge.id,
@@ -167,7 +167,7 @@ def get_recharge_by_id(request, id):
         return success_response(recharge_data, 'Recharge retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve recharge')
+        return handle_api_exception(e, 'Failed to retrieve recharge')
 
 
 @csrf_exempt
@@ -185,7 +185,7 @@ def get_recharges_by_device_id(request, device_id):
             try:
                 device = Device.objects.get(id=device_id)
             except Device.DoesNotExist:
-                return error_response('Device not found', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found', HTTP_STATUS['NOT_FOUND'])
         elif user.role.name == 'Dealer':
             try:
                 device = Device.objects.filter(
@@ -193,9 +193,9 @@ def get_recharges_by_device_id(request, device_id):
                     userdevice__user=user
                 ).get()
             except Device.DoesNotExist:
-                return error_response('Device not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found or access denied', HTTP_STATUS['NOT_FOUND'])
         else:
-            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
         
         recharges = Recharge.objects.filter(device_id=device_id).order_by('-created_at')
         
@@ -215,7 +215,7 @@ def get_recharges_by_device_id(request, device_id):
         return success_response(recharges_data, 'Device recharges retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve device recharges')
+        return handle_api_exception(e, 'Failed to retrieve device recharges')
 
 
 @csrf_exempt
@@ -243,16 +243,16 @@ def create_recharge(request):
         try:
             amount = float(amount)
             if amount <= 0:
-                return error_response('Amount must be a positive number', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Amount must be a positive number', HTTP_STATUS['BAD_REQUEST'])
         except (ValueError, TypeError):
-            return error_response('Amount must be a valid number', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Amount must be a valid number', HTTP_STATUS['BAD_REQUEST'])
         
         # Check if device exists and user has access
         if user.role.name == 'Super Admin':
             try:
                 device = Device.objects.get(id=device_id)
             except Device.DoesNotExist:
-                return error_response('Device not found', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found', HTTP_STATUS['NOT_FOUND'])
         elif user.role.name == 'Dealer':
             try:
                 device = Device.objects.filter(
@@ -260,15 +260,15 @@ def create_recharge(request):
                     userdevice__user=user
                 ).get()
             except Device.DoesNotExist:
-                return error_response('Device not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Check if device has phone number
         if not device.phone:
-            return error_response('Device does not have a phone number for top-up', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Device does not have a phone number for top-up', HTTP_STATUS['BAD_REQUEST'])
         
         # Check if device has SIM type
         if not device.sim:
-            return error_response('Device does not have SIM type information', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Device does not have SIM type information', HTTP_STATUS['BAD_REQUEST'])
         
         print(f'Processing recharge: deviceId={device.id}, imei={device.imei}, phone={device.phone}, sim={device.sim}, amount={amount}, userId={user.id}, userRole={user.role.name}')
         
@@ -297,14 +297,14 @@ def create_recharge(request):
             }
         except Exception as topup_error:
             print(f'Top-up error: {topup_error}')
-            return error_response(f'Top-up failed: {str(topup_error)}', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response(f'Top-up failed: {str(topup_error)}', HTTP_STATUS['BAD_REQUEST'])
         
         print(f'Top-up result: {topup_result}')
         
         # Only create recharge record if top-up is successful
         if not topup_result.get('success', False):
             print(f'Top-up failed, not creating recharge record: {topup_result}')
-            return error_response(f"Top-up failed: {topup_result.get('message', 'Unknown error')}", HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response(f"Top-up failed: {topup_result.get('message', 'Unknown error')}", HTTP_STATUS['BAD_REQUEST'])
         
         # Create recharge record only after successful top-up
         with transaction.atomic():
@@ -337,12 +337,12 @@ def create_recharge(request):
         
         print(f'Recharge created successfully after top-up: rechargeId={recharge.id}, deviceId={device.id}, amount={amount}, topupReference={topup_result.get("reference")}')
         
-        return success_response(recharge_data, 'Recharge and top-up completed successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(recharge_data, 'Recharge and top-up completed successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to create recharge')
+        return handle_api_exception(e, 'Failed to create recharge')
 
 
 @csrf_exempt
@@ -360,7 +360,7 @@ def get_recharge_stats(request, device_id):
             try:
                 device = Device.objects.get(id=device_id)
             except Device.DoesNotExist:
-                return error_response('Device not found', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found', HTTP_STATUS['NOT_FOUND'])
         elif user.role.name == 'Dealer':
             try:
                 device = Device.objects.filter(
@@ -368,9 +368,9 @@ def get_recharge_stats(request, device_id):
                     userdevice__user=user
                 ).get()
             except Device.DoesNotExist:
-                return error_response('Device not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found or access denied', HTTP_STATUS['NOT_FOUND'])
         else:
-            return error_response('Access denied. Customers cannot view recharge statistics', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharge statistics', HTTP_STATUS['FORBIDDEN'])
         
         # Get recharge statistics
         stats = Recharge.objects.filter(device_id=device_id).aggregate(
@@ -399,7 +399,7 @@ def get_recharge_stats(request, device_id):
         return success_response(stats_data, 'Recharge statistics retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve recharge statistics')
+        return handle_api_exception(e, 'Failed to retrieve recharge statistics')
 
 
 @csrf_exempt
@@ -417,7 +417,7 @@ def get_total_recharge(request, device_id):
             try:
                 device = Device.objects.get(id=device_id)
             except Device.DoesNotExist:
-                return error_response('Device not found', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found', HTTP_STATUS['NOT_FOUND'])
         elif user.role.name == 'Dealer':
             try:
                 device = Device.objects.filter(
@@ -425,9 +425,9 @@ def get_total_recharge(request, device_id):
                     userdevice__user=user
                 ).get()
             except Device.DoesNotExist:
-                return error_response('Device not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+                return error_response('Device not found or access denied', HTTP_STATUS['NOT_FOUND'])
         else:
-            return error_response('Access denied. Customers cannot view recharge totals', HTTP_STATUS_CODES['FORBIDDEN'])
+            return error_response('Access denied. Customers cannot view recharge totals', HTTP_STATUS['FORBIDDEN'])
         
         # Get total recharge amount
         total_amount = Recharge.objects.filter(device_id=device_id).aggregate(
@@ -437,7 +437,7 @@ def get_total_recharge(request, device_id):
         return success_response({'totalAmount': float(total_amount)}, 'Total recharge amount retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve total recharge amount')
+        return handle_api_exception(e, 'Failed to retrieve total recharge amount')
 
 
 @csrf_exempt
@@ -452,11 +452,11 @@ def delete_recharge(request, id):
         try:
             recharge = Recharge.objects.get(id=id)
         except Recharge.DoesNotExist:
-            return error_response('Recharge not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Recharge not found', HTTP_STATUS['NOT_FOUND'])
         
         recharge.delete()
         
         return success_response(None, 'Recharge deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete recharge')
+        return handle_api_exception(e, 'Failed to delete recharge')

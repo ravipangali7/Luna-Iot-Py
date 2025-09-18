@@ -8,9 +8,9 @@ import os
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
 from shared.models import Popup
 
@@ -41,7 +41,7 @@ def get_active_popups(request):
         return success_response(popups_data, 'Active popups retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve popups')
+        return handle_api_exception(e, 'Failed to retrieve popups')
 
 
 @csrf_exempt
@@ -72,7 +72,7 @@ def get_all_popups(request):
         return success_response(popups_data, 'All popups retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve popups')
+        return handle_api_exception(e, 'Failed to retrieve popups')
 
 
 @csrf_exempt
@@ -87,7 +87,7 @@ def get_popup_by_id(request, id):
         try:
             popup = Popup.objects.get(id=id)
         except Popup.DoesNotExist:
-            return error_response('Popup not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Popup not found', HTTP_STATUS['NOT_FOUND'])
         
         popup_data = {
             'id': popup.id,
@@ -103,7 +103,7 @@ def get_popup_by_id(request, id):
         return success_response(popup_data, 'Popup retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve popup')
+        return handle_api_exception(e, 'Failed to retrieve popup')
 
 
 @csrf_exempt
@@ -122,7 +122,7 @@ def create_popup(request):
         
         # Validate required fields
         if not title or not message:
-            return error_response('Title and message are required', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Title and message are required', HTTP_STATUS['BAD_REQUEST'])
         
         # Handle image upload
         image_file = None
@@ -148,10 +148,10 @@ def create_popup(request):
             'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
         }
         
-        return success_response(popup_data, 'Popup created successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(popup_data, 'Popup created successfully', HTTP_STATUS['CREATED'])
     
     except Exception as e:
-        return handle_exception(e, 'Failed to create popup')
+        return handle_api_exception(e, 'Failed to create popup')
 
 
 @csrf_exempt
@@ -167,7 +167,7 @@ def update_popup(request, id):
         try:
             popup = Popup.objects.get(id=id)
         except Popup.DoesNotExist:
-            return error_response('Popup not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Popup not found', HTTP_STATUS['NOT_FOUND'])
         
         # Get form data
         title = request.POST.get('title')
@@ -211,7 +211,7 @@ def update_popup(request, id):
         return success_response(popup_data, 'Popup updated successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to update popup')
+        return handle_api_exception(e, 'Failed to update popup')
 
 
 @csrf_exempt
@@ -227,7 +227,7 @@ def delete_popup(request, id):
         try:
             popup = Popup.objects.get(id=id)
         except Popup.DoesNotExist:
-            return error_response('Popup not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Popup not found', HTTP_STATUS['NOT_FOUND'])
         
         # Delete associated image if exists
         if popup.image:
@@ -244,4 +244,4 @@ def delete_popup(request, id):
         return success_response({'success': True}, 'Popup deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete popup')
+        return handle_api_exception(e, 'Failed to delete popup')

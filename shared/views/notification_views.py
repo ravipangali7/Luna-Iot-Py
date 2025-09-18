@@ -7,12 +7,12 @@ import json
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
-from shared.models import Notification, NotificationUser
-from core.models import User, Role
+from shared.models import Notification, UserNotification
+from core.models import User
 
 
 @csrf_exempt
@@ -62,7 +62,7 @@ def get_notifications(request):
         return success_response(notifications_data, 'Notifications retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to fetch notifications')
+        return handle_api_exception(e, 'Failed to fetch notifications')
 
 
 @csrf_exempt
@@ -91,15 +91,15 @@ def create_notification(request):
         
         # Validate type
         if notification_type not in ['all', 'specific', 'role']:
-            return error_response('Type must be all, specific, or role', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Type must be all, specific, or role', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate targetUserIds for specific type
         if notification_type == 'specific' and (not target_user_ids or not isinstance(target_user_ids, list)):
-            return error_response('targetUserIds array is required for specific type', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('targetUserIds array is required for specific type', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate targetRoleIds for role type
         if notification_type == 'role' and (not target_role_ids or not isinstance(target_role_ids, list)):
-            return error_response('targetRoleIds array is required for role type', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('targetRoleIds array is required for role type', HTTP_STATUS['BAD_REQUEST'])
         
         # Create notification
         with transaction.atomic():
@@ -125,7 +125,7 @@ def create_notification(request):
             
             # Create notification-user relationships
             for target_user in target_users:
-                NotificationUser.objects.create(
+                UserNotification.objects.create(
                     notification=notification,
                     user=target_user,
                     is_read=False
@@ -165,12 +165,12 @@ def create_notification(request):
             'updatedAt': notification.updated_at.isoformat() if notification.updated_at else None
         }
         
-        return success_response(notification_data, 'Notification created successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(notification_data, 'Notification created successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to create notification')
+        return handle_api_exception(e, 'Failed to create notification')
 
 
 @csrf_exempt
@@ -186,7 +186,7 @@ def delete_notification(request, id):
         try:
             notification = Notification.objects.get(id=id)
         except Notification.DoesNotExist:
-            return error_response('Notification not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Notification not found', HTTP_STATUS['NOT_FOUND'])
         
         # Delete notification
         notification.delete()
@@ -194,7 +194,7 @@ def delete_notification(request, id):
         return success_response(None, 'Notification deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete notification')
+        return handle_api_exception(e, 'Failed to delete notification')
 
 
 @csrf_exempt
@@ -209,12 +209,12 @@ def mark_notification_as_read(request, notification_id):
         
         # Get notification-user relationship
         try:
-            notification_user = NotificationUser.objects.get(
+            notification_user = UserNotification.objects.get(
                 notification_id=notification_id,
                 user=user
             )
-        except NotificationUser.DoesNotExist:
-            return error_response('Notification not found or access denied', HTTP_STATUS_CODES['NOT_FOUND'])
+        except UserNotification.DoesNotExist:
+            return error_response('Notification not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Mark as read
         notification_user.is_read = True
@@ -223,7 +223,7 @@ def mark_notification_as_read(request, notification_id):
         return success_response(None, 'Notification marked as read')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to mark notification as read')
+        return handle_api_exception(e, 'Failed to mark notification as read')
 
 
 @csrf_exempt
@@ -237,7 +237,7 @@ def get_unread_notification_count(request):
         user = request.user
         
         # Count unread notifications for this user
-        count = NotificationUser.objects.filter(
+        count = UserNotification.objects.filter(
             user=user,
             is_read=False
         ).count()
@@ -245,4 +245,4 @@ def get_unread_notification_count(request):
         return success_response({'count': count}, 'Unread count retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to get unread count')
+        return handle_api_exception(e, 'Failed to get unread count')

@@ -8,7 +8,7 @@ from django.utils.deprecation import MiddlewareMixin
 from core.models.user import User
 from api_common.utils.response_utils import error_response
 from api_common.constants.api_constants import ERROR_MESSAGES
-
+ 
 
 class AuthMiddleware(MiddlewareMixin):
     """
@@ -30,6 +30,16 @@ class AuthMiddleware(MiddlewareMixin):
             '/api/shared/popup/active',  # Public popup endpoint
         ]
         
+        # Skip authentication for Django admin interface
+        if request.path.startswith('/admin/'):
+            return None
+        
+        # Skip authentication for specific device endpoints (Node.js GT06 handler)
+        if request.path.startswith('/api/device/status/') and request.method == 'POST':
+            return None
+        if request.path.startswith('/api/device/location/') and request.method == 'POST':
+            return None
+        
         if request.path in public_paths:
             return None
             
@@ -38,19 +48,33 @@ class AuthMiddleware(MiddlewareMixin):
         token = request.META.get('HTTP_X_TOKEN')
         
         if not phone or not token:
-            return error_response(
+            return error_response( 
                 message='Phone and token required',
                 status_code=401
             )
         
         try:
-            # Find user by phone and token
-            user = User.objects.select_related('role').get(
-                phone=phone,
-                token=token
-            )
+            # Find user by phone first, then verify token
             
-            if user.status != 'ACTIVE':
+            # First check if any users exist
+            user_count = User.objects.count()
+            
+            # List all users for debugging
+            all_users = User.objects.all()[:5]  # Get first 5 users
+            
+            # Find user by phone
+            user = User.objects.get(phone=phone)
+            
+            # Check if token matches
+            if user.token != token:
+                print(f"Auth Middleware: Token mismatch - user token: {user.token}, expected: {token}")
+                return error_response(
+                    message='Invalid token',
+                    status_code=401
+                )
+            
+            if not user.is_active:
+                print(f"Auth Middleware: User is not active")
                 return error_response(
                     message='User account is not active',
                     status_code=777
@@ -61,11 +85,16 @@ class AuthMiddleware(MiddlewareMixin):
             return None
             
         except User.DoesNotExist:
+            print(f"Auth Middleware: User not found with phone: {phone}")
             return error_response(
-                message='Invalid token or phone',
-                status_code=777
+                message='User matching query does not exist.',
+                status_code=404
             )
+            
         except Exception as e:
+            print(f"Auth Middleware: Exception occurred: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return error_response(
                 message='Authentication error',
                 status_code=500

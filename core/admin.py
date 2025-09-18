@@ -1,20 +1,24 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin
 from django.contrib.auth.models import Group, Permission
-from .models import User, Role, Otp
+from .models import User, Otp
 
-# Unregister default Group if custom Role is used
+# Unregister default Group admin and register with custom admin
 admin.site.unregister(Group)
-
-@admin.register(Role)
-class RoleAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description', 'createdAt', 'updatedAt')
+@admin.register(Group)
+class CustomGroupAdmin(GroupAdmin):
+    list_display = ('name', 'get_permission_count')
     search_fields = ('name',)
+    
+    def get_permission_count(self, obj):
+        return obj.permissions.count()
+    get_permission_count.short_description = 'Permissions Count'
 
 @admin.register(Permission)
 class PermissionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'codename')
+    list_display = ('name', 'codename', 'content_type')
     search_fields = ('name', 'codename')
+    list_filter = ('content_type',)
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):

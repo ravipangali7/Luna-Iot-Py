@@ -39,8 +39,11 @@ def require_role(allowed_roles):
                     status_code=401
                 )
             
-            user_role = getattr(request.user, 'role', None)
-            if not user_role or user_role.name not in allowed_roles:
+            # Check if user has any of the allowed roles
+            user_groups = request.user.groups.all()
+            user_role_names = [group.name for group in user_groups]
+            
+            if not any(role_name in allowed_roles for role_name in user_role_names):
                 return error_response(
                     message='Access denied. Insufficient permissions',
                     status_code=403

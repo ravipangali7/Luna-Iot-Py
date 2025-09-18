@@ -11,10 +11,75 @@ from rest_framework import status
 from datetime import datetime, timedelta
 
 from device.models.location import Location
+from device.models.device import Device
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+
+
+@api_view(['POST'])
+@api_response
+def create_location(request):
+    """
+    Create new location record
+    For Node.js GT06 handler to send location data
+    """
+    try:
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['imei', 'latitude', 'longitude', 'speed', 'course', 'real_time_gps', 'satellite']
+        for field in required_fields:
+            if field not in data:
+                return error_response(
+                    message=f'Missing required field: {field}',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        
+        # Check if device exists
+        try:
+            device = Device.objects.get(imei=data['imei'])
+        except Device.DoesNotExist:
+            return error_response(
+                message='Device not found with IMEI: ' + data['imei'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Create location record
+        location_obj = Location.objects.create(
+            device=device,
+            imei=data['imei'],
+            latitude=data['latitude'],
+            longitude=data['longitude'],
+            speed=data['speed'],
+            course=data['course'],
+            real_time_gps=data['real_time_gps'],
+            satellite=data['satellite'],
+            created_at=data.get('created_at', datetime.now())
+        )
+        
+        location_data = {
+            'id': location_obj.id,
+            'imei': location_obj.imei,
+            'latitude': float(location_obj.latitude),
+            'longitude': float(location_obj.longitude),
+            'speed': float(location_obj.speed) if location_obj.speed else 0,
+            'course': float(location_obj.course) if location_obj.course else 0,
+            'satellite': location_obj.satellite,
+            'realTimeGps': location_obj.real_time_gps,
+            'createdAt': location_obj.createdAt.isoformat()
+        }
+        
+        return success_response(
+            data=location_data,
+            message='Location created successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
 
 
 @api_view(['GET'])
@@ -25,7 +90,7 @@ def get_location_by_imei(request, imei):
     Matches Node.js LocationController.getLocationByImei
     """
     try:
-        locations = Location.objects.filter(imei=imei).order_by('-created_at')
+        locations = Location.objects.filter(imei=imei).order_by('-createdAt')
         locations_data = []
         
         for location in locations:
@@ -38,7 +103,7 @@ def get_location_by_imei(request, imei):
                 'course': float(location.course) if location.course else 0,
                 'satellite': location.satellite,
                 'realTimeGps': location.real_time_gps,
-                'createdAt': location.created_at.isoformat()
+                'createdAt': location.createdAt.isoformat()
             })
         
         return success_response(
@@ -133,7 +198,7 @@ def get_location_by_date_range(request, imei):
                 'course': float(location.course) if location.course else 0,
                 'satellite': location.satellite,
                 'realTimeGps': location.real_time_gps,
-                'createdAt': location.created_at.isoformat()
+                'createdAt': location.createdAt.isoformat()
             })
         
         return success_response(
@@ -200,7 +265,7 @@ def get_combined_history_by_date_range(request, imei):
                 'course': float(location.course) if location.course else 0,
                 'satellite': location.satellite,
                 'realTimeGps': location.real_time_gps,
-                'createdAt': location.created_at.isoformat()
+                'createdAt': location.createdAt.isoformat()
             })
         
         # Add status data

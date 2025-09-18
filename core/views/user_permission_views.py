@@ -68,23 +68,23 @@ def get_combined_user_permissions(request, userId):
     """
     try:
         try:
-            user = User.objects.select_related('role').get(id=userId)
+            user = User.objects.prefetch_related('roles', 'userpermission_set__permission').get(id=userId)
         except User.DoesNotExist:
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Get role permissions
-        role_permissions = []
-        if user.role:
-            role_permissions = list(user.role.group.permissions.values_list('name', flat=True))
+        # Get group permissions
+        group_permissions = []
+        for group in user.groups.all():
+            group_permissions.extend(group.permissions.values_list('name', flat=True))
         
         # Get direct user permissions
         direct_permissions = list(user.userpermission_set.values_list('permission__name', flat=True))
         
         # Combine and deduplicate
-        all_permissions = list(set(role_permissions + direct_permissions))
+        all_permissions = list(set(group_permissions + direct_permissions))
         
         return success_response(
             data={'permissions': all_permissions},
@@ -320,22 +320,24 @@ def check_user_permission(request, userId, permissionName):
             )
         
         try:
-            user = User.objects.select_related('role').get(id=userId)
+            user = User.objects.prefetch_related('roles', 'userpermission_set__permission').get(id=userId)
         except User.DoesNotExist:
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check role permissions
-        has_role_permission = False
-        if user.role:
-            has_role_permission = user.role.group.permissions.filter(name=permissionName).exists()
+        # Check group permissions
+        has_group_permission = False
+        for group in user.groups.all():
+            if group.permissions.filter(name=permissionName).exists():
+                has_group_permission = True
+                break
         
         # Check direct permissions
         has_direct_permission = user.userpermission_set.filter(permission__name=permissionName).exists()
         
-        has_permission = has_role_permission or has_direct_permission
+        has_permission = has_group_permission or has_direct_permission
         
         return success_response(
             data={'hasPermission': has_permission},
@@ -403,16 +405,17 @@ def get_users_with_permission(request, permissionId):
             )
         
         # Get users with this permission
-        users = User.objects.filter(userpermission_set__permission=permission).select_related('role')
+        users = User.objects.filter(userpermission_set__permission=permission).prefetch_related('groups')
         users_data = []
         
         for user in users:
+            user_roles = [{'id': group.id, 'name': group.name} for group in user.groups.all()]
             users_data.append({
                 'id': user.id,
                 'name': user.name,
                 'phone': user.phone,
-                'role': user.role.name if user.role else None,
-                'status': user.status
+                'roles': user_roles,
+                'is_active': user.is_active
             })
         
         return success_response(

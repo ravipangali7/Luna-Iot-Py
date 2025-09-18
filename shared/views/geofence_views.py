@@ -8,11 +8,12 @@ import re
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
-from shared.models import Geofence, GeofenceVehicle, GeofenceUser
+from shared.models import Geofence, GeofenceUser
+from fleet.models import GeofenceVehicle
 from fleet.models import Vehicle
 from core.models import User
 
@@ -42,19 +43,19 @@ def create_geofence(request):
         
         # Validate boundary format
         if not isinstance(boundary, list) or len(boundary) < 3:
-            return error_response('Boundary must have at least 3 points', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Boundary must have at least 3 points', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate boundary data structure
         for point in boundary:
             if not isinstance(point, str) or ',' not in point:
-                return error_response('Invalid boundary point format. Expected "lat,lng"', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Invalid boundary point format. Expected "lat,lng"', HTTP_STATUS['BAD_REQUEST'])
             
             try:
                 lat, lng = point.split(',')
                 float(lat)
                 float(lng)
             except (ValueError, IndexError):
-                return error_response('Invalid coordinates in boundary', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Invalid coordinates in boundary', HTTP_STATUS['BAD_REQUEST'])
         
         # Create geofence
         with transaction.atomic():
@@ -112,18 +113,18 @@ def create_geofence(request):
             'title': geofence.title,
             'type': geofence.type,
             'boundary': geofence.boundary,
-            'createdAt': geofence.created_at.isoformat() if geofence.created_at else None,
-            'updatedAt': geofence.updated_at.isoformat() if geofence.updated_at else None,
+            'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+            'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
             'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
             'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
         }
         
-        return success_response(geofence_data, 'Geofence created successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(geofence_data, 'Geofence created successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to create geofence')
+        return handle_api_exception(e, 'Failed to create geofence')
 
 
 @csrf_exempt
@@ -162,7 +163,7 @@ def get_all_geofences(request):
         return success_response(geofences_data, 'Geofences retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve geofences')
+        return handle_api_exception(e, 'Failed to retrieve geofences')
 
 
 @csrf_exempt
@@ -178,21 +179,21 @@ def get_geofence_by_id(request, id):
         try:
             geofence = Geofence.objects.prefetch_related('geofencevehicle_set__vehicle', 'geofenceuser_set__user').get(id=id)
         except Geofence.DoesNotExist:
-            return error_response('Geofence not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
             if not geofence.geofenceuser_set.filter(user=user).exists():
-                return error_response('Access denied to this geofence', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         geofence_data = {
             'id': geofence.id,
             'title': geofence.title,
             'type': geofence.type,
             'boundary': geofence.boundary,
-            'createdAt': geofence.created_at.isoformat() if geofence.created_at else None,
-            'updatedAt': geofence.updated_at.isoformat() if geofence.updated_at else None,
+            'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+            'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
             'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
             'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
         }
@@ -200,7 +201,7 @@ def get_geofence_by_id(request, id):
         return success_response(geofence_data, 'Geofence retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve geofence')
+        return handle_api_exception(e, 'Failed to retrieve geofence')
 
 
 @csrf_exempt
@@ -240,7 +241,7 @@ def get_geofences_by_imei(request, imei):
         return success_response(geofences_data, 'Geofences retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve geofences')
+        return handle_api_exception(e, 'Failed to retrieve geofences')
 
 
 @csrf_exempt
@@ -258,13 +259,13 @@ def update_geofence(request, id):
         try:
             geofence = Geofence.objects.prefetch_related('geofenceuser_set__user').get(id=id)
         except Geofence.DoesNotExist:
-            return error_response('Geofence not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
             if not geofence.geofenceuser_set.filter(user=user).exists():
-                return error_response('Access denied to this geofence', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         # Update geofence
         with transaction.atomic():
@@ -308,8 +309,8 @@ def update_geofence(request, id):
             'title': geofence.title,
             'type': geofence.type,
             'boundary': geofence.boundary,
-            'createdAt': geofence.created_at.isoformat() if geofence.created_at else None,
-            'updatedAt': geofence.updated_at.isoformat() if geofence.updated_at else None,
+            'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+            'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
             'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
             'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
         }
@@ -317,9 +318,9 @@ def update_geofence(request, id):
         return success_response(geofence_data, 'Geofence updated successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to update geofence')
+        return handle_api_exception(e, 'Failed to update geofence')
 
 
 @csrf_exempt
@@ -336,13 +337,13 @@ def delete_geofence(request, id):
         try:
             geofence = Geofence.objects.prefetch_related('geofenceuser_set__user').get(id=id)
         except Geofence.DoesNotExist:
-            return error_response('Geofence not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
             if not geofence.geofenceuser_set.filter(user=user).exists():
-                return error_response('Access denied to this geofence', HTTP_STATUS_CODES['FORBIDDEN'])
+                return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         # Delete geofence
         geofence.delete()
@@ -350,4 +351,4 @@ def delete_geofence(request, id):
         return success_response(None, 'Geofence deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete geofence')
+        return handle_api_exception(e, 'Failed to delete geofence')

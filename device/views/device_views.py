@@ -18,6 +18,7 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_dealer_or_admin
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+from api_common.utils.sms_service import sms_service
 
 
 @api_view(['GET'])
@@ -31,8 +32,13 @@ def get_all_devices(request):
     try:
         user = request.user
         
+        # Get user groups (Django's role system)
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        is_dealer = any(group.name == 'Dealer' for group in user_groups)
+        
         # Super Admin: all access
-        if user.role.name == 'Super Admin':
+        if is_super_admin:
             devices = Device.objects.all()
             devices_data = []
             for device in devices:
@@ -41,9 +47,11 @@ def get_all_devices(request):
                     'imei': device.imei,
                     'phone': device.phone,
                     'sim': device.sim,
-                    'status': device.status,
-                    'createdAt': device.created_at.isoformat(),
-                    'updatedAt': device.updated_at.isoformat()
+                    'protocol': device.protocol,
+                    'iccid': device.iccid,
+                    'model': device.model,
+                    'createdAt': device.createdAt.isoformat(),
+                    'updatedAt': device.updatedAt.isoformat()
                 })
             return success_response(
                 data=devices_data,
@@ -51,7 +59,7 @@ def get_all_devices(request):
             )
         
         # Dealer: only view assigned devices
-        elif user.role.name == 'Dealer':
+        elif is_dealer:
             user_devices = UserDevice.objects.filter(user=user).select_related('device')
             devices_data = []
             for user_device in user_devices:
@@ -61,9 +69,11 @@ def get_all_devices(request):
                     'imei': device.imei,
                     'phone': device.phone,
                     'sim': device.sim,
-                    'status': device.status,
-                    'createdAt': device.created_at.isoformat(),
-                    'updatedAt': device.updated_at.isoformat()
+                    'protocol': device.protocol,
+                    'iccid': device.iccid,
+                    'model': device.model,
+                    'createdAt': device.createdAt.isoformat(),
+                    'updatedAt': device.updatedAt.isoformat()
                 })
             return success_response(
                 data=devices_data,
@@ -94,8 +104,13 @@ def get_device_by_imei(request, imei):
     try:
         user = request.user
         
+        # Get user groups (Django's role system)
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        is_dealer = any(group.name == 'Dealer' for group in user_groups)
+        
         # Super Admin: can access any device
-        if user.role.name == 'Super Admin':
+        if is_super_admin:
             try:
                 device = Device.objects.get(imei=imei)
             except Device.DoesNotExist:
@@ -105,7 +120,7 @@ def get_device_by_imei(request, imei):
                 )
         
         # Dealer: can only access assigned devices
-        elif user.role.name == 'Dealer':
+        elif is_dealer:
             try:
                 user_device = UserDevice.objects.select_related('device').get(
                     user=user,
@@ -130,9 +145,11 @@ def get_device_by_imei(request, imei):
             'imei': device.imei,
             'phone': device.phone,
             'sim': device.sim,
-            'status': device.status,
-            'createdAt': device.created_at.isoformat(),
-            'updatedAt': device.updated_at.isoformat()
+            'protocol': device.protocol,
+            'iccid': device.iccid,
+            'model': device.model,
+            'createdAt': device.createdAt.isoformat(),
+            'updatedAt': device.updatedAt.isoformat()
         }
         
         return success_response(
@@ -163,9 +180,11 @@ def create_device(request):
             'imei': device.imei,
             'phone': device.phone,
             'sim': device.sim,
-            'status': device.status,
-            'createdAt': device.created_at.isoformat(),
-            'updatedAt': device.updated_at.isoformat()
+            'protocol': device.protocol,
+            'iccid': device.iccid,
+            'model': device.model,
+            'createdAt': device.createdAt.isoformat(),
+            'updatedAt': device.updatedAt.isoformat()
         }
         
         return success_response(
@@ -211,9 +230,11 @@ def update_device(request, imei):
             'imei': device.imei,
             'phone': device.phone,
             'sim': device.sim,
-            'status': device.status,
-            'createdAt': device.created_at.isoformat(),
-            'updatedAt': device.updated_at.isoformat()
+            'protocol': device.protocol,
+            'iccid': device.iccid,
+            'model': device.model,
+            'createdAt': device.createdAt.isoformat(),
+            'updatedAt': device.updatedAt.isoformat()
         }
         
         return success_response(
@@ -286,14 +307,18 @@ def assign_device_to_user(request):
         
         # Check if user exists and is a dealer
         try:
-            target_user = User.objects.select_related('role').get(phone=user_phone)
+            target_user = User.objects.prefetch_related('groups').get(phone=user_phone)
         except User.DoesNotExist:
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        if target_user.role.name != 'Dealer':
+        # Check if user is a dealer
+        target_user_groups = target_user.groups.all()
+        is_dealer = any(group.name == 'Dealer' for group in target_user_groups)
+        
+        if not is_dealer:
             return error_response(
                 message='Only dealers can be assigned devices',
                 status_code=HTTP_STATUS['BAD_REQUEST']
@@ -404,19 +429,26 @@ def send_server_point(request):
             )
         
         # Server point command message
-        server_point_message = 'SERVER,0,38.54.71.218,7777,0#'
+        server_point_message = 'SERVER,0,38.54.71.218,6666,0#'
         
-        # TODO: Send SMS (implement SMS service)
-        # sms_result = sms_service.sendSMS(phone, server_point_message)
+        # Send SMS using SMS service
+        sms_result = sms_service.send_server_point_command(phone)
         
-        return success_response(
-            data={
-                'phone': phone,
-                'message': server_point_message,
-                'sent': True
-            },
-            message='Server point command sent successfully'
-        )
+        if sms_result['success']:
+            return success_response(
+                data={
+                    'phone': phone,
+                    'message': server_point_message,
+                    'sent': True
+                },
+                message='Server point command sent successfully'
+            )
+        else:
+            return error_response(
+                message=f'Failed to send server point command: {sms_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
+            
     except Exception as e:
         return error_response(
             message=str(e),
@@ -445,19 +477,27 @@ def send_reset(request):
         # Reset command message
         reset_message = 'RESET#'
         
-        # TODO: Send SMS (implement SMS service)
-        # sms_result = sms_service.sendSMS(phone, reset_message)
+        # Send SMS using SMS service
+        sms_result = sms_service.send_reset_command(phone)
         
-        return success_response(
-            data={
-                'phone': phone,
-                'message': reset_message,
-                'sent': True
-            },
-            message='Reset command sent successfully'
-        )
+        if sms_result['success']:
+            return success_response(
+                data={
+                    'phone': phone,
+                    'message': reset_message,
+                    'sent': True
+                },
+                message='Reset command sent successfully'
+            )
+        else:
+            return error_response(
+                message=f'Failed to send reset command: {sms_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
+            
     except Exception as e:
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
+

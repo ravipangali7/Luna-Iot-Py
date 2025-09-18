@@ -10,9 +10,9 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.models.user import User
-from core.models.role import Role
+from django.contrib.auth.models import Group
 from api_common.utils.response_utils import success_response, error_response
-from api_common.utils.auth_utils import hash_password
+from django.contrib.auth.hashers import make_password
 from api_common.utils.validation_utils import validate_required_fields
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -29,16 +29,17 @@ def get_all_users(request):
     Matches Node.js UserController.getAllUsers
     """
     try:
-        users = User.objects.select_related('role').all()
+        users = User.objects.prefetch_related('groups').all()
         users_data = []
         
         for user in users:
+            user_group = user.groups.first()
             users_data.append({
                 'id': user.id,
                 'name': user.name,
                 'phone': user.phone,
-                'status': user.status,
-                'role': user.role.name if user.role else None,
+                'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+                'role': user_group.name if user_group else None,
                 'fcmToken': user.fcm_token,
                 'createdAt': user.created_at.isoformat(),
                 'updatedAt': user.updated_at.isoformat()
@@ -64,19 +65,20 @@ def get_user_by_phone(request, phone):
     """
     try:
         try:
-            user = User.objects.select_related('role').get(phone=phone)
+            user = User.objects.prefetch_related('groups').get(phone=phone)
         except User.DoesNotExist:
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        user_group = user.groups.first()
         user_data = {
             'id': user.id,
             'name': user.name,
             'phone': user.phone,
-            'status': user.status,
-            'role': user.role.name if user.role else None,
+            'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+            'role': user_group.name if user_group else None,
             'fcmToken': user.fcm_token,
             'createdAt': user.created_at.isoformat(),
             'updatedAt': user.updated_at.isoformat()
@@ -123,14 +125,14 @@ def create_user(request):
             )
         
         # Hash password
-        hashed_password = hash_password(password)
+        hashed_password = make_password(password)
         
-        # Get role
+        # Get group
         try:
-            role = Role.objects.get(id=role_id)
-        except Role.DoesNotExist:
+            group = Group.objects.get(id=role_id)
+        except Group.DoesNotExist:
             return error_response(
-                message='Role not found',
+                message='Group not found',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
@@ -139,16 +141,21 @@ def create_user(request):
             name=name,
             phone=phone,
             password=hashed_password,
-            role=role,
-            status=status or 'ACTIVE'
+            is_active=(status == 'ACTIVE') if status else True
         )
+        
+        # Assign group to user
+        user.groups.add(group)
+        
+        # Get user's primary group
+        user_group = user.groups.first()
         
         user_data = {
             'id': user.id,
             'name': user.name,
             'phone': user.phone,
-            'status': user.status,
-            'role': user.role.name if user.role else None,
+            'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+            'role': user_group.name if user_group else None,
             'createdAt': user.created_at.isoformat(),
             'updatedAt': user.updated_at.isoformat()
         }
@@ -202,11 +209,12 @@ def update_user(request, phone):
             user.fcm_token = data['fcmToken']
         if 'roleId' in data:
             try:
-                role = Role.objects.get(id=data['roleId'])
-                user.role = role
-            except Role.DoesNotExist:
+                group = Group.objects.get(id=data['roleId'])
+                user.groups.clear()
+                user.groups.add(group)
+            except Group.DoesNotExist:
                 return error_response(
-                    message='Role not found',
+                    message='Group not found',
                     status_code=HTTP_STATUS['BAD_REQUEST']
                 )
         

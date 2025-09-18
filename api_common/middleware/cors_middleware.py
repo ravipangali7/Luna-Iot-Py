@@ -17,10 +17,12 @@ class CorsMiddleware(MiddlewareMixin):
         response['Access-Control-Allow-Origin'] = '*'
         response['Access-Control-Allow-Credentials'] = 'true'
         response['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-phone, x-token'
-        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+        response['Access-Control-Max-Age'] = '86400'  # 24 hours
         
         # Handle preflight OPTIONS requests
         if request.method == 'OPTIONS':
             response.status_code = 200
+            response.content = b''
             
         return response

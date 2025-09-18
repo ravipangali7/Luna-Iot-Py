@@ -60,10 +60,11 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'api_common.middleware.cors_middleware.CorsMiddleware',
-    'api_common.middleware.auth_middleware.AuthMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'api_common.middleware.disable_csrf_middleware.DisableCSRFMiddleware',  # Disable CSRF for API
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'api_common.middleware.auth_middleware.AuthMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -80,9 +81,43 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
     ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-phone',
+    'x-token',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# CSRF completely disabled for API
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SAMESITE = None
+CSRF_TRUSTED_ORIGINS = []
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.User'
@@ -178,3 +213,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# SMS Configuration
+SMS_API_KEY = '568383D0C5AA82'
+SMS_API_URL = 'https://sms.kaichogroup.com/smsapi/index.php'
+SMS_CAMPAIGN_ID = '9148'
+SMS_ROUTE_ID = '130'
+SMS_SENDER_ID = 'SMSBit'

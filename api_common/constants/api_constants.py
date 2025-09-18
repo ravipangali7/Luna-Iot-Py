@@ -19,6 +19,7 @@ SUCCESS_MESSAGES = {
     'DEVICE_UPDATED': 'Device updated successfully',
     'DEVICE_DELETED': 'Device deleted successfully',
     'DEVICES_RETRIEVED': 'Devices retrieved successfully',
+    'DEVICE_RETRIEVED': 'Device retrieved successfully',
     'VEHICLE_CREATED': 'Vehicle created successfully',
     'VEHICLE_UPDATED': 'Vehicle updated successfully',
     'VEHICLE_DELETED': 'Vehicle deleted successfully',
@@ -53,6 +54,7 @@ SUCCESS_MESSAGES = {
     'RELAY_STATUS': 'Relay status retrieved successfully',
     'SERVER_POINT_SENT': 'Server point command sent successfully',
     'RESET_SENT': 'Reset command sent successfully',
+    'USER_RETRIEVED': 'User information retrieved successfully',
 }
 
 # Error Messages

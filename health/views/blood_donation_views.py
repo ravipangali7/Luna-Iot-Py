@@ -5,9 +5,9 @@ from django.db.models import Q
 import json
 
 from api_common.utils.response_utils import success_response, error_response
-from api_common.constants.api_constants import HTTP_STATUS_CODES
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
-from api_common.utils.exception_utils import handle_exception
+from api_common.utils.exception_utils import handle_api_exception
 
 from health.models import BloodDonation
 
@@ -60,7 +60,7 @@ def get_all_blood_donations(request):
         return success_response(blood_donations_data, 'Blood donations retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve blood donations')
+        return handle_api_exception(e, 'Failed to retrieve blood donations')
 
 
 @csrf_exempt
@@ -73,7 +73,7 @@ def get_blood_donation_by_id(request, id):
         try:
             blood_donation = BloodDonation.objects.get(id=id)
         except BloodDonation.DoesNotExist:
-            return error_response('Blood donation not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Blood donation not found', HTTP_STATUS['NOT_FOUND'])
         
         blood_donation_data = {
             'id': blood_donation.id,
@@ -91,7 +91,7 @@ def get_blood_donation_by_id(request, id):
         return success_response(blood_donation_data, 'Blood donation retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve blood donation')
+        return handle_api_exception(e, 'Failed to retrieve blood donation')
 
 
 @csrf_exempt
@@ -119,12 +119,12 @@ def create_blood_donation(request):
         
         # Validate apply type
         if apply_type not in ['need', 'donate']:
-            return error_response('Apply type must be either "need" or "donate"', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Apply type must be either "need" or "donate"', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate blood group
         valid_blood_groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
         if blood_group not in valid_blood_groups:
-            return error_response('Invalid blood group', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Invalid blood group', HTTP_STATUS['BAD_REQUEST'])
         
         # Create blood donation
         blood_donation = BloodDonation.objects.create(
@@ -150,12 +150,12 @@ def create_blood_donation(request):
             'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
         }
         
-        return success_response(blood_donation_data, 'Blood donation created successfully', HTTP_STATUS_CODES['CREATED'])
+        return success_response(blood_donation_data, 'Blood donation created successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to create blood donation')
+        return handle_api_exception(e, 'Failed to create blood donation')
 
 
 @csrf_exempt
@@ -171,17 +171,17 @@ def update_blood_donation(request, id):
         try:
             blood_donation = BloodDonation.objects.get(id=id)
         except BloodDonation.DoesNotExist:
-            return error_response('Blood donation not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Blood donation not found', HTTP_STATUS['NOT_FOUND'])
         
         # Validate apply type if provided
         if 'applyType' in data and data['applyType'] not in ['need', 'donate']:
-            return error_response('Apply type must be either "need" or "donate"', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Apply type must be either "need" or "donate"', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate blood group if provided
         if 'bloodGroup' in data:
             valid_blood_groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
             if data['bloodGroup'] not in valid_blood_groups:
-                return error_response('Invalid blood group', HTTP_STATUS_CODES['BAD_REQUEST'])
+                return error_response('Invalid blood group', HTTP_STATUS['BAD_REQUEST'])
         
         # Update blood donation
         if 'name' in data:
@@ -217,9 +217,9 @@ def update_blood_donation(request, id):
         return success_response(blood_donation_data, 'Blood donation updated successfully')
     
     except json.JSONDecodeError:
-        return error_response('Invalid JSON data', HTTP_STATUS_CODES['BAD_REQUEST'])
+        return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_exception(e, 'Failed to update blood donation')
+        return handle_api_exception(e, 'Failed to update blood donation')
 
 
 @csrf_exempt
@@ -233,7 +233,7 @@ def delete_blood_donation(request, id):
         try:
             blood_donation = BloodDonation.objects.get(id=id)
         except BloodDonation.DoesNotExist:
-            return error_response('Blood donation not found', HTTP_STATUS_CODES['NOT_FOUND'])
+            return error_response('Blood donation not found', HTTP_STATUS['NOT_FOUND'])
         
         # Delete blood donation
         blood_donation.delete()
@@ -241,7 +241,7 @@ def delete_blood_donation(request, id):
         return success_response(None, 'Blood donation deleted successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to delete blood donation')
+        return handle_api_exception(e, 'Failed to delete blood donation')
 
 
 @csrf_exempt
@@ -252,7 +252,7 @@ def get_blood_donations_by_type(request, type):
     """
     try:
         if type not in ['need', 'donate']:
-            return error_response('Invalid apply type. Must be "need" or "donate"', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Invalid apply type. Must be "need" or "donate"', HTTP_STATUS['BAD_REQUEST'])
         
         blood_donations = BloodDonation.objects.filter(apply_type=type).order_by('-created_at')
         
@@ -275,7 +275,7 @@ def get_blood_donations_by_type(request, type):
         return success_response(blood_donations_data, f'{type} blood donations retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve blood donations by type')
+        return handle_api_exception(e, 'Failed to retrieve blood donations by type')
 
 
 @csrf_exempt
@@ -287,7 +287,7 @@ def get_blood_donations_by_blood_group(request, blood_group):
     try:
         valid_blood_groups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
         if blood_group not in valid_blood_groups:
-            return error_response('Invalid blood group', HTTP_STATUS_CODES['BAD_REQUEST'])
+            return error_response('Invalid blood group', HTTP_STATUS['BAD_REQUEST'])
         
         blood_donations = BloodDonation.objects.filter(blood_group=blood_group).order_by('-created_at')
         
@@ -310,4 +310,4 @@ def get_blood_donations_by_blood_group(request, blood_group):
         return success_response(blood_donations_data, f'Blood donations for {blood_group} retrieved successfully')
     
     except Exception as e:
-        return handle_exception(e, 'Failed to retrieve blood donations by blood group')
+        return handle_api_exception(e, 'Failed to retrieve blood donations by blood group')

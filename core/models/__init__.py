@@ -1,5 +1,5 @@
 from .user import User
-from .role import Role, RolePermission
 from .otp import Otp
+from .user_permission import UserPermission
 
-__all__ = ['User', 'Role', 'RolePermission', 'Otp']
+__all__ = ['User', 'Otp', 'UserPermission']

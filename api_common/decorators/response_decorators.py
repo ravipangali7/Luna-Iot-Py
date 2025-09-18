@@ -16,8 +16,9 @@ def api_response(view_func):
         try:
             result = view_func(request, *args, **kwargs)
             
-            # If result is already a JsonResponse, return it
-            if hasattr(result, 'content_type') and 'application/json' in result.content_type:
+            # If result is already a JsonResponse, return it directly
+            from django.http import JsonResponse
+            if isinstance(result, JsonResponse):
                 return result
             
             # If result is a dict, wrap it in success response

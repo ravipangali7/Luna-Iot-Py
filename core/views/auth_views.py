@@ -14,19 +14,21 @@ from rest_framework import status
 import json
 
 from core.models.user import User
-from core.models.role import Role
+from django.contrib.auth.models import Group
 from core.models.otp import Otp
 from api_common.utils.response_utils import success_response, error_response
-from api_common.utils.auth_utils import generate_token, generate_otp, hash_password, verify_password
+from api_common.utils.auth_utils import generate_token, generate_otp
+from django.contrib.auth.hashers import make_password, check_password
 from api_common.utils.validation_utils import validate_required_fields, validate_phone_number
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.validation_decorators import validate_fields
+from api_common.utils.sms_service import sms_service
 from api_common.exceptions.auth_exceptions import InvalidCredentialsError, AccountInactiveError
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["GET"])
 def get_current_user(request):
     """
     Get current user information
@@ -35,42 +37,63 @@ def get_current_user(request):
     try:
         user = request.user
         
-        # Get user with role and permissions
-        user_data = User.objects.select_related('role').prefetch_related(
-            'userpermission_set__permission'
-        ).get(id=user.id)
-        
-        if not user_data:
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Get only direct user permissions (ignore role permissions as requested)
-        direct_permissions = list(user_data.userpermission_set.values_list('permission__name', flat=True))
+        # Get all user roles with their permissions
+        user_groups = user.groups.all()
+        roles_data = []
+        all_permissions = set()
+        
+        for group in user_groups:
+            # Get role permissions
+            group_permissions = list(group.permissions.values_list('name', flat=True))
+            all_permissions.update(group_permissions)
+            
+            roles_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': group_permissions
+            })
+        
+        # Get direct user permissions
+        direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(direct_permissions)
+        
+        # Get all available permissions for UI
+        from django.contrib.auth.models import Permission
+        all_available_permissions = list(Permission.objects.values('id', 'name', 'content_type__app_label', 'content_type__model'))
         
         return success_response(
             data={
-                'id': user_data.id,
-                'name': user_data.name,
-                'phone': user_data.phone,
-                'status': user_data.status,
-                'role': user_data.role.name if user_data.role else None,
-                'permissions': direct_permissions,  # Only direct user permissions
-                'createdAt': user_data.created_at.isoformat(),
-                'updatedAt': user_data.updated_at.isoformat()
+                'id': user.id,
+                'name': user.name,
+                'phone': user.phone,
+                'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+                'roles': roles_data,  # All user roles with their permissions
+                'permissions': list(all_permissions),  # All permissions (role + direct)
+                'directPermissions': direct_permissions,  # Only direct user permissions
+                'availablePermissions': all_available_permissions,  # All available permissions for UI
+                'createdAt': user.created_at.isoformat(),
+                'updatedAt': user.updated_at.isoformat()
             },
             message=SUCCESS_MESSAGES['USER_RETRIEVED']
         )
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return error_response(
-            message=str(e),
+            message=f"Internal server error: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def send_registration_otp(request):
     """
@@ -118,8 +141,8 @@ def send_registration_otp(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def verify_otp_and_register(request):
     """
@@ -160,18 +183,18 @@ def verify_otp_and_register(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Hash password
-        hashed_password = hash_password(password)
+        # Hash password using Django's built-in hasher
+        hashed_password = make_password(password)
         
         # Generate token
         token = generate_token()
         
-        # Get default role
+        # Get default group
         try:
-            default_role = Role.objects.get(name='Customer')
-        except Role.DoesNotExist:
+            default_group = Group.objects.get(name='Customer')
+        except Group.DoesNotExist:
             return error_response(
-                message='Default role not found',
+                message='Default group not found',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
         
@@ -181,12 +204,28 @@ def verify_otp_and_register(request):
             phone=phone.strip(),
             password=hashed_password,
             token=token,
-            role=default_role,
-            status='ACTIVE'
+            is_active=True
         )
+        
+        # Assign default group to user
+        # Using Django's built-in Group system
+        try:
+            default_group = Group.objects.get(name='Customer')
+            user.groups.add(default_group)
+        except Group.DoesNotExist:
+            # If Customer group doesn't exist, create it
+            default_group = Group.objects.create(name='Customer')
+            user.groups.add(default_group)
         
         # Delete OTP after successful registration
         otp_record.delete()
+        
+        # Get role data for new user
+        roles_data = [{
+            'id': default_group.id,
+            'name': default_group.name,
+            'permissions': list(default_group.permissions.values_list('name', flat=True))
+        }]
         
         return success_response(
             data={
@@ -194,7 +233,10 @@ def verify_otp_and_register(request):
                 'name': user.name,
                 'phone': user.phone,
                 'token': user.token,
-                'role': user.role.name
+                'role': default_group.name,  # Primary role for backward compatibility
+                'roles': roles_data,  # All user roles with their permissions
+                'permissions': list(default_group.permissions.values_list('name', flat=True)),  # All permissions
+                'directPermissions': [],  # No direct permissions for new user
             },
             message=SUCCESS_MESSAGES['REGISTRATION_SUCCESS'],
             status_code=HTTP_STATUS['CREATED']
@@ -206,8 +248,8 @@ def verify_otp_and_register(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def resend_otp(request):
     """
@@ -255,39 +297,70 @@ def resend_otp(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-@api_response
+@csrf_exempt
+@require_http_methods(["POST"])
 def login(request):
     """
     User login
     Matches Node.js AuthController.login
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         password = data.get('password')
         
         # Find user by phone
         try:
-            user = User.objects.select_related('role').get(phone=phone)
+            user = User.objects.get(phone=phone)
         except User.DoesNotExist:
             return error_response(
                 message=ERROR_MESSAGES['USER_NOT_FOUND'],
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check password
-        if not verify_password(password, user.password):
+        # Check password using Django's built-in checker
+        if not check_password(password, user.password):
             return error_response(
                 message=ERROR_MESSAGES['INVALID_CREDENTIALS'],
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
-        # Generate new token and update user
+        # Check if user is active
+        if not user.is_active:
+            return error_response(
+                message='User account is not active',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
+        # Generate new token for login
         token = generate_token()
         user.token = token
         user.save()
+        
+        # Get all user roles with their permissions
+        user_groups = user.groups.all()
+        roles_data = []
+        all_permissions = set()
+        
+        for group in user_groups:
+            # Get role permissions
+            group_permissions = list(group.permissions.values_list('name', flat=True))
+            all_permissions.update(group_permissions)
+            
+            roles_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': group_permissions
+            })
+        
+        # Get direct user permissions
+        direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(direct_permissions)
+        
+        # Get primary role for backward compatibility
+        primary_role = user_groups.first()
+        primary_role_name = primary_role.name if primary_role else None
         
         return success_response(
             data={
@@ -295,7 +368,10 @@ def login(request):
                 'name': user.name,
                 'phone': user.phone,
                 'token': user.token,
-                'role': user.role.name if user.role else None
+                'role': primary_role_name,  # Primary role for backward compatibility
+                'roles': roles_data,  # All user roles with their permissions
+                'permissions': list(all_permissions),  # All permissions (role + direct)
+                'directPermissions': direct_permissions,  # Only direct user permissions
             },
             message=SUCCESS_MESSAGES['LOGIN_SUCCESS']
         )
@@ -328,8 +404,8 @@ def logout(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def send_forgot_password_otp(request):
     """
@@ -377,8 +453,8 @@ def send_forgot_password_otp(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def verify_forgot_password_otp(request):
     """
@@ -440,8 +516,8 @@ def verify_forgot_password_otp(request):
         )
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
+@csrf_exempt
+@require_http_methods(["POST"])
 @api_response
 def reset_password(request):
     """
@@ -476,8 +552,8 @@ def reset_password(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Hash new password
-        hashed_password = hash_password(new_password)
+        # Hash new password using Django's built-in hasher
+        hashed_password = make_password(new_password)
         
         # Generate new token
         new_token = generate_token()
@@ -490,13 +566,35 @@ def reset_password(request):
         # Delete OTP after successful password reset
         Otp.objects.filter(phone=phone).delete()
         
+        # Get all user roles with their permissions
+        user_groups = user.groups.all()
+        roles_data = []
+        all_permissions = set()
+        
+        for group in user_groups:
+            # Get role permissions
+            group_permissions = list(group.permissions.values_list('name', flat=True))
+            all_permissions.update(group_permissions)
+            
+            roles_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': group_permissions
+            })
+        
+        # Get direct user permissions
+        direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(direct_permissions)
+        
         return success_response(
             data={
                 'id': user.id,
                 'name': user.name,
                 'phone': user.phone,
                 'token': user.token,
-                'role': user.role.name if user.role else None
+                'roles': roles_data,  # All user roles with their permissions
+                'permissions': list(all_permissions),  # All permissions (role + direct)
+                'directPermissions': direct_permissions,  # Only direct user permissions
             },
             message=SUCCESS_MESSAGES['PASSWORD_RESET']
         )

@@ -11,10 +11,73 @@ from rest_framework import status
 from datetime import datetime
 
 from device.models.status import Status
+from device.models.device import Device
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+
+
+@api_view(['POST'])
+@api_response
+def create_status(request):
+    """
+    Create new status record
+    For Node.js GT06 handler to send status data
+    """
+    try:
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['imei', 'battery', 'signal', 'ignition', 'charging', 'relay']
+        for field in required_fields:
+            if field not in data:
+                return error_response(
+                    message=f'Missing required field: {field}',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        
+        # Check if device exists
+        try:
+            device = Device.objects.get(imei=data['imei'])
+        except Device.DoesNotExist:
+            return error_response(
+                message='Device not found with IMEI: ' + data['imei'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Create status record
+        status_obj = Status.objects.create(
+            device=device,
+            imei=data['imei'],
+            battery=data['battery'],
+            signal=data['signal'],
+            ignition=data['ignition'],
+            charging=data['charging'],
+            relay=data['relay'],
+            created_at=data.get('created_at', datetime.now())
+        )
+        
+        status_data = {
+            'id': status_obj.id,
+            'imei': status_obj.imei,
+            'battery': status_obj.battery,
+            'signal': status_obj.signal,
+            'ignition': status_obj.ignition,
+            'charging': status_obj.charging,
+            'relay': status_obj.relay,
+            'createdAt': status_obj.createdAt.isoformat()
+        }
+        
+        return success_response(
+            data=status_data,
+            message='Status created successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
 
 
 @api_view(['GET'])
@@ -25,7 +88,7 @@ def get_status_by_imei(request, imei):
     Matches Node.js StatusController.getStatusByImei
     """
     try:
-        statuses = Status.objects.filter(imei=imei).order_by('-created_at')
+        statuses = Status.objects.filter(imei=imei).order_by('-createdAt')
         statuses_data = []
         
         for status_obj in statuses:
@@ -37,7 +100,7 @@ def get_status_by_imei(request, imei):
                 'ignition': status_obj.ignition,
                 'charging': status_obj.charging,
                 'relay': status_obj.relay,
-                'createdAt': status_obj.created_at.isoformat()
+                'createdAt': status_obj.createdAt.isoformat()
             })
         
         return success_response(
@@ -130,7 +193,7 @@ def get_status_by_date_range(request, imei):
                 'ignition': status_obj.ignition,
                 'charging': status_obj.charging,
                 'relay': status_obj.relay,
-                'createdAt': status_obj.created_at.isoformat()
+                'createdAt': status_obj.createdAt.isoformat()
             })
         
         return success_response(

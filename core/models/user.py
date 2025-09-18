@@ -7,13 +7,13 @@ class User(AbstractUser):
     id = models.BigAutoField(primary_key=True)
     username = models.CharField(max_length=100, unique=True)  # Will store phone number
     phone = models.CharField(max_length=100, unique=True)
+    email = models.EmailField(max_length=100, blank=True, null=True)
     name = models.CharField(max_length=100, blank=True, null=True)
     fcm_token = models.CharField(max_length=500, null=True, blank=True, db_column='fcm_token')
+    token = models.CharField(max_length=500, null=True, blank=True)
     
-    # Remove default first_name, last_name, email fields
     first_name = None
     last_name = None
-    email = None
     
     USERNAME_FIELD = 'phone'
     REQUIRED_FIELDS = ['username']

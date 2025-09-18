@@ -1,6 +1,6 @@
 """
-Role Views
-Handles role and permission management endpoints
+Group Views (formerly Role Views)
+Handles group and permission management endpoints using Django's built-in Group system
 Matches Node.js role_controller.js functionality exactly
 """
 from django.http import JsonResponse
@@ -9,8 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.models.role import Role, RolePermission
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -23,25 +22,24 @@ from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 @api_response
 def get_all_roles(request):
     """
-    Get all roles
+    Get all groups (roles)
     Matches Node.js RoleController.getAllRoles
     """
     try:
-        roles = Role.objects.all()
-        roles_data = []
+        groups = Group.objects.all()
+        groups_data = []
         
-        for role in roles:
-            roles_data.append({
-                'id': role.id,
-                'name': role.name,
-                'description': role.description,
-                'createdAt': role.createdAt.isoformat(),
-                'updatedAt': role.updatedAt.isoformat()
+        for group in groups:
+            groups_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': list(group.permissions.values_list('name', flat=True)),
+                'permission_count': group.permissions.count()
             })
         
         return success_response(
-            data=roles_data,
-            message=SUCCESS_MESSAGES['ROLES_RETRIEVED']
+            data=groups_data,
+            message=SUCCESS_MESSAGES.get('ROLES_RETRIEVED', 'Groups retrieved successfully')
         )
     except Exception as e:
         return error_response(
@@ -72,7 +70,7 @@ def get_all_permissions(request):
         
         return success_response(
             data=permissions_data,
-            message=SUCCESS_MESSAGES['PERMISSIONS_RETRIEVED']
+            message=SUCCESS_MESSAGES.get('PERMISSIONS_RETRIEVED', 'Permissions retrieved successfully')
         )
     except Exception as e:
         return error_response(
@@ -86,29 +84,28 @@ def get_all_permissions(request):
 @api_response
 def get_role_by_id(request, id):
     """
-    Get role by ID
+    Get group by ID
     Matches Node.js RoleController.getRoleById
     """
     try:
         try:
-            role = Role.objects.get(id=id)
-        except Role.DoesNotExist:
+            group = Group.objects.get(id=id)
+        except Group.DoesNotExist:
             return error_response(
-                message=ERROR_MESSAGES['ROLE_NOT_FOUND'],
+                message=ERROR_MESSAGES.get('ROLE_NOT_FOUND', 'Group not found'),
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        role_data = {
-            'id': role.id,
-            'name': role.name,
-            'description': role.description,
-            'createdAt': role.createdAt.isoformat(),
-            'updatedAt': role.updatedAt.isoformat()
+        group_data = {
+            'id': group.id,
+            'name': group.name,
+            'permissions': list(group.permissions.values_list('name', flat=True)),
+            'permission_count': group.permissions.count()
         }
         
         return success_response(
-            data=role_data,
-            message=SUCCESS_MESSAGES['ROLE_RETRIEVED']
+            data=group_data,
+            message=SUCCESS_MESSAGES.get('ROLE_RETRIEVED', 'Group retrieved successfully')
         )
     except Exception as e:
         return error_response(
@@ -122,7 +119,7 @@ def get_role_by_id(request, id):
 @api_response
 def update_role_permissions(request, id):
     """
-    Update role permissions
+    Update group permissions
     Matches Node.js RoleController.updateRolePermissions
     """
     try:
@@ -130,47 +127,43 @@ def update_role_permissions(request, id):
         permission_ids = data.get('permissionIds', [])
         
         try:
-            role = Role.objects.get(id=id)
-        except Role.DoesNotExist:
+            group = Group.objects.get(id=id)
+        except Group.DoesNotExist:
             return error_response(
-                message=ERROR_MESSAGES['ROLE_NOT_FOUND'],
+                message=ERROR_MESSAGES.get('ROLE_NOT_FOUND', 'Group not found'),
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Clear existing permissions
-        RolePermission.objects.filter(role=role).delete()
+        group.permissions.clear()
         
         # Add new permissions
         for permission_id in permission_ids:
             try:
                 permission = Permission.objects.get(id=permission_id)
-                RolePermission.objects.create(role=role, permission=permission)
+                group.permissions.add(permission)
             except Permission.DoesNotExist:
                 continue  # Skip invalid permissions
         
-        # Get updated role with permissions
-        role_permissions = RolePermission.objects.filter(role=role).select_related('permission')
+        # Get updated group with permissions
         permissions_data = []
-        
-        for role_perm in role_permissions:
+        for permission in group.permissions.all():
             permissions_data.append({
-                'id': role_perm.permission.id,
-                'name': role_perm.permission.name,
-                'codename': role_perm.permission.codename
+                'id': permission.id,
+                'name': permission.name,
+                'codename': permission.codename
             })
         
-        role_data = {
-            'id': role.id,
-            'name': role.name,
-            'description': role.description,
+        group_data = {
+            'id': group.id,
+            'name': group.name,
             'permissions': permissions_data,
-            'createdAt': role.createdAt.isoformat(),
-            'updatedAt': role.updatedAt.isoformat()
+            'permission_count': group.permissions.count()
         }
         
         return success_response(
-            data=role_data,
-            message=SUCCESS_MESSAGES['ROLE_UPDATED']
+            data=group_data,
+            message=SUCCESS_MESSAGES.get('ROLE_UPDATED', 'Group updated successfully')
         )
     except Exception as e:
         return error_response(
@@ -252,7 +245,7 @@ def update_permission(request, id):
             permission = Permission.objects.get(id=id)
         except Permission.DoesNotExist:
             return error_response(
-                message=ERROR_MESSAGES['PERMISSION_NOT_FOUND'],
+                message=ERROR_MESSAGES.get('PERMISSION_NOT_FOUND', 'Permission not found'),
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
@@ -297,7 +290,7 @@ def delete_permission(request, id):
             permission = Permission.objects.get(id=id)
         except Permission.DoesNotExist:
             return error_response(
-                message=ERROR_MESSAGES['PERMISSION_NOT_FOUND'],
+                message=ERROR_MESSAGES.get('PERMISSION_NOT_FOUND', 'Permission not found'),
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
@@ -326,7 +319,7 @@ def get_permission_by_id(request, id):
             permission = Permission.objects.get(id=id)
         except Permission.DoesNotExist:
             return error_response(
-                message=ERROR_MESSAGES['PERMISSION_NOT_FOUND'],
+                message=ERROR_MESSAGES.get('PERMISSION_NOT_FOUND', 'Permission not found'),
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
