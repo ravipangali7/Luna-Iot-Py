@@ -29,7 +29,7 @@ def create_status(request):
         data = request.data
         
         # Validate required fields
-        required_fields = ['imei', 'battery', 'signal', 'ignition', 'charging', 'relay']
+        required_fields = ['imei', 'battery', 'signal', 'ignition', 'charging', 'relay', 'created_at']
         for field in required_fields:
             if field not in data:
                 return error_response(
@@ -55,7 +55,7 @@ def create_status(request):
             ignition=data['ignition'],
             charging=data['charging'],
             relay=data['relay'],
-            created_at=data.get('created_at', datetime.now())
+            createdAt=data['created_at']
         )
         
         status_data = {
