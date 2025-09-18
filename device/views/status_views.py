@@ -123,7 +123,7 @@ def get_latest_status(request, imei):
     """
     try:
         try:
-            status_obj = Status.objects.filter(imei=imei).order_by('-created_at').first()
+            status_obj = Status.objects.filter(imei=imei).order_by('-createdAt').first()
         except Status.DoesNotExist:
             return error_response(
                 message='No status data found',
@@ -144,7 +144,7 @@ def get_latest_status(request, imei):
             'ignition': status_obj.ignition,
             'charging': status_obj.charging,
             'relay': status_obj.relay,
-            'createdAt': status_obj.created_at.isoformat()
+            'createdAt': status_obj.createdAt.isoformat()
         }
         
         return success_response(
@@ -180,8 +180,8 @@ def get_status_by_date_range(request, imei):
         
         statuses = Status.objects.filter(
             imei=imei,
-            created_at__range=[start, end]
-        ).order_by('-created_at')
+            createdAt__range=[start, end]
+        ).order_by('-createdAt')
         
         statuses_data = []
         for status_obj in statuses:

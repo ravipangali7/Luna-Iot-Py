@@ -17,6 +17,7 @@ from device.models import Device
 from device.models.location import Location
 from device.models.status import Status
 from core.models import User
+from shared.models.recharge import Recharge
 from datetime import datetime, timedelta
 import math
 
@@ -222,8 +223,85 @@ def get_all_vehicles_detailed(request):
                     }
                 })
             
-            # Get recharge info (you'll need to implement this based on your recharge model)
-            recharge_info = None  # Placeholder - implement based on recharge model
+            # Get main customer (user with isMain=True)
+            main_customer = None
+            for uv in vehicle.userVehicles.all():
+                if uv.isMain:
+                    main_customer = {
+                        'id': uv.id,
+                        'userId': uv.user.id,
+                        'vehicleId': uv.vehicle.id,
+                        'isMain': uv.isMain,
+                        'user': {
+                            'id': uv.user.id,
+                            'name': uv.user.name,
+                            'phone': uv.user.phone,
+                            'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
+                            'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
+                            'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
+                            'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                        },
+                        'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
+                        'allAccess': uv.allAccess,
+                        'liveTracking': uv.liveTracking,
+                        'history': uv.history,
+                        'report': uv.report,
+                        'vehicleProfile': uv.vehicleProfile,
+                        'events': uv.events,
+                        'geofence': uv.geofence,
+                        'edit': uv.edit,
+                        'shareTracking': uv.shareTracking,
+                        'notification': uv.notification
+                    }
+                    break
+            
+            # Get latest recharge info
+            try:
+                latest_recharge_obj = Recharge.objects.filter(device=vehicle.device).order_by('-createdAt').first()
+                latest_recharge = {
+                    'id': latest_recharge_obj.id,
+                    'deviceId': latest_recharge_obj.device.id,
+                    'amount': float(latest_recharge_obj.amount),
+                    'createdAt': latest_recharge_obj.createdAt.isoformat()
+                } if latest_recharge_obj else None
+            except Exception as e:
+                latest_recharge = None
+            
+            # Calculate today's km
+            today_km = calculate_today_km(vehicle.imei)
+            
+            # Get latest status
+            try:
+                latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_status = {
+                    'id': latest_status_obj.id,
+                    'imei': latest_status_obj.imei,
+                    'battery': latest_status_obj.battery,
+                    'signal': latest_status_obj.signal,
+                    'ignition': latest_status_obj.ignition,
+                    'charging': latest_status_obj.charging,
+                    'relay': latest_status_obj.relay,
+                    'createdAt': latest_status_obj.createdAt.isoformat()
+                } if latest_status_obj else None
+            except Exception as e:
+                latest_status = None
+            
+            # Get latest location
+            try:
+                latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_location = {
+                    'id': latest_location_obj.id,
+                    'imei': latest_location_obj.imei,
+                    'latitude': float(latest_location_obj.latitude),
+                    'longitude': float(latest_location_obj.longitude),
+                    'speed': latest_location_obj.speed,
+                    'course': latest_location_obj.course,
+                    'satellite': latest_location_obj.satellite,
+                    'realTimeGps': latest_location_obj.realTimeGps,
+                    'createdAt': latest_location_obj.createdAt.isoformat()
+                } if latest_location_obj else None
+            except Exception as e:
+                latest_location = None
             
             vehicle_data = {
                 'id': vehicle.id,
@@ -248,7 +326,11 @@ def get_all_vehicles_detailed(request):
                     'model': vehicle.device.model
                 } if vehicle.device else None,
                 'users': users_with_access,
-                'rechargeInfo': recharge_info
+                'mainCustomer': main_customer,
+                'latestRecharge': latest_recharge,
+                'latestStatus': latest_status,
+                'latestLocation': latest_location,
+                'todayKm': today_km
             }
             vehicles_data.append(vehicle_data)
         

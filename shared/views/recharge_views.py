@@ -29,12 +29,12 @@ def get_all_recharges(request):
         
         # Super Admin: all access
         if user.role.name == 'Super Admin':
-            recharges = Recharge.objects.select_related('device').all().order_by('-created_at')
+            recharges = Recharge.objects.select_related('device').all().order_by('-createdAt')
         # Dealer: only view recharges for assigned devices
         elif user.role.name == 'Dealer':
             recharges = Recharge.objects.filter(
                 device__userdevice__user=user
-            ).select_related('device').distinct().order_by('-created_at')
+            ).select_related('device').distinct().order_by('-createdAt')
         # Customer: no access to recharges
         else:
             return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
@@ -44,18 +44,26 @@ def get_all_recharges(request):
             recharge_data = {
                 'id': recharge.id,
                 'deviceId': recharge.device.id,
-                'deviceImei': recharge.device.imei,
-                'deviceName': recharge.device.name,
                 'amount': float(recharge.amount),
-                'createdAt': recharge.created_at.isoformat() if recharge.created_at else None,
-                'updatedAt': recharge.updated_at.isoformat() if recharge.updated_at else None
+                'createdAt': recharge.createdAt.isoformat() if recharge.createdAt else None,
+                'device': {
+                    'id': recharge.device.id,
+                    'imei': recharge.device.imei,
+                    'phone': recharge.device.phone,
+                    'sim': recharge.device.sim,
+                    'protocol': recharge.device.protocol,
+                    'iccid': recharge.device.iccid,
+                    'model': recharge.device.model,
+                    'createdAt': recharge.device.createdAt.isoformat() if recharge.device.createdAt else None,
+                    'updatedAt': recharge.device.updatedAt.isoformat() if recharge.device.updatedAt else None
+                }
             }
             recharges_data.append(recharge_data)
         
         return success_response(recharges_data, 'Recharges retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve recharges')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -87,8 +95,8 @@ def get_recharges_with_pagination(request):
         if device_id:
             recharges_query = recharges_query.filter(device_id=device_id)
         
-        # Order by created_at descending
-        recharges_query = recharges_query.order_by('-created_at')
+        # Order by createdAt descending
+        recharges_query = recharges_query.order_by('-createdAt')
         
         # Paginate
         paginator = Paginator(recharges_query, limit)
@@ -99,11 +107,19 @@ def get_recharges_with_pagination(request):
             recharge_data = {
                 'id': recharge.id,
                 'deviceId': recharge.device.id,
-                'deviceImei': recharge.device.imei,
-                'deviceName': recharge.device.name,
                 'amount': float(recharge.amount),
-                'createdAt': recharge.created_at.isoformat() if recharge.created_at else None,
-                'updatedAt': recharge.updated_at.isoformat() if recharge.updated_at else None
+                'createdAt': recharge.createdAt.isoformat() if recharge.createdAt else None,
+                'device': {
+                    'id': recharge.device.id,
+                    'imei': recharge.device.imei,
+                    'phone': recharge.device.phone,
+                    'sim': recharge.device.sim,
+                    'protocol': recharge.device.protocol,
+                    'iccid': recharge.device.iccid,
+                    'model': recharge.device.model,
+                    'createdAt': recharge.device.createdAt.isoformat() if recharge.device.createdAt else None,
+                    'updatedAt': recharge.device.updatedAt.isoformat() if recharge.device.updatedAt else None
+                }
             }
             recharges_data.append(recharge_data)
         
@@ -122,7 +138,7 @@ def get_recharges_with_pagination(request):
         return success_response(result, 'Recharges retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve recharges')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -157,17 +173,25 @@ def get_recharge_by_id(request, id):
         recharge_data = {
             'id': recharge.id,
             'deviceId': recharge.device.id,
-            'deviceImei': recharge.device.imei,
-            'deviceName': recharge.device.name,
             'amount': float(recharge.amount),
-            'createdAt': recharge.created_at.isoformat() if recharge.created_at else None,
-            'updatedAt': recharge.updated_at.isoformat() if recharge.updated_at else None
+            'createdAt': recharge.createdAt.isoformat() if recharge.createdAt else None,
+            'device': {
+                'id': recharge.device.id,
+                'imei': recharge.device.imei,
+                'phone': recharge.device.phone,
+                'sim': recharge.device.sim,
+                'protocol': recharge.device.protocol,
+                'iccid': recharge.device.iccid,
+                'model': recharge.device.model,
+                'createdAt': recharge.device.createdAt.isoformat() if recharge.device.createdAt else None,
+                'updatedAt': recharge.device.updatedAt.isoformat() if recharge.device.updatedAt else None
+            }
         }
         
         return success_response(recharge_data, 'Recharge retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve recharge')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -197,25 +221,33 @@ def get_recharges_by_device_id(request, device_id):
         else:
             return error_response('Access denied. Customers cannot view recharges', HTTP_STATUS['FORBIDDEN'])
         
-        recharges = Recharge.objects.filter(device_id=device_id).order_by('-created_at')
+        recharges = Recharge.objects.filter(device_id=device_id).order_by('-createdAt')
         
         recharges_data = []
         for recharge in recharges:
             recharge_data = {
                 'id': recharge.id,
                 'deviceId': recharge.device.id,
-                'deviceImei': recharge.device.imei,
-                'deviceName': recharge.device.name,
                 'amount': float(recharge.amount),
-                'createdAt': recharge.created_at.isoformat() if recharge.created_at else None,
-                'updatedAt': recharge.updated_at.isoformat() if recharge.updated_at else None
+                'createdAt': recharge.createdAt.isoformat() if recharge.createdAt else None,
+                'device': {
+                    'id': recharge.device.id,
+                    'imei': recharge.device.imei,
+                    'phone': recharge.device.phone,
+                    'sim': recharge.device.sim,
+                    'protocol': recharge.device.protocol,
+                    'iccid': recharge.device.iccid,
+                    'model': recharge.device.model,
+                    'createdAt': recharge.device.createdAt.isoformat() if recharge.device.createdAt else None,
+                    'updatedAt': recharge.device.updatedAt.isoformat() if recharge.device.updatedAt else None
+                }
             }
             recharges_data.append(recharge_data)
         
         return success_response(recharges_data, 'Device recharges retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve device recharges')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -232,9 +264,9 @@ def create_recharge(request):
         
         # Validate required fields
         required_fields = ['deviceId', 'amount']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         device_id = data['deviceId']
         amount = data['amount']
@@ -272,29 +304,15 @@ def create_recharge(request):
         
         print(f'Processing recharge: deviceId={device.id}, imei={device.imei}, phone={device.phone}, sim={device.sim}, amount={amount}, userId={user.id}, userRole={user.role.name}')
         
-        # Process mobile top-up (you'll need to implement this service)
+        # Process mobile top-up using the real service
         try:
-            # TODO: Implement mobile top-up service
-            # topup_result = mobile_topup_service.process_topup(
-            #     device.phone,
-            #     amount,
-            #     device.sim
-            # )
+            from api_common.services.mobile_topup_service import mobile_topup_service
             
-            # For now, simulate successful top-up
-            topup_result = {
-                'success': True,
-                'message': 'Top-up successful',
-                'simType': device.sim,
-                'reference': f'REF_{device.id}_{amount}',
-                'statusCode': 200,
-                'state': 'completed',
-                'data': {
-                    'CreditsConsumed': amount,
-                    'CreditsAvailable': 1000 - amount,
-                    'Id': f'TXN_{device.id}_{amount}'
-                }
-            }
+            topup_result = mobile_topup_service.process_topup(
+                device.phone,
+                amount,
+                device.sim
+            )
         except Exception as topup_error:
             print(f'Top-up error: {topup_error}')
             return error_response(f'Top-up failed: {str(topup_error)}', HTTP_STATUS['BAD_REQUEST'])
@@ -317,11 +335,19 @@ def create_recharge(request):
         recharge_data = {
             'id': recharge.id,
             'deviceId': recharge.device.id,
-            'deviceImei': recharge.device.imei,
-            'deviceName': recharge.device.name,
             'amount': float(recharge.amount),
-            'createdAt': recharge.created_at.isoformat() if recharge.created_at else None,
-            'updatedAt': recharge.updated_at.isoformat() if recharge.updated_at else None,
+            'createdAt': recharge.createdAt.isoformat() if recharge.createdAt else None,
+            'device': {
+                'id': recharge.device.id,
+                'imei': recharge.device.imei,
+                'phone': recharge.device.phone,
+                'sim': recharge.device.sim,
+                'protocol': recharge.device.protocol,
+                'iccid': recharge.device.iccid,
+                'model': recharge.device.model,
+                'createdAt': recharge.device.createdAt.isoformat() if recharge.device.createdAt else None,
+                'updatedAt': recharge.device.updatedAt.isoformat() if recharge.device.updatedAt else None
+            },
             'topupResult': {
                 'success': topup_result.get('success', False),
                 'message': topup_result.get('message', ''),
@@ -342,7 +368,7 @@ def create_recharge(request):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to create recharge')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -380,26 +406,26 @@ def get_recharge_stats(request, device_id):
         )
         
         # Get latest recharge
-        latest_recharge = Recharge.objects.filter(device_id=device_id).order_by('-created_at').first()
+        latest_recharge = Recharge.objects.filter(device_id=device_id).order_by('-createdAt').first()
         
         stats_data = {
             'deviceId': device_id,
             'deviceImei': device.imei,
-            'deviceName': device.name,
+            'deviceName': device.imei,
             'totalRecharges': stats['total_recharges'] or 0,
             'totalAmount': float(stats['total_amount'] or 0),
             'averageAmount': float(stats['average_amount'] or 0),
             'latestRecharge': {
                 'id': latest_recharge.id,
                 'amount': float(latest_recharge.amount),
-                'createdAt': latest_recharge.created_at.isoformat() if latest_recharge.created_at else None
+                'createdAt': latest_recharge.createdAt.isoformat() if latest_recharge.createdAt else None
             } if latest_recharge else None
         }
         
         return success_response(stats_data, 'Recharge statistics retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve recharge statistics')
+        return handle_api_exception(e)
 
 
 @csrf_exempt

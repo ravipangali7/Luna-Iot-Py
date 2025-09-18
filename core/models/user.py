@@ -43,3 +43,13 @@ class User(AbstractUser):
     @property
     def is_anonymous(self):
         return False
+    
+    @property
+    def role(self):
+        """
+        Get the primary role (first group) for backward compatibility
+        """
+        primary_group = self.groups.first()
+        if primary_group:
+            return type('Role', (), {'name': primary_group.name})()
+        return None

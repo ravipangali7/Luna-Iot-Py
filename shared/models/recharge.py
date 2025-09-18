@@ -6,6 +6,7 @@ class Recharge(models.Model):
     device = models.ForeignKey(Device, on_delete=models.CASCADE, related_name='recharges')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
+    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 
     class Meta:
         db_table = 'recharges'
