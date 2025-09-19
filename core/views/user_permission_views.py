@@ -41,10 +41,15 @@ def get_user_permissions(request, userId):
         
         for user_perm in user_permissions:
             permissions_data.append({
-                'id': user_perm.permission.id,
-                'name': user_perm.permission.name,
-                'codename': user_perm.permission.codename,
-                'assignedAt': user_perm.created_at.isoformat() if hasattr(user_perm, 'created_at') else None
+                'id': user_perm.id,
+                'userId': userId,
+                'permissionId': user_perm.permission.id,
+                'permission': {
+                    'id': user_perm.permission.id,
+                    'name': user_perm.permission.name,
+                    'codename': user_perm.permission.codename,
+                },
+                'createdAt': user_perm.created_at.isoformat() if hasattr(user_perm, 'created_at') else None
             })
         
         return success_response(
