@@ -125,8 +125,9 @@ def send_registration_otp(request):
         Otp.objects.filter(phone=phone).delete()  # Delete existing OTPs
         Otp.objects.create(phone=phone, otp=otp)
         
-        # TODO: Send SMS (implement SMS service)
-        # sms_result = sms_service.sendOTP(phone, otp)
+        # Send SMS
+        sms_result = sms_service.send_otp(phone, otp)
+        print(f"SMS send result for {phone}: {sms_result}")
         
         return success_response(
             data={
@@ -283,8 +284,9 @@ def resend_otp(request):
         Otp.objects.filter(phone=phone).delete()  # Delete existing OTPs
         Otp.objects.create(phone=phone, otp=otp)
         
-        # TODO: Send SMS (implement SMS service)
-        # sms_result = sms_service.sendOTP(phone, otp)
+        # Send SMS
+        sms_result = sms_service.send_otp(phone, otp)
+        print(f"SMS send result for {phone}: {sms_result}")
         
         return success_response(
             data={
@@ -440,8 +442,9 @@ def send_forgot_password_otp(request):
         Otp.objects.filter(phone=phone).delete()  # Delete existing OTPs
         Otp.objects.create(phone=phone, otp=otp)
         
-        # TODO: Send SMS (implement SMS service)
-        # sms_result = sms_service.sendOTP(phone, otp)
+        # Send SMS
+        sms_result = sms_service.send_otp(phone, otp)
+        print(f"SMS send result for {phone}: {sms_result}")
         
         return success_response(
             data={
