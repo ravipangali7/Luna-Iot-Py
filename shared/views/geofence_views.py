@@ -31,9 +31,9 @@ def create_geofence(request):
         
         # Validate required fields
         required_fields = ['title', 'type', 'boundary']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         title = data['title']
         geofence_type = data['type']
