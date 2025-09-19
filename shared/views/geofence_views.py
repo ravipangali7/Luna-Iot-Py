@@ -123,7 +123,7 @@ def create_geofence(request):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to create geofence')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -162,7 +162,7 @@ def get_all_geofences(request):
         return success_response(geofences_data, 'Geofences retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve geofences')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -200,7 +200,7 @@ def get_geofence_by_id(request, id):
         return success_response(geofence_data, 'Geofence retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve geofence')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -240,7 +240,7 @@ def get_geofences_by_imei(request, imei):
         return success_response(geofences_data, 'Geofences retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve geofences')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -319,7 +319,7 @@ def update_geofence(request, id):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to update geofence')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -350,4 +350,4 @@ def delete_geofence(request, id):
         return success_response(None, 'Geofence deleted successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to delete geofence')
+        return handle_api_exception(e)
