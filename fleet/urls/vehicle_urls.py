@@ -8,12 +8,14 @@ urlpatterns = [
     path('vehicle/create', vehicle_views.create_vehicle, name='create_vehicle'),
     path('vehicle/update/<str:imei>', vehicle_views.update_vehicle, name='update_vehicle'),
     path('vehicle/delete/<str:imei>', vehicle_views.delete_vehicle, name='delete_vehicle'),
-    path('vehicle/<str:imei>', vehicle_views.get_vehicle_by_imei, name='get_vehicle_by_imei'),
     
-    # Vehicle access routes
+    # Vehicle access routes - must come before vehicle/<str:imei> to avoid conflicts
     path('vehicle/access', vehicle_views.assign_vehicle_access_to_user, name='assign_vehicle_access_to_user'),
     path('vehicle/access/available', vehicle_views.get_vehicles_for_access_assignment, name='get_vehicles_for_access_assignment'),
     path('vehicle/access/update', vehicle_views.update_vehicle_access, name='update_vehicle_access'),
     path('vehicle/access/remove', vehicle_views.remove_vehicle_access, name='remove_vehicle_access'),
     path('vehicle/<str:imei>/access', vehicle_views.get_vehicle_access_assignments, name='get_vehicle_access_assignments'),
+    
+    # This must come last to avoid conflicts with specific patterns above
+    path('vehicle/<str:imei>', vehicle_views.get_vehicle_by_imei, name='get_vehicle_by_imei'),
 ]
