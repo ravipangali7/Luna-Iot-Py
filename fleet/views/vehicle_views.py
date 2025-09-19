@@ -81,30 +81,13 @@ def calculate_today_km(imei):
 
 @csrf_exempt
 @require_http_methods(["GET"])
-# @require_auth  # Temporarily disabled for debugging
+@require_auth
 def get_all_vehicles(request):
     """
     Get all vehicles with complete data (ownership, today's km, latest status and location)
     """
     try:
-        print(f"Vehicle API - Request path: {request.path}")
-        print(f"Vehicle API - Request method: {request.method}")
-        print(f"Vehicle API - Request headers: {dict(request.META)}")
-        
-        # Check if user is set by middleware
-        if hasattr(request, 'user'):
-            user = request.user
-            print(f"Vehicle API - User: {user}")
-            print(f"Vehicle API - User authenticated: {user.is_authenticated}")
-            print(f"Vehicle API - User groups: {list(user.groups.all())}")
-        else:
-            print("Vehicle API - No user found in request")
-            # For now, get a default user for testing
-            from core.models.user import User
-            user = User.objects.first()
-            if not user:
-                return error_response('No users found in database', 500)
-            print(f"Vehicle API - Using default user: {user}")
+        user = request.user
         
         # Get vehicles based on user role
         user_group = user.groups.first()
@@ -172,16 +155,16 @@ def get_all_vehicles(request):
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'userVehicle': {
                     'isMain': user_vehicle.isMain if user_vehicle else False,
-                    'allAccess': getattr(user_vehicle, 'allAccess', False) if user_vehicle else False,
-                    'liveTracking': getattr(user_vehicle, 'liveTracking', False) if user_vehicle else False,
-                    'history': getattr(user_vehicle, 'history', False) if user_vehicle else False,
-                    'report': getattr(user_vehicle, 'report', False) if user_vehicle else False,
-                    'vehicleProfile': getattr(user_vehicle, 'vehicleProfile', False) if user_vehicle else False,
-                    'events': getattr(user_vehicle, 'events', False) if user_vehicle else False,
-                    'geofence': getattr(user_vehicle, 'geofence', False) if user_vehicle else False,
-                    'edit': getattr(user_vehicle, 'edit', False) if user_vehicle else False,
-                    'shareTracking': getattr(user_vehicle, 'shareTracking', False) if user_vehicle else False,
-                    'notification': getattr(user_vehicle, 'notification', False) if user_vehicle else False
+                    'allAccess': user_vehicle.allAccess if user_vehicle else False,
+                    'liveTracking': user_vehicle.liveTracking if user_vehicle else False,
+                    'history': user_vehicle.history if user_vehicle else False,
+                    'report': user_vehicle.report if user_vehicle else False,
+                    'vehicleProfile': user_vehicle.vehicleProfile if user_vehicle else False,
+                    'events': user_vehicle.events if user_vehicle else False,
+                    'geofence': user_vehicle.geofence if user_vehicle else False,
+                    'edit': user_vehicle.edit if user_vehicle else False,
+                    'shareTracking': user_vehicle.shareTracking if user_vehicle else False,
+                    'notification': user_vehicle.notification if user_vehicle else False
                 } if user_vehicle else None,
                 'todayKm': today_km,
                 'latestStatus': latest_status,
@@ -788,7 +771,16 @@ def assign_vehicle_access_to_user(request):
             vehicle=vehicle,
             user=target_user,
             isMain=False,
-            permissions=permissions
+            allAccess=permissions.get('allAccess', False),
+            liveTracking=permissions.get('liveTracking', False),
+            history=permissions.get('history', False),
+            report=permissions.get('report', False),
+            vehicleProfile=permissions.get('vehicleProfile', False),
+            events=permissions.get('events', False),
+            geofence=permissions.get('geofence', False),
+            edit=permissions.get('edit', False),
+            shareTracking=permissions.get('shareTracking', False),
+            notification=permissions.get('notification', True)
         )
         
         assignment_data = {
@@ -796,8 +788,19 @@ def assign_vehicle_access_to_user(request):
             'vehicleId': vehicle.id,
             'userId': target_user.id,
             'isMain': user_vehicle.isMain,
-            'permissions': user_vehicle.permissions,
-            'createdAt': user_vehicle.created_at.isoformat() if user_vehicle.created_at else None
+            'permissions': {
+                'allAccess': user_vehicle.allAccess,
+                'liveTracking': user_vehicle.liveTracking,
+                'history': user_vehicle.history,
+                'report': user_vehicle.report,
+                'vehicleProfile': user_vehicle.vehicleProfile,
+                'events': user_vehicle.events,
+                'geofence': user_vehicle.geofence,
+                'edit': user_vehicle.edit,
+                'shareTracking': user_vehicle.shareTracking,
+                'notification': user_vehicle.notification
+            },
+            'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None
         }
         
         return success_response(assignment_data, 'Vehicle access assigned successfully')
@@ -836,7 +839,7 @@ def get_vehicles_for_access_assignment(request):
                 'imei': vehicle.imei,
                 'name': vehicle.name,
                 'vehicleNo': vehicle.vehicleNo,
-                'vehicleType': vehicle.vehicle_type
+                'vehicleType': vehicle.vehicleType
             })
         
         return success_response(vehicles_data, 'Vehicles for access assignment retrieved successfully')
@@ -883,8 +886,19 @@ def get_vehicle_access_assignments(request, imei):
                 'userName': uv.user.name,
                 'userPhone': uv.user.phone,
                 'isMain': uv.isMain,
-                'permissions': uv.permissions,
-                'createdAt': uv.created_at.isoformat() if uv.created_at else None
+                'permissions': {
+                    'allAccess': uv.allAccess,
+                    'liveTracking': uv.liveTracking,
+                    'history': uv.history,
+                    'report': uv.report,
+                    'vehicleProfile': uv.vehicleProfile,
+                    'events': uv.events,
+                    'geofence': uv.geofence,
+                    'edit': uv.edit,
+                    'shareTracking': uv.shareTracking,
+                    'notification': uv.notification
+                },
+                'createdAt': uv.createdAt.isoformat() if uv.createdAt else None
             })
         
         return success_response(assignments_data, 'Vehicle access assignments retrieved successfully')
@@ -935,7 +949,16 @@ def update_vehicle_access(request):
         # Update vehicle access
         try:
             user_vehicle = UserVehicle.objects.get(vehicle=vehicle, user_id=user_id)
-            user_vehicle.permissions = permissions
+            user_vehicle.allAccess = permissions.get('allAccess', False)
+            user_vehicle.liveTracking = permissions.get('liveTracking', False)
+            user_vehicle.history = permissions.get('history', False)
+            user_vehicle.report = permissions.get('report', False)
+            user_vehicle.vehicleProfile = permissions.get('vehicleProfile', False)
+            user_vehicle.events = permissions.get('events', False)
+            user_vehicle.geofence = permissions.get('geofence', False)
+            user_vehicle.edit = permissions.get('edit', False)
+            user_vehicle.shareTracking = permissions.get('shareTracking', False)
+            user_vehicle.notification = permissions.get('notification', True)
             user_vehicle.save()
         except UserVehicle.DoesNotExist:
             return error_response('Vehicle access assignment not found', HTTP_STATUS['NOT_FOUND'])
@@ -945,8 +968,19 @@ def update_vehicle_access(request):
             'vehicleId': vehicle.id,
             'userId': user_vehicle.user.id,
             'isMain': user_vehicle.isMain,
-            'permissions': user_vehicle.permissions,
-            'createdAt': user_vehicle.created_at.isoformat() if user_vehicle.created_at else None
+            'permissions': {
+                'allAccess': user_vehicle.allAccess,
+                'liveTracking': user_vehicle.liveTracking,
+                'history': user_vehicle.history,
+                'report': user_vehicle.report,
+                'vehicleProfile': user_vehicle.vehicleProfile,
+                'events': user_vehicle.events,
+                'geofence': user_vehicle.geofence,
+                'edit': user_vehicle.edit,
+                'shareTracking': user_vehicle.shareTracking,
+                'notification': user_vehicle.notification
+            },
+            'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None
         }
         
         return success_response(assignment_data, 'Vehicle access updated successfully')
