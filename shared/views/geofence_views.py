@@ -80,16 +80,27 @@ def create_geofence(request):
                         try:
                             vehicle = Vehicle.objects.get(imei=vehicle_id)
                             actual_vehicle_ids.append(vehicle.id)
+                            print(f"✓ Found vehicle with IMEI {vehicle_id}, ID: {vehicle.id}")
                         except Vehicle.DoesNotExist:
-                            print(f"✗ Vehicle with IMEI {vehicle_id} not found")
+                            print(f"✗ Vehicle with IMEI {vehicle_id} not found - skipping")
+                            continue
                     else:
                         # This is already a vehicle ID
                         try:
-                            actual_vehicle_ids.append(int(vehicle_id))
+                            vehicle_id_int = int(vehicle_id)
+                            # Verify the vehicle exists
+                            vehicle = Vehicle.objects.get(id=vehicle_id_int)
+                            actual_vehicle_ids.append(vehicle_id_int)
+                            print(f"✓ Found vehicle with ID {vehicle_id}")
                         except (ValueError, TypeError):
-                            print(f"✗ Invalid vehicle ID: {vehicle_id}")
+                            print(f"✗ Invalid vehicle ID format: {vehicle_id}")
+                            continue
+                        except Vehicle.DoesNotExist:
+                            print(f"✗ Vehicle with ID {vehicle_id} not found - skipping")
+                            continue
                 
                 if actual_vehicle_ids:
+                    print(f"Creating GeofenceVehicle relationships for {len(actual_vehicle_ids)} vehicles")
                     for vehicle_id in actual_vehicle_ids:
                         try:
                             vehicle = Vehicle.objects.get(id=vehicle_id)
@@ -97,14 +108,23 @@ def create_geofence(request):
                                 geofence=geofence,
                                 vehicle=vehicle
                             )
+                            print(f"✓ Created GeofenceVehicle for vehicle {vehicle.name} (ID: {vehicle_id})")
                         except Vehicle.DoesNotExist:
                             print(f"✗ Vehicle with ID {vehicle_id} not found")
+                        except Exception as e:
+                            print(f"✗ Error creating GeofenceVehicle for vehicle {vehicle_id}: {e}")
+                else:
+                    print("No valid vehicles found to assign")
             
             # Always assign the current user to the geofence (creator)
-            GeofenceUser.objects.create(
-                geofence=geofence,
-                user=user
-            )
+            try:
+                GeofenceUser.objects.create(
+                    geofence=geofence,
+                    user=user
+                )
+                print(f"✓ Created GeofenceUser for creator {user.name} (ID: {user.id})")
+            except Exception as e:
+                print(f"✗ Error creating GeofenceUser for creator: {e}")
             
             # Assign to additional users if provided
             if user_ids and isinstance(user_ids, list) and len(user_ids) > 0:
@@ -118,8 +138,11 @@ def create_geofence(request):
                             geofence=geofence,
                             user=user_obj
                         )
+                        print(f"✓ Created GeofenceUser for user {user_obj.name} (ID: {user_id})")
                     except User.DoesNotExist:
-                        print(f"✗ User with ID {user_id} not found")
+                        print(f"✗ User with ID {user_id} not found - skipping")
+                    except Exception as e:
+                        print(f"✗ Error creating GeofenceUser for user {user_id}: {e}")
         
         # Get updated geofence with assignments
         geofence_data = {
@@ -133,6 +156,7 @@ def create_geofence(request):
             'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
         }
         
+        print(f"✓ Geofence creation completed successfully! ID: {geofence.id}")
         return success_response(geofence_data, 'Geofence created successfully', HTTP_STATUS['CREATED'])
     
     except json.JSONDecodeError:
