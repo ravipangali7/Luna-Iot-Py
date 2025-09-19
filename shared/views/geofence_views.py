@@ -62,8 +62,7 @@ def create_geofence(request):
             geofence = Geofence.objects.create(
                 title=title,
                 type=geofence_type,
-                boundary=boundary,
-                created_by=user
+                boundary=boundary
             )
             
             # Assign to vehicles if provided

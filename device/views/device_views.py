@@ -267,6 +267,60 @@ def get_device_by_imei(request, imei):
                 status_code=HTTP_STATUS['FORBIDDEN']
             )
         
+        # Get user devices with user info and roles
+        user_devices_data = []
+        for user_device in device.userDevices.all():
+            user_data = {
+                'id': user_device.user.id,
+                'name': user_device.user.name,
+                'phone': user_device.user.phone,
+                'status': 'active',  # Default status
+                'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_device.user.groups.all()],
+                'createdAt': user_device.createdAt.isoformat(),
+                'updatedAt': user_device.createdAt.isoformat()
+            }
+            user_devices_data.append({
+                'id': user_device.id,
+                'userId': user_device.user.id,
+                'deviceId': device.id,
+                'user': user_data,
+                'createdAt': user_device.createdAt.isoformat(),
+                'updatedAt': user_device.createdAt.isoformat()
+            })
+        
+        # Get vehicles with user vehicles
+        vehicles_data = []
+        for vehicle in device.vehicles.all():
+            user_vehicles_data = []
+            for user_vehicle in vehicle.userVehicles.all():
+                user_data = {
+                    'id': user_vehicle.user.id,
+                    'name': user_vehicle.user.name,
+                    'phone': user_vehicle.user.phone,
+                    'status': 'active',  # Default status
+                    'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                    'createdAt': user_vehicle.createdAt.isoformat(),
+                    'updatedAt': user_vehicle.createdAt.isoformat()
+                }
+                user_vehicles_data.append({
+                    'id': user_vehicle.id,
+                    'userId': user_vehicle.user.id,
+                    'vehicleId': vehicle.id,
+                    'isMain': user_vehicle.isMain,
+                    'user': user_data,
+                    'createdAt': user_vehicle.createdAt.isoformat(),
+                    'updatedAt': user_vehicle.createdAt.isoformat()
+                })
+            
+            vehicles_data.append({
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'userVehicles': user_vehicles_data
+            })
+        
         device_data = {
             'id': device.id,
             'imei': device.imei,
@@ -275,6 +329,9 @@ def get_device_by_imei(request, imei):
             'protocol': device.protocol,
             'iccid': device.iccid,
             'model': device.model,
+            'status': 'active',  # Default status
+            'userDevices': user_devices_data,
+            'vehicles': vehicles_data,
             'createdAt': device.createdAt.isoformat(),
             'updatedAt': device.updatedAt.isoformat()
         }
