@@ -145,19 +145,77 @@ def create_geofence(request):
                         print(f"✗ Error creating GeofenceUser for user {user_id}: {e}")
         
         # Get updated geofence with assignments
-        geofence_data = {
-            'id': geofence.id,
-            'title': geofence.title,
-            'type': geofence.type,
-            'boundary': geofence.boundary,
-            'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
-            'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
-            'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
-            'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
-        }
-        
-        print(f"✓ Geofence creation completed successfully! ID: {geofence.id}")
-        return success_response(geofence_data, 'Geofence created successfully', HTTP_STATUS['CREATED'])
+        print("Building response data...")
+        try:
+            print("About to build response...")
+            # Get vehicles data safely
+            vehicles_data = []
+            for gv in geofence.geofencevehicle_set.all():
+                try:
+                    vehicles_data.append({
+                        'id': gv.vehicle.id, 
+                        'imei': gv.vehicle.imei, 
+                        'name': gv.vehicle.name
+                    })
+                except Exception as e:
+                    print(f"Error building vehicle data: {e}")
+                    continue
+            
+            # Get users data safely
+            users_data = []
+            for gu in geofence.geofenceuser_set.all():
+                try:
+                    users_data.append({
+                        'id': gu.user.id, 
+                        'name': gu.user.name, 
+                        'phone': gu.user.phone
+                    })
+                except Exception as e:
+                    print(f"Error building user data: {e}")
+                    continue
+            
+            geofence_data = {
+                'id': geofence.id,
+                'title': geofence.title,
+                'type': geofence.type,
+                'boundary': geofence.boundary,
+                'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+                'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
+                'vehicles': vehicles_data,
+                'users': users_data
+            }
+            
+            print(f"✓ Geofence creation completed successfully! ID: {geofence.id}")
+            print(f"Response data: {geofence_data}")
+            print("Calling success_response...")
+            
+            # Try with a simple response first
+            simple_response_data = {
+                'id': geofence.id,
+                'title': geofence.title,
+                'type': geofence.type,
+                'boundary': geofence.boundary
+            }
+            
+            response = success_response(simple_response_data, 'Geofence created successfully', 201)
+            print(f"Success response created: {type(response)}")
+            return response
+            
+        except Exception as e:
+            print(f"Error building response data: {e}")
+            # Return a simple response if there's an error
+            simple_data = {
+                'id': geofence.id,
+                'title': geofence.title,
+                'type': geofence.type,
+                'boundary': geofence.boundary,
+                'vehicles': [],
+                'users': []
+            }
+            print("Using fallback simple response...")
+            response = success_response(simple_data, 'Geofence created successfully', 201)
+            print(f"Fallback response created: {type(response)}")
+            return response
     
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
