@@ -60,9 +60,16 @@ def get_current_user(request):
                 'permissions': group_permissions
             })
         
-        # Get direct user permissions
-        direct_permissions = list(user.user_permissions.values_list('name', flat=True))
-        all_permissions.update(direct_permissions)
+        # Get direct user permissions from Django's built-in system
+        django_direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(django_direct_permissions)
+        
+        # Get direct user permissions from custom UserPermission model
+        custom_direct_permissions = list(user.userpermission_set.values_list('permission__name', flat=True))
+        all_permissions.update(custom_direct_permissions)
+        
+        # Combine all direct permissions for backward compatibility
+        direct_permissions = list(set(django_direct_permissions + custom_direct_permissions))
         
         # Get all available permissions for UI
         from django.contrib.auth.models import Permission
@@ -359,9 +366,16 @@ def login(request):
                 'permissions': group_permissions
             })
         
-        # Get direct user permissions
-        direct_permissions = list(user.user_permissions.values_list('name', flat=True))
-        all_permissions.update(direct_permissions)
+        # Get direct user permissions from Django's built-in system
+        django_direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(django_direct_permissions)
+        
+        # Get direct user permissions from custom UserPermission model
+        custom_direct_permissions = list(user.userpermission_set.values_list('permission__name', flat=True))
+        all_permissions.update(custom_direct_permissions)
+        
+        # Combine all direct permissions for backward compatibility
+        direct_permissions = list(set(django_direct_permissions + custom_direct_permissions))
         
         # Get primary role for backward compatibility
         primary_role = user_groups.first()
