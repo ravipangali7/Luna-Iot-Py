@@ -26,7 +26,7 @@ from api_common.utils.sms_service import sms_service
 @api_response
 def get_all_devices(request):
     """
-    Get all devices
+    Get all devices with related data
     Matches Node.js DeviceController.getAllDevices
     """
     try:
@@ -39,9 +39,66 @@ def get_all_devices(request):
         
         # Super Admin: all access
         if is_super_admin:
-            devices = Device.objects.all()
+            devices = Device.objects.prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups'
+            ).all()
             devices_data = []
             for device in devices:
+                # Get user devices with user info and roles
+                user_devices_data = []
+                for user_device in device.userDevices.all():
+                    user_data = {
+                        'id': user_device.user.id,
+                        'name': user_device.user.name,
+                        'phone': user_device.user.phone,
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_device.user.groups.all()],
+                        'createdAt': user_device.createdAt.isoformat(),
+                        'updatedAt': user_device.createdAt.isoformat()
+                    }
+                    user_devices_data.append({
+                        'id': user_device.id,
+                        'userId': user_device.user.id,
+                        'deviceId': device.id,
+                        'user': user_data,
+                        'createdAt': user_device.createdAt.isoformat(),
+                        'updatedAt': user_device.createdAt.isoformat()
+                    })
+                
+                # Get vehicles with user vehicles
+                vehicles_data = []
+                for vehicle in device.vehicles.all():
+                    user_vehicles_data = []
+                    for user_vehicle in vehicle.userVehicles.all():
+                        user_data = {
+                            'id': user_vehicle.user.id,
+                            'name': user_vehicle.user.name,
+                            'phone': user_vehicle.user.phone,
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                            'createdAt': user_vehicle.createdAt.isoformat(),
+                            'updatedAt': user_vehicle.createdAt.isoformat()
+                        }
+                        user_vehicles_data.append({
+                            'id': user_vehicle.id,
+                            'userId': user_vehicle.user.id,
+                            'vehicleId': vehicle.id,
+                            'isMain': user_vehicle.isMain,
+                            'user': user_data,
+                            'createdAt': user_vehicle.createdAt.isoformat(),
+                            'updatedAt': user_vehicle.createdAt.isoformat()
+                        })
+                    
+                    vehicles_data.append({
+                        'id': vehicle.id,
+                        'imei': vehicle.imei,
+                        'name': vehicle.name,
+                        'vehicleNo': vehicle.vehicleNo,
+                        'vehicleType': vehicle.vehicleType,
+                        'userVehicles': user_vehicles_data
+                    })
+                
                 devices_data.append({
                     'id': device.id,
                     'imei': device.imei,
@@ -50,6 +107,9 @@ def get_all_devices(request):
                     'protocol': device.protocol,
                     'iccid': device.iccid,
                     'model': device.model,
+                    'status': 'active',  # Default status
+                    'userDevices': user_devices_data,
+                    'vehicles': vehicles_data,
                     'createdAt': device.createdAt.isoformat(),
                     'updatedAt': device.updatedAt.isoformat()
                 })
@@ -60,10 +120,68 @@ def get_all_devices(request):
         
         # Dealer: only view assigned devices
         elif is_dealer:
-            user_devices = UserDevice.objects.filter(user=user).select_related('device')
+            user_devices = UserDevice.objects.filter(user=user).select_related('device').prefetch_related(
+                'device__userDevices__user__groups',
+                'device__vehicles__userVehicles__user__groups'
+            )
             devices_data = []
             for user_device in user_devices:
                 device = user_device.device
+                
+                # Get user devices with user info and roles
+                user_devices_data = []
+                for ud in device.userDevices.all():
+                    user_data = {
+                        'id': ud.user.id,
+                        'name': ud.user.name,
+                        'phone': ud.user.phone,
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in ud.user.groups.all()],
+                        'createdAt': ud.createdAt.isoformat(),
+                        'updatedAt': ud.createdAt.isoformat()
+                    }
+                    user_devices_data.append({
+                        'id': ud.id,
+                        'userId': ud.user.id,
+                        'deviceId': device.id,
+                        'user': user_data,
+                        'createdAt': ud.createdAt.isoformat(),
+                        'updatedAt': ud.createdAt.isoformat()
+                    })
+                
+                # Get vehicles with user vehicles
+                vehicles_data = []
+                for vehicle in device.vehicles.all():
+                    user_vehicles_data = []
+                    for user_vehicle in vehicle.userVehicles.all():
+                        user_data = {
+                            'id': user_vehicle.user.id,
+                            'name': user_vehicle.user.name,
+                            'phone': user_vehicle.user.phone,
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                            'createdAt': user_vehicle.createdAt.isoformat(),
+                            'updatedAt': user_vehicle.createdAt.isoformat()
+                        }
+                        user_vehicles_data.append({
+                            'id': user_vehicle.id,
+                            'userId': user_vehicle.user.id,
+                            'vehicleId': vehicle.id,
+                            'isMain': user_vehicle.isMain,
+                            'user': user_data,
+                            'createdAt': user_vehicle.createdAt.isoformat(),
+                            'updatedAt': user_vehicle.createdAt.isoformat()
+                        })
+                    
+                    vehicles_data.append({
+                        'id': vehicle.id,
+                        'imei': vehicle.imei,
+                        'name': vehicle.name,
+                        'vehicleNo': vehicle.vehicleNo,
+                        'vehicleType': vehicle.vehicleType,
+                        'userVehicles': user_vehicles_data
+                    })
+                
                 devices_data.append({
                     'id': device.id,
                     'imei': device.imei,
@@ -72,6 +190,9 @@ def get_all_devices(request):
                     'protocol': device.protocol,
                     'iccid': device.iccid,
                     'model': device.model,
+                    'status': 'active',  # Default status
+                    'userDevices': user_devices_data,
+                    'vehicles': vehicles_data,
                     'createdAt': device.createdAt.isoformat(),
                     'updatedAt': device.updatedAt.isoformat()
                 })
@@ -112,7 +233,10 @@ def get_device_by_imei(request, imei):
         # Super Admin: can access any device
         if is_super_admin:
             try:
-                device = Device.objects.get(imei=imei)
+                device = Device.objects.prefetch_related(
+                    'userDevices__user__groups',
+                    'vehicles__userVehicles__user__groups'
+                ).get(imei=imei)
             except Device.DoesNotExist:
                 return error_response(
                     message=ERROR_MESSAGES['DEVICE_NOT_FOUND'],
@@ -122,7 +246,10 @@ def get_device_by_imei(request, imei):
         # Dealer: can only access assigned devices
         elif is_dealer:
             try:
-                user_device = UserDevice.objects.select_related('device').get(
+                user_device = UserDevice.objects.select_related('device').prefetch_related(
+                    'device__userDevices__user__groups',
+                    'device__vehicles__userVehicles__user__groups'
+                ).get(
                     user=user,
                     device__imei=imei
                 )
