@@ -56,8 +56,26 @@ def get_all_users(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @api_response
+def user_by_phone_handler(request, phone):
+    """
+    Handle user operations by phone based on HTTP method
+    Routes GET, PUT, DELETE requests to appropriate handlers
+    """
+    if request.method == 'GET':
+        return get_user_by_phone(request, phone)
+    elif request.method == 'PUT':
+        return update_user(request, phone)
+    elif request.method == 'DELETE':
+        return delete_user(request, phone)
+    else:
+        return error_response(
+            message='Method not allowed',
+            status_code=405
+        )
+
+
 def get_user_by_phone(request, phone):
     """
     Get user by phone
@@ -172,9 +190,6 @@ def create_user(request):
         )
 
 
-@api_view(['PUT'])
-@require_auth
-@api_response
 def update_user(request, phone):
     """
     Update user
@@ -242,9 +257,6 @@ def update_user(request, phone):
         )
 
 
-@api_view(['DELETE'])
-@require_auth
-@api_response
 def delete_user(request, phone):
     """
     Delete user

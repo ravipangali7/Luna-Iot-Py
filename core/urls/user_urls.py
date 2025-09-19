@@ -15,12 +15,6 @@ urlpatterns = [
     # Update FCM token
     path('fcm-token', user_views.update_fcm_token, name='update_fcm_token'),
     
-    # Get user by phone
-    path('user/<str:phone>', user_views.get_user_by_phone, name='get_user_by_phone'),
-    
-    # Update user
-    path('user/<str:phone>', user_views.update_user, name='update_user'),
-    
-    # Delete user
-    path('user/<str:phone>', user_views.delete_user, name='delete_user'),
+    # User operations by phone - Django will route based on HTTP method
+    path('user/<str:phone>', user_views.user_by_phone_handler, name='user_by_phone_handler'),
 ]
