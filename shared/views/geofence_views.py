@@ -28,6 +28,7 @@ def create_geofence(request):
     try:
         user = request.user
         data = json.loads(request.body)
+        print(f"Creating geofence for user: {user.id}, data: {data}")
         
         # Validate required fields
         required_fields = ['title', 'type', 'boundary']
@@ -58,36 +59,46 @@ def create_geofence(request):
                 return error_response('Invalid coordinates in boundary', HTTP_STATUS['BAD_REQUEST'])
         
         # Create geofence
+        print(f"Creating geofence with title: {title}, type: {geofence_type}, boundary: {boundary}")
         with transaction.atomic():
             geofence = Geofence.objects.create(
                 title=title,
                 type=geofence_type,
                 boundary=boundary
             )
+            print(f"Geofence created with ID: {geofence.id}")
             
             # Assign to vehicles if provided
             if vehicle_ids and isinstance(vehicle_ids, list) and len(vehicle_ids) > 0:
+                print(f"Assigning vehicles: {vehicle_ids}")
                 actual_vehicle_ids = []
                 
-                for imei in vehicle_ids:
+                for vehicle_id in vehicle_ids:
                     # Check if this is an IMEI (15 digits) or actual vehicle ID
-                    if len(str(imei)) == 15:
+                    if len(str(vehicle_id)) == 15:
                         # This is an IMEI, find the corresponding vehicle ID
                         try:
-                            vehicle = Vehicle.objects.get(imei=imei)
+                            vehicle = Vehicle.objects.get(imei=vehicle_id)
                             actual_vehicle_ids.append(vehicle.id)
                         except Vehicle.DoesNotExist:
-                            print(f"✗ Vehicle with IMEI {imei} not found")
+                            print(f"✗ Vehicle with IMEI {vehicle_id} not found")
                     else:
                         # This is already a vehicle ID
-                        actual_vehicle_ids.append(int(imei))
+                        try:
+                            actual_vehicle_ids.append(int(vehicle_id))
+                        except (ValueError, TypeError):
+                            print(f"✗ Invalid vehicle ID: {vehicle_id}")
                 
                 if actual_vehicle_ids:
                     for vehicle_id in actual_vehicle_ids:
-                        GeofenceVehicle.objects.create(
-                            geofence=geofence,
-                            vehicle_id=vehicle_id
-                        )
+                        try:
+                            vehicle = Vehicle.objects.get(id=vehicle_id)
+                            GeofenceVehicle.objects.create(
+                                geofence=geofence,
+                                vehicle=vehicle
+                            )
+                        except Vehicle.DoesNotExist:
+                            print(f"✗ Vehicle with ID {vehicle_id} not found")
             
             # Always assign the current user to the geofence (creator)
             GeofenceUser.objects.create(
@@ -101,10 +112,14 @@ def create_geofence(request):
                 valid_user_ids = [uid for uid in user_ids if isinstance(uid, int) and uid > 0 and uid != user.id]
                 
                 for user_id in valid_user_ids:
-                    GeofenceUser.objects.create(
-                        geofence=geofence,
-                        user_id=user_id
-                    )
+                    try:
+                        user_obj = User.objects.get(id=user_id)
+                        GeofenceUser.objects.create(
+                            geofence=geofence,
+                            user=user_obj
+                        )
+                    except User.DoesNotExist:
+                        print(f"✗ User with ID {user_id} not found")
         
         # Get updated geofence with assignments
         geofence_data = {
