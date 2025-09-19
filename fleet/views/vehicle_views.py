@@ -885,6 +885,7 @@ def get_vehicle_access_assignments(request, imei):
                 'userId': uv.user.id,
                 'userName': uv.user.name,
                 'userPhone': uv.user.phone,
+                'userRole': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
                 'isMain': uv.isMain,
                 'permissions': {
                     'allAccess': uv.allAccess,
