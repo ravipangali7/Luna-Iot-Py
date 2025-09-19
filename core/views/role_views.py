@@ -48,9 +48,46 @@ def get_all_roles(request):
         )
 
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @require_auth
 @api_response
+def permission_handler(request):
+    """
+    Handle permission operations based on HTTP method
+    Routes GET, POST requests to appropriate handlers
+    """
+    if request.method == 'GET':
+        return get_all_permissions(request)
+    elif request.method == 'POST':
+        return create_permission(request)
+    else:
+        return error_response(
+            message='Method not allowed',
+            status_code=405
+        )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@require_auth
+@api_response
+def permission_by_id_handler(request, id):
+    """
+    Handle permission operations by ID based on HTTP method
+    Routes GET, PUT, DELETE requests to appropriate handlers
+    """
+    if request.method == 'GET':
+        return get_permission_by_id(request, id)
+    elif request.method == 'PUT':
+        return update_permission(request, id)
+    elif request.method == 'DELETE':
+        return delete_permission(request, id)
+    else:
+        return error_response(
+            message='Method not allowed',
+            status_code=405
+        )
+
+
 def get_all_permissions(request):
     """
     Get all permissions
@@ -172,9 +209,6 @@ def update_role_permissions(request, id):
         )
 
 
-@api_view(['POST'])
-@require_auth
-@api_response
 def create_permission(request):
     """
     Create permission
@@ -222,9 +256,6 @@ def create_permission(request):
         )
 
 
-@api_view(['PUT'])
-@require_auth
-@api_response
 def update_permission(request, id):
     """
     Update permission
@@ -277,9 +308,6 @@ def update_permission(request, id):
         )
 
 
-@api_view(['DELETE'])
-@require_auth
-@api_response
 def delete_permission(request, id):
     """
     Delete permission
@@ -306,9 +334,6 @@ def delete_permission(request, id):
         )
 
 
-@api_view(['GET'])
-@require_auth
-@api_response
 def get_permission_by_id(request, id):
     """
     Get permission by ID
