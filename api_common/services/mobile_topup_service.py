@@ -102,7 +102,6 @@ class MobileTopupService:
                 'number': phone
             }
             
-            print(f'NTC Top-up Request: {request_data}')
             
             response = requests.post(
                 self.endpoints['ntc'],
@@ -111,9 +110,6 @@ class MobileTopupService:
                 timeout=30
             )
             
-            print(f'NTC Top-up Response Status: {response.status_code}')
-            print(f'NTC Top-up Response Headers: {dict(response.headers)}')
-            print(f'NTC Top-up Response Text: {response.text}')
             
             # Check if response is empty
             if not response.text.strip():
@@ -141,7 +137,6 @@ class MobileTopupService:
             try:
                 response_data = response.json()
             except ValueError as json_error:
-                print(f'NTC JSON Parse Error: {json_error}')
                 return {
                     'success': False,
                     'message': f'NTC API returned invalid JSON: {response.text[:100]}',
@@ -161,7 +156,6 @@ class MobileTopupService:
             }
             
         except requests.exceptions.RequestException as e:
-            print(f'NTC Top-up Error: {str(e)}')
             return {
                 'success': False,
                 'message': f'NTC Top-up failed: {str(e)}',
@@ -183,7 +177,6 @@ class MobileTopupService:
                 'number': phone
             }
             
-            print(f'Ncell Top-up Request: {request_data}')
             
             response = requests.post(
                 self.endpoints['ncell'],
@@ -192,9 +185,6 @@ class MobileTopupService:
                 timeout=30
             )
             
-            print(f'Ncell Top-up Response Status: {response.status_code}')
-            print(f'Ncell Top-up Response Headers: {dict(response.headers)}')
-            print(f'Ncell Top-up Response Text: {response.text}')
             
             # Check if response is empty
             if not response.text.strip():
@@ -222,7 +212,6 @@ class MobileTopupService:
             try:
                 response_data = response.json()
             except ValueError as json_error:
-                print(f'Ncell JSON Parse Error: {json_error}')
                 return {
                     'success': False,
                     'message': f'Ncell API returned invalid JSON: {response.text[:100]}',
@@ -242,7 +231,6 @@ class MobileTopupService:
             }
             
         except requests.exceptions.RequestException as e:
-            print(f'Ncell Top-up Error: {str(e)}')
             return {
                 'success': False,
                 'message': f'Ncell Top-up failed: {str(e)}',
@@ -272,7 +260,6 @@ class MobileTopupService:
             # Generate unique reference
             reference = self.generate_reference_id()
             
-            print(f'Processing {sim_type.upper()} top-up: phone={clean_phone}, amount={amount}, reference={reference}')
             
             # Make the appropriate API call
             if sim_type == 'ntc':
@@ -292,7 +279,6 @@ class MobileTopupService:
             return result
             
         except Exception as e:
-            print(f'Mobile Top-up Processing Error: {str(e)}')
             
             return {
                 'success': False,

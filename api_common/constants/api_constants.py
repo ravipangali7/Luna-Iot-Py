@@ -55,6 +55,7 @@ SUCCESS_MESSAGES = {
     'SERVER_POINT_SENT': 'Server point command sent successfully',
     'RESET_SENT': 'Reset command sent successfully',
     'USER_RETRIEVED': 'User information retrieved successfully',
+    'USERS_RETRIEVED': 'Users retrieved successfully',
 }
 
 # Error Messages

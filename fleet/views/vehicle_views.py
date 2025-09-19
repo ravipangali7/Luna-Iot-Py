@@ -201,26 +201,34 @@ def get_all_vehicles_detailed(request):
         
         vehicles_data = []
         for vehicle in vehicles:
-            # Get all users with access to this vehicle
-            users_with_access = []
+            # Get all users with access to this vehicle (userVehicles format)
+            user_vehicles = []
             for uv in vehicle.userVehicles.all():
-                users_with_access.append({
-                    'id': uv.user.id,
-                    'name': uv.user.name,
-                    'phone': uv.user.phone,
+                user_vehicles.append({
+                    'id': uv.id,
+                    'userId': uv.user.id,
+                    'vehicleId': uv.vehicle.id,
                     'isMain': uv.isMain,
-                    'permissions': {
-                        'allAccess': uv.allAccess,
-                        'liveTracking': uv.liveTracking,
-                        'history': uv.history,
-                        'report': uv.report,
-                        'vehicleProfile': uv.vehicleProfile,
-                        'events': uv.events,
-                        'geofence': uv.geofence,
-                        'edit': uv.edit,
-                        'shareTracking': uv.shareTracking,
-                        'notification': uv.notification
-                    }
+                    'user': {
+                        'id': uv.user.id,
+                        'name': uv.user.name,
+                        'phone': uv.user.phone,
+                        'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
+                        'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
+                        'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
+                        'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                    },
+                    'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
+                    'allAccess': uv.allAccess,
+                    'liveTracking': uv.liveTracking,
+                    'history': uv.history,
+                    'report': uv.report,
+                    'vehicleProfile': uv.vehicleProfile,
+                    'events': uv.events,
+                    'geofence': uv.geofence,
+                    'edit': uv.edit,
+                    'shareTracking': uv.shareTracking,
+                    'notification': uv.notification
                 })
             
             # Get main customer (user with isMain=True)
@@ -325,7 +333,7 @@ def get_all_vehicles_detailed(request):
                     'iccid': vehicle.device.iccid,
                     'model': vehicle.device.model
                 } if vehicle.device else None,
-                'users': users_with_access,
+                'userVehicles': user_vehicles,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
                 'latestStatus': latest_status,

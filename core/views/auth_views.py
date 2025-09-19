@@ -101,7 +101,8 @@ def send_registration_otp(request):
     Matches Node.js AuthController.sendRegistrationOTP
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         
         if not phone:
@@ -150,7 +151,8 @@ def verify_otp_and_register(request):
     Matches Node.js AuthController.verifyOTPAndRegister
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         name = data.get('name')
         phone = data.get('phone')
         password = data.get('password')
@@ -257,7 +259,8 @@ def resend_otp(request):
     Matches Node.js AuthController.resendOTP
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         
         if not phone:
@@ -413,7 +416,8 @@ def send_forgot_password_otp(request):
     Matches Node.js AuthController.sendForgotPasswordOTP
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         
         if not phone:
@@ -462,7 +466,8 @@ def verify_forgot_password_otp(request):
     Matches Node.js AuthController.verifyForgotPasswordOTP
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         otp = data.get('otp')
         
@@ -525,7 +530,8 @@ def reset_password(request):
     Matches Node.js AuthController.resetPassword
     """
     try:
-        data = request.data
+        import json
+        data = json.loads(request.body) if request.body else {}
         phone = data.get('phone')
         reset_token = data.get('resetToken')
         new_password = data.get('newPassword')
