@@ -32,7 +32,7 @@ def get_active_popups(request):
                 'message': popup.message,
                 'isActive': popup.isActive,
                 'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'imageUrl': f'https://py.mylunago.com/media/{popup.image.name}' if popup.image else None,
                 'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
                 'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
             }
@@ -63,7 +63,7 @@ def get_all_popups(request):
                 'message': popup.message,
                 'isActive': popup.isActive,
                 'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'imageUrl': f'https://py.mylunago.com/media/{popup.image.name}' if popup.image else None,
                 'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
                 'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
             }
@@ -95,7 +95,7 @@ def get_popup_by_id(request, id):
             'message': popup.message,
             'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'imageUrl': f'https://py.mylunago.com/media/{popup.image.name}' if popup.image else None,
             'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
             'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
@@ -143,7 +143,7 @@ def create_popup(request):
             'message': popup.message,
             'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'imageUrl': f'https://py.mylunago.com/media/{popup.image.name}' if popup.image else None,
             'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
             'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
@@ -203,7 +203,7 @@ def update_popup(request, id):
             'message': popup.message,
             'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'imageUrl': f'https://py.mylunago.com/media/{popup.image.name}' if popup.image else None,
             'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
             'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
