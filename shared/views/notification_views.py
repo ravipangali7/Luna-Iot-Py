@@ -62,7 +62,7 @@ def get_notifications(request):
         return success_response(notifications_data, 'Notifications retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to fetch notifications')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -170,7 +170,7 @@ def create_notification(request):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to create notification')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -194,7 +194,7 @@ def delete_notification(request, id):
         return success_response(None, 'Notification deleted successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to delete notification')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -223,7 +223,7 @@ def mark_notification_as_read(request, notification_id):
         return success_response(None, 'Notification marked as read')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to mark notification as read')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -245,4 +245,4 @@ def get_unread_notification_count(request):
         return success_response({'count': count}, 'Unread count retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to get unread count')
+        return handle_api_exception(e)
