@@ -30,11 +30,11 @@ def get_active_popups(request):
                 'id': popup.id,
                 'title': popup.title,
                 'message': popup.message,
-                'isActive': popup.is_active,
+                'isActive': popup.isActive,
                 'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/uploads/popups/{popup.image.name}' if popup.image else None,
-                'createdAt': popup.created_at.isoformat() if popup.created_at else None,
-                'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
+                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
+                'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
             }
             popups_data.append(popup_data)
         
@@ -61,11 +61,11 @@ def get_all_popups(request):
                 'id': popup.id,
                 'title': popup.title,
                 'message': popup.message,
-                'isActive': popup.is_active,
+                'isActive': popup.isActive,
                 'image': popup.image.name if popup.image else None,
-                'imageUrl': f'/uploads/popups/{popup.image.name}' if popup.image else None,
-                'createdAt': popup.created_at.isoformat() if popup.created_at else None,
-                'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
+                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+                'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
+                'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
             }
             popups_data.append(popup_data)
         
@@ -118,7 +118,7 @@ def create_popup(request):
         # Get form data
         title = request.POST.get('title')
         message = request.POST.get('message')
-        is_active = request.POST.get('isActive', 'true').lower() == 'true'
+        isActive = request.POST.get('isActive', 'true').lower() == 'true'
         
         # Validate required fields
         if not title or not message:
@@ -133,7 +133,7 @@ def create_popup(request):
         popup = Popup.objects.create(
             title=title,
             message=message,
-            is_active=is_active,
+            isActive=isActive,
             image=image_file
         )
         
@@ -172,15 +172,15 @@ def update_popup(request, id):
         # Get form data
         title = request.POST.get('title')
         message = request.POST.get('message')
-        is_active = request.POST.get('isActive')
+        isActive = request.POST.get('isActive')
         
         # Update popup fields
         if title is not None:
             popup.title = title
         if message is not None:
             popup.message = message
-        if is_active is not None:
-            popup.is_active = is_active.lower() == 'true'
+        if isActive is not None:
+            popup.isActive = isActive.lower() == 'true'
         
         # Handle image update
         if 'image' in request.FILES:
