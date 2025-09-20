@@ -105,9 +105,9 @@ def create_blood_donation(request):
         
         # Validate required fields
         required_fields = ['name', 'phone', 'address', 'bloodGroup', 'applyType']
-        validation_error = validate_required_fields(data, required_fields)
-        if validation_error:
-            return validation_error
+        validation_result = validate_required_fields(data, required_fields)
+        if not validation_result['is_valid']:
+            return error_response(validation_result['message'], HTTP_STATUS['BAD_REQUEST'])
         
         name = data['name'].strip()
         phone = data['phone'].strip()
