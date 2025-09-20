@@ -41,7 +41,7 @@ def get_active_popups(request):
         return success_response(popups_data, 'Active popups retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve popups')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -53,7 +53,7 @@ def get_all_popups(request):
     Get all popups (only Super Admin)
     """
     try:
-        popups = Popup.objects.all().order_by('-created_at')
+        popups = Popup.objects.all().order_by('-createdAt')
         
         popups_data = []
         for popup in popups:
@@ -72,7 +72,7 @@ def get_all_popups(request):
         return success_response(popups_data, 'All popups retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve popups')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -93,17 +93,17 @@ def get_popup_by_id(request, id):
             'id': popup.id,
             'title': popup.title,
             'message': popup.message,
-            'isActive': popup.is_active,
+            'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-            'imageUrl': f'/uploads/popups/{popup.image.name}' if popup.image else None,
-            'createdAt': popup.created_at.isoformat() if popup.created_at else None,
-            'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
+                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+            'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
+            'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
         
         return success_response(popup_data, 'Popup retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve popup')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -141,17 +141,17 @@ def create_popup(request):
             'id': popup.id,
             'title': popup.title,
             'message': popup.message,
-            'isActive': popup.is_active,
+            'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-            'imageUrl': f'/uploads/popups/{popup.image.name}' if popup.image else None,
-            'createdAt': popup.created_at.isoformat() if popup.created_at else None,
-            'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
+                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+            'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
+            'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
         
         return success_response(popup_data, 'Popup created successfully', HTTP_STATUS['CREATED'])
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to create popup')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -201,17 +201,17 @@ def update_popup(request, id):
             'id': popup.id,
             'title': popup.title,
             'message': popup.message,
-            'isActive': popup.is_active,
+            'isActive': popup.isActive,
             'image': popup.image.name if popup.image else None,
-            'imageUrl': f'/uploads/popups/{popup.image.name}' if popup.image else None,
-            'createdAt': popup.created_at.isoformat() if popup.created_at else None,
-            'updatedAt': popup.updated_at.isoformat() if popup.updated_at else None
+                'imageUrl': f'/media/{popup.image.name}' if popup.image else None,
+            'createdAt': popup.createdAt.isoformat() if popup.createdAt else None,
+            'updatedAt': popup.updatedAt.isoformat() if popup.updatedAt else None
         }
         
         return success_response(popup_data, 'Popup updated successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to update popup')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -244,4 +244,4 @@ def delete_popup(request, id):
         return success_response({'success': True}, 'Popup deleted successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to delete popup')
+        return handle_api_exception(e)
