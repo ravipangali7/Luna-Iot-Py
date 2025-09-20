@@ -34,12 +34,12 @@ def get_all_blood_donations(request):
             )
         
         if apply_type:
-            blood_donations_query = blood_donations_query.filter(apply_type=apply_type)
+            blood_donations_query = blood_donations_query.filter(applyType=apply_type)
         
         if blood_group:
-            blood_donations_query = blood_donations_query.filter(blood_group=blood_group)
+            blood_donations_query = blood_donations_query.filter(bloodGroup=blood_group)
         
-        blood_donations = blood_donations_query.order_by('-created_at')
+        blood_donations = blood_donations_query.order_by('-createdAt')
         
         blood_donations_data = []
         for blood_donation in blood_donations:
@@ -48,19 +48,19 @@ def get_all_blood_donations(request):
                 'name': blood_donation.name,
                 'phone': blood_donation.phone,
                 'address': blood_donation.address,
-                'bloodGroup': blood_donation.blood_group,
-                'applyType': blood_donation.apply_type,
+                'bloodGroup': blood_donation.bloodGroup,
+                'applyType': blood_donation.applyType,
                 'status': blood_donation.status,
-                'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-                'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-                'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+                'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+                'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+                'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
             }
             blood_donations_data.append(blood_donation_data)
         
         return success_response(blood_donations_data, 'Blood donations retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve blood donations')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -80,18 +80,18 @@ def get_blood_donation_by_id(request, id):
             'name': blood_donation.name,
             'phone': blood_donation.phone,
             'address': blood_donation.address,
-            'bloodGroup': blood_donation.blood_group,
-            'applyType': blood_donation.apply_type,
+            'bloodGroup': blood_donation.bloodGroup,
+            'applyType': blood_donation.applyType,
             'status': blood_donation.status,
-            'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-            'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-            'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+            'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+            'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+            'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
         }
         
         return success_response(blood_donation_data, 'Blood donation retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve blood donation')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -142,12 +142,12 @@ def create_blood_donation(request):
             'name': blood_donation.name,
             'phone': blood_donation.phone,
             'address': blood_donation.address,
-            'bloodGroup': blood_donation.blood_group,
-            'applyType': blood_donation.apply_type,
+            'bloodGroup': blood_donation.bloodGroup,
+            'applyType': blood_donation.applyType,
             'status': blood_donation.status,
-            'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-            'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-            'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+            'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+            'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+            'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
         }
         
         return success_response(blood_donation_data, 'Blood donation created successfully', HTTP_STATUS['CREATED'])
@@ -155,7 +155,7 @@ def create_blood_donation(request):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to create blood donation')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -191,13 +191,13 @@ def update_blood_donation(request, id):
         if 'address' in data:
             blood_donation.address = data['address'].strip()
         if 'bloodGroup' in data:
-            blood_donation.blood_group = data['bloodGroup'].strip()
+            blood_donation.bloodGroup = data['bloodGroup'].strip()
         if 'applyType' in data:
-            blood_donation.apply_type = data['applyType'].strip()
+            blood_donation.applyType = data['applyType'].strip()
         if 'status' in data:
             blood_donation.status = data['status']
         if 'lastDonatedAt' in data:
-            blood_donation.last_donated_at = data['lastDonatedAt']
+            blood_donation.lastDonatedAt = data['lastDonatedAt']
         
         blood_donation.save()
         
@@ -206,12 +206,12 @@ def update_blood_donation(request, id):
             'name': blood_donation.name,
             'phone': blood_donation.phone,
             'address': blood_donation.address,
-            'bloodGroup': blood_donation.blood_group,
-            'applyType': blood_donation.apply_type,
+            'bloodGroup': blood_donation.bloodGroup,
+            'applyType': blood_donation.applyType,
             'status': blood_donation.status,
-            'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-            'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-            'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+            'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+            'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+            'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
         }
         
         return success_response(blood_donation_data, 'Blood donation updated successfully')
@@ -219,7 +219,7 @@ def update_blood_donation(request, id):
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
-        return handle_api_exception(e, 'Failed to update blood donation')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -241,7 +241,7 @@ def delete_blood_donation(request, id):
         return success_response(None, 'Blood donation deleted successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to delete blood donation')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -263,19 +263,19 @@ def get_blood_donations_by_type(request, type):
                 'name': blood_donation.name,
                 'phone': blood_donation.phone,
                 'address': blood_donation.address,
-                'bloodGroup': blood_donation.blood_group,
-                'applyType': blood_donation.apply_type,
+                'bloodGroup': blood_donation.bloodGroup,
+                'applyType': blood_donation.applyType,
                 'status': blood_donation.status,
-                'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-                'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-                'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+                'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+                'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+                'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
             }
             blood_donations_data.append(blood_donation_data)
         
         return success_response(blood_donations_data, f'{type} blood donations retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve blood donations by type')
+        return handle_api_exception(e)
 
 
 @csrf_exempt
@@ -298,16 +298,16 @@ def get_blood_donations_by_blood_group(request, blood_group):
                 'name': blood_donation.name,
                 'phone': blood_donation.phone,
                 'address': blood_donation.address,
-                'bloodGroup': blood_donation.blood_group,
-                'applyType': blood_donation.apply_type,
+                'bloodGroup': blood_donation.bloodGroup,
+                'applyType': blood_donation.applyType,
                 'status': blood_donation.status,
-                'lastDonatedAt': blood_donation.last_donated_at.isoformat() if blood_donation.last_donated_at else None,
-                'createdAt': blood_donation.created_at.isoformat() if blood_donation.created_at else None,
-                'updatedAt': blood_donation.updated_at.isoformat() if blood_donation.updated_at else None
+                'lastDonatedAt': blood_donation.lastDonatedAt.isoformat() if blood_donation.lastDonatedAt else None,
+                'createdAt': blood_donation.createdAt.isoformat() if blood_donation.createdAt else None,
+                'updatedAt': blood_donation.updatedAt.isoformat() if blood_donation.updatedAt else None
             }
             blood_donations_data.append(blood_donation_data)
         
         return success_response(blood_donations_data, f'Blood donations for {blood_group} retrieved successfully')
     
     except Exception as e:
-        return handle_api_exception(e, 'Failed to retrieve blood donations by blood group')
+        return handle_api_exception(e)
