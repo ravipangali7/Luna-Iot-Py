@@ -33,6 +33,10 @@ class AuthMiddleware(MiddlewareMixin):
         # Skip authentication for media files
         if request.path.startswith('/media/'):
             return None
+            
+        # Skip authentication for health blood donation endpoints
+        if request.path.startswith('/api/health/blood-donation'):
+            return None
         
         # Skip authentication for Django admin interface
         if request.path.startswith('/admin/'):
