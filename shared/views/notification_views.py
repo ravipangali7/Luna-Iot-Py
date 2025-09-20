@@ -154,8 +154,16 @@ def create_notification(request):
                     print(f'Firebase notifications sent successfully. Success: {firebase_result.get("successCount", 0)}, Failed: {firebase_result.get("failureCount", 0)}')
                 else:
                     print(f'Firebase notification error: {firebase_result.get("error", "Unknown error")}')
+                    # Log detailed error for debugging
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f'Firebase notification failed: {firebase_result}')
         except Exception as firebase_error:
             print(f'Firebase notification error: {firebase_error}')
+            # Log detailed error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f'Firebase notification exception: {firebase_error}', exc_info=True)
             # Don't fail the request if Firebase fails
         
         notification_data = {

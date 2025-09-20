@@ -61,6 +61,8 @@ class FirebaseService:
             # Replace escaped newlines in private key
             if private_key:
                 private_key = private_key.replace('\\n', '\n')
+                logger.info(f"Private key length: {len(private_key)}")
+                logger.info(f"Private key starts with: {private_key[:50]}...")
             
             # Create credentials from environment variables
             cred = credentials.Certificate({
@@ -76,6 +78,9 @@ class FirebaseService:
             
         except Exception as e:
             logger.error(f"Firebase initialization error: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             self.initialized = False
     
     def send_notification_to_single_user(self, fcm_token: str, title: str, message: str, data: Dict[str, str] = None) -> Dict[str, Any]:
@@ -220,6 +225,26 @@ class FirebaseService:
         except Exception as e:
             logger.error(f"Error sending notification to topic: {e}")
             return {"success": False, "error": str(e)}
+    
+    def test_connection(self) -> Dict[str, Any]:
+        """
+        Test Firebase connection
+        Returns:
+            Dict with test results
+        """
+        if not self._ensure_initialized():
+            return {"success": False, "error": "Firebase not initialized"}
+        
+        try:
+            # Try to get the app info
+            app_info = self.app.project_id
+            return {
+                "success": True, 
+                "message": f"Firebase connected successfully. Project: {app_info}",
+                "project_id": app_info
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Connection test failed: {str(e)}"}
 
 
 # Create singleton instance
