@@ -10,6 +10,7 @@ from api_common.decorators.auth_decorators import require_auth, require_role
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
 from api_common.utils.exception_utils import handle_api_exception
+from api_common.services.firebase_service import firebase_service
 
 from shared.models import Notification, UserNotification
 from core.models import User
@@ -131,7 +132,7 @@ def create_notification(request):
                     isRead=False
                 )
         
-        # Send push notifications (you'll need to implement Firebase service)
+        # Send push notifications using Firebase
         try:
             fcm_tokens = []
             for target_user in target_users:
@@ -139,14 +140,18 @@ def create_notification(request):
                     fcm_tokens.append(target_user.fcm_token)
             
             if fcm_tokens:
-                # TODO: Implement Firebase notification sending
-                # await FirebaseService.sendNotificationToMultipleUsers(
-                #     fcm_tokens,
-                #     title,
-                #     message,
-                #     {'notificationId': str(notification.id)}
-                # )
-                pass
+                # Send Firebase notifications
+                firebase_result = firebase_service.send_notification_to_multiple_users(
+                    fcm_tokens=fcm_tokens,
+                    title=title,
+                    message=message,
+                    data={'notificationId': str(notification.id)}
+                )
+                
+                if firebase_result['success']:
+                    print(f'Firebase notifications sent successfully. Success: {firebase_result.get("successCount", 0)}, Failed: {firebase_result.get("failureCount", 0)}')
+                else:
+                    print(f'Firebase notification error: {firebase_result.get("error", "Unknown error")}')
         except Exception as firebase_error:
             print(f'Firebase notification error: {firebase_error}')
             # Don't fail the request if Firebase fails
