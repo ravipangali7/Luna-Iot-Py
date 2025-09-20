@@ -10,7 +10,6 @@ from api_common.decorators.auth_decorators import require_auth, require_role
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
 from api_common.utils.exception_utils import handle_api_exception
-# Firebase import will be done lazily when needed
 
 from shared.models import Notification, UserNotification
 from core.models import User
@@ -132,38 +131,21 @@ def create_notification(request):
                     isRead=False
                 )
         
-        # Send push notifications using Firebase
+        # Send push notifications using Firebase service
         try:
-            from api_common.services.firebase_service import firebase_service
+            from api_common.services.firebase_service import send_push_notification
             
-            fcm_tokens = []
-            for target_user in target_users:
-                if target_user.fcm_token:
-                    fcm_tokens.append(target_user.fcm_token)
-            
-            if fcm_tokens:
-                # Send Firebase notifications
-                firebase_result = firebase_service.send_notification_to_multiple_users(
-                    fcm_tokens=fcm_tokens,
-                    title=title,
-                    message=message,
-                    data={'notificationId': str(notification.id)}
-                )
-                
-                if firebase_result['success']:
-                    print(f'Firebase notifications sent successfully. Success: {firebase_result.get("successCount", 0)}, Failed: {firebase_result.get("failureCount", 0)}')
-                else:
-                    print(f'Firebase notification error: {firebase_result.get("error", "Unknown error")}')
-                    # Log detailed error for debugging
-                    import logging
-                    logger = logging.getLogger(__name__)
-                    logger.error(f'Firebase notification failed: {firebase_result}')
+            # Send push notification based on type
+            send_push_notification(
+                notification_id=notification.id,
+                title=title,
+                message=message,
+                notification_type=notification_type,
+                target_user_ids=target_user_ids if notification_type == 'specific' else None,
+                target_role_ids=target_role_ids if notification_type == 'role' else None
+            )
         except Exception as firebase_error:
             print(f'Firebase notification error: {firebase_error}')
-            # Log detailed error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Firebase notification exception: {firebase_error}', exc_info=True)
             # Don't fail the request if Firebase fails
         
         notification_data = {

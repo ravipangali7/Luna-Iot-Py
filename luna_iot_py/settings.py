@@ -15,13 +15,6 @@ import os, pymysql
 
 pymysql.install_as_MySQLdb()
 
-# Load environment variables from .env file if it exists (optional)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass  # python-dotenv not installed
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -228,11 +221,51 @@ SMS_CAMPAIGN_ID = '9148'
 SMS_ROUTE_ID = '130'
 SMS_SENDER_ID = 'SMSBit'
 
-# Firebase Configuration
-FIREBASE_PROJECT_ID = "luna-iot-5993f"
-FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@luna-iot-5993f.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDLIZj/7sNBH8KU\nAGGg0PorZAkRfPvASkAtJ9mMvatoWXOB3zldwys1yajsMwydt1UQk2wPSp7pC68R\nRdSwy8dA6SGKgW0iuK6uLQdF0YzXcn/Wqkin0p2Bv1thVTukg5rkWyc7YSaLMqtp\nh+X2VM27IhzXAE+ZNUXn/eZejlbMkTjO5L8bxwynjWVLdsT0DA5iFidFqEp3b0tu\nOu1CvKFum1n3OO/cDqjTXkYvHa6CRGv3iOKQ9pMvYu2Voo1uL8pbohdKarNLPr9O\nhMb+Pm227lrzGunRJYNO/E/Q+FAchGtbgdJnRj0iJg4nYATSbtLHh6Bg6gfH/d8U\nc5WM8XApAgMBAAECggEAEqLuu15vxhAQpU0CqAM8TJJVPahCnbICQNJU5JN7QCvi\ny9HL3NUc6AasK52EZQzurkJkSePeAAIdKf/G44CSs5sgA2nb9jFM/3hsoCR5YEPm\nRC7j0xfg8Qg6LUwpWG7lnVlamFlRtLgtn1VDTS4bIPXggP5Lj0Iiu4XhJqA3CPYI\n+TU6mHw8SkFtPbe+Q1rz4bEofsISu2b9l/BsVOgUOdV/tmEPn/x+9/RNV3A8U0ma\nk0nAzhIKbjHZkAGPCcUk+OJckMZscU8KOMZJdYStMB1y99aM/IurBwlTrD24BKWS\nelyZOESJEfMoy7XxkbITuaKMzkO5ff9pLL33CeKJ7QKBgQDzvUAtu3Xz7NigJwfb\nJKaNo/I16OvcIVhk4Kmmn4ea34XGU0hsWH5XiQhE+SAGRhJSowSsLUoDDg8yv2me\n4et/MABEq92XV2dSG/Z7Q09swq1fCmBTY+rom3AVt8nH55ap5gqj0dCv5sE6Vgwn\nu713lxcVxL/5dqu4qfQEe539nQKBgQDVWWrtlk+CckZZT9yUa119DcGVdxEHwrlJ\nT7xJosDUXYQaQA4E05HlEFXtowvl+DnPoqashkYXvGjY6ZFvaXwh9JlMioUCrHPf\nGMEZvlAJZ1pNe8aMX+Vf0gcisHA0l8P49bDu387BdoW9Lu6KqnU4gHtWR/f0QGan\nX27lk8E8/QKBgQDt02yq8u5t212oL01oFAP70svEtIhnm5XPoLOI5MKBaLb0RFE3\nfsWQjiImgtsvo/G+9lfZ1LsR7gcAYmsh35lU2jZ4yyYFxQAIy0YfEheOrQpT4SEK\nXUVaQEkGt/VIfH2zO8aIAHNbH5LNZCaqInMGHMQmtnsHZDa8kgCK2z/WtQKBgGCF\nzdyjjmFD9hPeD7uOP4OeP6Cxd6D9Nfq2+kaOPZNWo7eEl1MTrQPnOhkDFRT8Epuf\nyKxxKzD96qmIMmYnYSOzl8+LM9Yb02hxuJs/ANLgUXiQsSk9EXcifFvzWzBQITd3\nYI8R7maUirkmjIFr0RC5ABPvB30XzdmXUYLIMDq5AoGAdTMrx0JN3CeHMteqMRse\nC7WMjboCKr7Sr+5Z3ZpOfZywuuDtLJ3WSC7n4tMahMK8QAKEZ5IQZrsanW/tXitD\nAL7IzqaAttNXT2ABO1/JDaVcfW8HO1ZbFWDMFzZc5x0BqRuQW1mz6c6a5C85MUhY\nOY05RLpUE4e+sjtAkZhgVig=\n-----END PRIVATE KEY-----\n"
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'django.log'),
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'api_common.services.firebase_service': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'shared.signals': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
 
-# Additional Firebase fields (optional but recommended)
-FIREBASE_PRIVATE_KEY_ID = ""  # Optional: private_key_id from service account JSON
-FIREBASE_CLIENT_ID = ""  # Optional: client_id from service account JSON
+# Create logs directory if it doesn't exist
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
