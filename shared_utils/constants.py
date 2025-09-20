@@ -8,6 +8,7 @@ class GeofenceType(models.TextChoices):
 class NotificationType(models.TextChoices):
     ALL = 'all', 'All'
     SPECIFIC = 'specific', 'Specific'
+    ROLE = 'role', 'Role'
 
 class SimType(models.TextChoices):
     NTC = 'NTC', 'NTC'

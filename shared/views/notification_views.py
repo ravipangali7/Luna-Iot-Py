@@ -27,12 +27,12 @@ def get_notifications(request):
         
         # Get notifications based on user role
         if user.role.name == 'Super Admin':
-            notifications = Notification.objects.prefetch_related('notificationuser_set__user').all().order_by('-created_at')
+            notifications = Notification.objects.prefetch_related('notificationuser_set__user').all().order_by('-createdAt')
         else:
             # Get notifications assigned to this user
             notifications = Notification.objects.filter(
                 notificationuser__user=user
-            ).prefetch_related('notificationuser_set__user').distinct().order_by('-created_at')
+            ).prefetch_related('notificationuser_set__user').distinct().order_by('-createdAt')
         
         notifications_data = []
         for notification in notifications:
@@ -41,7 +41,7 @@ def get_notifications(request):
             if hasattr(notification, 'notificationuser_set'):
                 user_notification = notification.notificationuser_set.filter(user=user).first()
                 if user_notification:
-                    is_read = user_notification.is_read
+                    is_read = user_notification.isRead
             
             notification_data = {
                 'id': notification.id,
@@ -49,13 +49,13 @@ def get_notifications(request):
                 'message': notification.message,
                 'type': notification.type,
                 'sentBy': {
-                    'id': notification.sent_by.id,
-                    'name': notification.sent_by.name,
-                    'phone': notification.sent_by.phone
-                } if notification.sent_by else None,
+                    'id': notification.sentBy.id,
+                    'name': notification.sentBy.name,
+                    'phone': notification.sentBy.phone
+                } if notification.sentBy else None,
                 'isRead': is_read,
-                'createdAt': notification.created_at.isoformat() if notification.created_at else None,
-                'updatedAt': notification.updated_at.isoformat() if notification.updated_at else None
+                'createdAt': notification.createdAt.isoformat() if notification.createdAt else None,
+                'updatedAt': notification.updatedAt.isoformat() if notification.updatedAt else None
             }
             notifications_data.append(notification_data)
         
@@ -107,7 +107,7 @@ def create_notification(request):
                 title=title,
                 message=message,
                 type=notification_type,
-                sent_by=user
+                sentBy=user
             )
             
             # Determine target users based on type
@@ -128,7 +128,7 @@ def create_notification(request):
                 UserNotification.objects.create(
                     notification=notification,
                     user=target_user,
-                    is_read=False
+                    isRead=False
                 )
         
         # Send push notifications (you'll need to implement Firebase service)
@@ -157,12 +157,12 @@ def create_notification(request):
             'message': notification.message,
             'type': notification.type,
             'sentBy': {
-                'id': notification.sent_by.id,
-                'name': notification.sent_by.name,
-                'phone': notification.sent_by.phone
-            } if notification.sent_by else None,
-            'createdAt': notification.created_at.isoformat() if notification.created_at else None,
-            'updatedAt': notification.updated_at.isoformat() if notification.updated_at else None
+                'id': notification.sentBy.id,
+                'name': notification.sentBy.name,
+                'phone': notification.sentBy.phone
+            } if notification.sentBy else None,
+            'createdAt': notification.createdAt.isoformat() if notification.createdAt else None,
+            'updatedAt': notification.updatedAt.isoformat() if notification.updatedAt else None
         }
         
         return success_response(notification_data, 'Notification created successfully', HTTP_STATUS['CREATED'])
@@ -217,7 +217,7 @@ def mark_notification_as_read(request, notification_id):
             return error_response('Notification not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Mark as read
-        notification_user.is_read = True
+        notification_user.isRead = True
         notification_user.save()
         
         return success_response(None, 'Notification marked as read')
@@ -239,7 +239,7 @@ def get_unread_notification_count(request):
         # Count unread notifications for this user
         count = UserNotification.objects.filter(
             user=user,
-            is_read=False
+            isRead=False
         ).count()
         
         return success_response({'count': count}, 'Unread count retrieved successfully')

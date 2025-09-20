@@ -9,6 +9,7 @@ class Notification(models.Model):
     type = models.CharField(max_length=20, choices=NotificationType.choices)
     sentBy = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sentNotifications', db_column='sent_by_id')
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
+    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 
     class Meta:
         db_table = 'notifications'
