@@ -139,7 +139,7 @@ def create_notification(request):
             send_push_notification(
                 notification_id=notification.id,
                 title=title,
-                message=message,
+                body=message,  # Fixed: changed 'message' to 'body'
                 notification_type=notification_type,
                 target_user_ids=target_user_ids if notification_type == 'specific' else None,
                 target_role_ids=target_role_ids if notification_type == 'role' else None

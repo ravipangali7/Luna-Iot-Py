@@ -10,10 +10,18 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin SDK
+FIREBASE_INITIALIZED = False
 try:
-    cred = credentials.Certificate(os.path.join(BASE_DIR, 'firebase-service.json'))
-    firebase_admin.initialize_app(cred)
-    FIREBASE_INITIALIZED = True
+    # Check if firebase-service.json exists
+    firebase_config_path = os.path.join(BASE_DIR, 'firebase-service.json')
+    if not os.path.exists(firebase_config_path):
+        logger.warning("Firebase service account key not found. Push notifications will be disabled.")
+        FIREBASE_INITIALIZED = False
+    else:
+        cred = credentials.Certificate(firebase_config_path)
+        firebase_admin.initialize_app(cred)
+        FIREBASE_INITIALIZED = True
+        logger.info("Firebase Admin SDK initialized successfully")
 except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
     FIREBASE_INITIALIZED = False
@@ -31,7 +39,7 @@ def send_push_notification(notification_id, title, body, notification_type, targ
         target_role_ids: List of role IDs for 'role' type
     """
     if not FIREBASE_INITIALIZED:
-        logger.error("Firebase not initialized, cannot send notifications")
+        logger.warning("Firebase not initialized, skipping push notification")
         return False
     
     try:
@@ -61,9 +69,13 @@ def send_push_notification(notification_id, title, body, notification_type, targ
         
         if messages:
             # Send notifications in batches
-            response = messaging.send_all(messages)
-            logger.info(f"Successfully sent {response.success_count} notifications, {response.failure_count} failed")
-            return True
+            try:
+                response = messaging.send_all(messages)
+                logger.info(f"Successfully sent {response.success_count} notifications, {response.failure_count} failed")
+                return True
+            except Exception as send_error:
+                logger.error(f"Error sending Firebase messages: {send_error}")
+                return False
         else:
             logger.warning("No valid messages to send")
             return False
@@ -157,9 +169,13 @@ def send_notification_to_user_notifications(notification):
         
         if messages:
             # Send notifications in batches
-            response = messaging.send_all(messages)
-            logger.info(f"Successfully sent {response.success_count} notifications for notification {notification.id}, {response.failure_count} failed")
-            return True
+            try:
+                response = messaging.send_all(messages)
+                logger.info(f"Successfully sent {response.success_count} notifications for notification {notification.id}, {response.failure_count} failed")
+                return True
+            except Exception as send_error:
+                logger.error(f"Error sending Firebase messages for notification {notification.id}: {send_error}")
+                return False
         else:
             logger.warning(f"No valid messages to send for notification {notification.id}")
             return False
