@@ -30,6 +30,10 @@ class AuthMiddleware(MiddlewareMixin):
             '/api/shared/popup/active',  # Public popup endpoint
         ]
         
+        # Skip authentication for media files
+        if request.path.startswith('/media/'):
+            return None
+        
         # Skip authentication for Django admin interface
         if request.path.startswith('/admin/'):
             return None
