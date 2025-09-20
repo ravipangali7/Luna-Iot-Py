@@ -47,29 +47,43 @@ class FirebaseService:
                 self.initialized = True
                 return
             
-            # Load from Django settings
-            project_id = getattr(settings, 'FIREBASE_PROJECT_ID', '')
-            client_email = getattr(settings, 'FIREBASE_CLIENT_EMAIL', '')
-            private_key = getattr(settings, 'FIREBASE_PRIVATE_KEY', '')
-            
-            logger.info(f"Firebase config - Project ID: {project_id[:10]}..., Email: {client_email[:20]}..., Key: {private_key[:20]}...")
-            
-            if not all([project_id, client_email, private_key]):
-                logger.error("Firebase credentials not found in Django settings")
-                return
-            
-            # Replace escaped newlines in private key
-            if private_key:
-                private_key = private_key.replace('\\n', '\n')
-                logger.info(f"Private key length: {len(private_key)}")
-                logger.info(f"Private key starts with: {private_key[:50]}...")
-            
-            # Create credentials from environment variables
-            cred = credentials.Certificate({
-                'project_id': project_id,
-                'client_email': client_email,
-                'private_key': private_key
-            })
+            # Try to load from service account JSON file first
+            service_account_file = self._get_service_account_file_path()
+            if service_account_file and os.path.exists(service_account_file):
+                logger.info(f"Loading Firebase credentials from file: {service_account_file}")
+                cred = credentials.Certificate(service_account_file)
+            else:
+                # Fallback to Django settings
+                logger.info("Loading Firebase credentials from Django settings")
+                project_id = getattr(settings, 'FIREBASE_PROJECT_ID', '')
+                client_email = getattr(settings, 'FIREBASE_CLIENT_EMAIL', '')
+                private_key = getattr(settings, 'FIREBASE_PRIVATE_KEY', '')
+                
+                logger.info(f"Firebase config - Project ID: {project_id[:10]}..., Email: {client_email[:20]}..., Key: {private_key[:20]}...")
+                
+                if not all([project_id, client_email, private_key]):
+                    logger.error("Firebase credentials not found in service account file or Django settings")
+                    return
+                
+                # Replace escaped newlines in private key
+                if private_key:
+                    private_key = private_key.replace('\\n', '\n')
+                    logger.info(f"Private key length: {len(private_key)}")
+                    logger.info(f"Private key starts with: {private_key[:50]}...")
+                
+                # Create credentials from Django settings
+                cred = credentials.Certificate({
+                    'type': 'service_account',
+                    'project_id': project_id,
+                    'private_key_id': getattr(settings, 'FIREBASE_PRIVATE_KEY_ID', ''),
+                    'private_key': private_key,
+                    'client_email': client_email,
+                    'client_id': getattr(settings, 'FIREBASE_CLIENT_ID', ''),
+                    'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+                    'token_uri': 'https://oauth2.googleapis.com/token',
+                    'auth_provider_x509_cert_url': 'https://www.googleapis.com/oauth2/v1/certs',
+                    'client_x509_cert_url': f'https://www.googleapis.com/robot/v1/metadata/x509/{client_email}'
+                })
             
             # Initialize Firebase Admin SDK
             self.app = firebase_admin.initialize_app(cred)
@@ -82,6 +96,23 @@ class FirebaseService:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             self.initialized = False
+    
+    def _get_service_account_file_path(self):
+        """Get the path to the Firebase service account JSON file"""
+        # Check multiple possible locations
+        possible_paths = [
+            os.getenv('FIREBASE_SERVICE_ACCOUNT_FILE'),  # Environment variable
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'firebase-service-account.json'),  # Project root
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'config', 'firebase-service-account.json'),  # Config folder
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'secrets', 'firebase-service-account.json'),  # Secrets folder
+            'firebase-service-account.json',  # Current directory
+        ]
+        
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                return path
+        
+        return None
     
     def send_notification_to_single_user(self, fcm_token: str, title: str, message: str, data: Dict[str, str] = None) -> Dict[str, Any]:
         """
