@@ -6,25 +6,72 @@ from core.models.user import User
 from shared.models import Notification, UserNotification
 from django.db.models import Q
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase Admin SDK
 FIREBASE_INITIALIZED = False
-try:
-    # Check if firebase-service.json exists
-    firebase_config_path = os.path.join(BASE_DIR, 'firebase-service.json')
-    if not os.path.exists(firebase_config_path):
-        logger.warning("Firebase service account key not found. Push notifications will be disabled.")
-        FIREBASE_INITIALIZED = False
-    else:
+
+def initialize_firebase():
+    """
+    Initialize Firebase Admin SDK, removing any existing app first
+    """
+    global FIREBASE_INITIALIZED
+    
+    try:
+        # Remove any existing Firebase app first
+        try:
+            # Get all existing apps
+            existing_apps = firebase_admin._apps
+            for app_name, app in existing_apps.items():
+                try:
+                    firebase_admin.delete_app(app)
+                    logger.info(f"Removed existing Firebase app: {app_name}")
+                except Exception as e:
+                    logger.warning(f"Could not remove app {app_name}: {e}")
+        except Exception as e:
+            logger.warning(f"Error removing existing apps: {e}")
+            # Try to get default app and remove it
+            try:
+                existing_app = firebase_admin.get_app()
+                firebase_admin.delete_app(existing_app)
+                logger.info("Removed default Firebase app")
+            except ValueError:
+                # No existing app, which is fine
+                pass
+        
+        # Small delay to ensure app deletion is complete
+        time.sleep(0.1)
+        
+        # Check if firebase-service.json exists
+        firebase_config_path = os.path.join(BASE_DIR, 'firebase-service.json')
+        if not os.path.exists(firebase_config_path):
+            logger.warning("Firebase service account key not found. Push notifications will be disabled.")
+            FIREBASE_INITIALIZED = False
+            return False
+        
+        # Initialize Firebase with fresh app
         cred = credentials.Certificate(firebase_config_path)
         firebase_admin.initialize_app(cred)
         FIREBASE_INITIALIZED = True
         logger.info("Firebase Admin SDK initialized successfully")
-except Exception as e:
-    logger.error(f"Firebase initialization failed: {e}")
-    FIREBASE_INITIALIZED = False
+        return True
+        
+    except Exception as e:
+        logger.error(f"Firebase initialization failed: {e}")
+        FIREBASE_INITIALIZED = False
+        return False
+
+# Initialize Firebase on module import
+initialize_firebase()
+
+
+def reinitialize_firebase():
+    """
+    Reinitialize Firebase Admin SDK
+    """
+    return initialize_firebase()
 
 
 def send_push_notification(notification_id, title, body, notification_type, target_user_ids=None, target_role_ids=None):
@@ -38,9 +85,12 @@ def send_push_notification(notification_id, title, body, notification_type, targ
         target_user_ids: List of user IDs for 'specific' type
         target_role_ids: List of role IDs for 'role' type
     """
+    # Check if Firebase is initialized, if not try to reinitialize
     if not FIREBASE_INITIALIZED:
-        logger.warning("Firebase not initialized, skipping push notification")
-        return False
+        logger.warning("Firebase not initialized, attempting to reinitialize...")
+        if not reinitialize_firebase():
+            logger.error("Failed to initialize Firebase, skipping push notification")
+            return False
     
     try:
         # Get FCM tokens based on notification type
@@ -136,6 +186,13 @@ def send_notification_to_user_notifications(notification):
     Args:
         notification: Notification instance
     """
+    # Check if Firebase is initialized, if not try to reinitialize
+    if not FIREBASE_INITIALIZED:
+        logger.warning("Firebase not initialized, attempting to reinitialize...")
+        if not reinitialize_firebase():
+            logger.error("Failed to initialize Firebase, skipping push notification")
+            return False
+    
     try:
         # Get FCM tokens from UserNotification records
         fcm_tokens = UserNotification.objects.filter(

@@ -8,6 +8,7 @@ from device.views import device_views
 urlpatterns = [
     # Device management routes
     path('', device_views.get_all_devices, name='get_all_devices'),
+    path('paginated', device_views.get_devices_paginated, name='get_devices_paginated'),
     path('create', device_views.create_device, name='create_device'),
     path('update/<str:imei>', device_views.update_device, name='update_device'),
     path('delete/<str:imei>', device_views.delete_device, name='delete_device'),
