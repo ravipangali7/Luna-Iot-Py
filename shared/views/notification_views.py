@@ -27,19 +27,19 @@ def get_notifications(request):
         
         # Get notifications based on user role
         if user.role.name == 'Super Admin':
-            notifications = Notification.objects.prefetch_related('notificationuser_set__user').all().order_by('-createdAt')
+            notifications = Notification.objects.prefetch_related('userNotifications__user').all().order_by('-createdAt')
         else:
             # Get notifications assigned to this user
             notifications = Notification.objects.filter(
-                notificationuser__user=user
-            ).prefetch_related('notificationuser_set__user').distinct().order_by('-createdAt')
+                userNotifications__user=user
+            ).prefetch_related('userNotifications__user').distinct().order_by('-createdAt')
         
         notifications_data = []
         for notification in notifications:
             # Check if this user has read this notification
             is_read = False
-            if hasattr(notification, 'notificationuser_set'):
-                user_notification = notification.notificationuser_set.filter(user=user).first()
+            if hasattr(notification, 'userNotifications'):
+                user_notification = notification.userNotifications.filter(user=user).first()
                 if user_notification:
                     is_read = user_notification.isRead
             
@@ -115,13 +115,13 @@ def create_notification(request):
             
             if notification_type == 'all':
                 # Get all active users
-                target_users = User.objects.filter(status='ACTIVE')
+                target_users = User.objects.filter(is_active=True)
             elif notification_type == 'specific' and target_user_ids:
                 # Get specific users
-                target_users = User.objects.filter(id__in=target_user_ids, status='ACTIVE')
+                target_users = User.objects.filter(id__in=target_user_ids, is_active=True)
             elif notification_type == 'role' and target_role_ids:
                 # Get users with specific roles
-                target_users = User.objects.filter(role_id__in=target_role_ids, status='ACTIVE')
+                target_users = User.objects.filter(groups__id__in=target_role_ids, is_active=True)
             
             # Create notification-user relationships
             for target_user in target_users:
