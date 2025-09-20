@@ -22,7 +22,7 @@ def get_active_popups(request):
     Get all active popups (public endpoint)
     """
     try:
-        popups = Popup.objects.filter(is_active=True).order_by('-created_at')
+        popups = Popup.objects.filter(isActive=True).order_by('-createdAt')
         
         popups_data = []
         for popup in popups:
