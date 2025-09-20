@@ -150,7 +150,7 @@ def create_geofence(request):
             print("About to build response...")
             # Get vehicles data safely
             vehicles_data = []
-            for gv in geofence.geofencevehicle_set.all():
+            for gv in geofence.vehicles.all():
                 try:
                     vehicles_data.append({
                         'id': gv.vehicle.id, 
@@ -163,7 +163,7 @@ def create_geofence(request):
             
             # Get users data safely
             users_data = []
-            for gu in geofence.geofenceuser_set.all():
+            for gu in geofence.users.all():
                 try:
                     users_data.append({
                         'id': gu.user.id, 
@@ -189,15 +189,19 @@ def create_geofence(request):
             print(f"Response data: {geofence_data}")
             print("Calling success_response...")
             
-            # Try with a simple response first
-            simple_response_data = {
+            # Build complete response with vehicles and users
+            complete_response_data = {
                 'id': geofence.id,
                 'title': geofence.title,
                 'type': geofence.type,
-                'boundary': geofence.boundary
+                'boundary': geofence.boundary,
+                'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+                'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
+                'vehicles': vehicles_data,
+                'users': users_data
             }
             
-            response = success_response(simple_response_data, 'Geofence created successfully', 201)
+            response = success_response(complete_response_data, 'Geofence created successfully', 201)
             print(f"Success response created: {type(response)}")
             return response
             
@@ -249,8 +253,8 @@ def get_all_geofences(request):
                 'title': geofence.title,
                 'type': geofence.type,
                 'boundary': geofence.boundary,
-                'createdAt': geofence.created_at.isoformat() if geofence.created_at else None,
-                'updatedAt': geofence.updated_at.isoformat() if geofence.updated_at else None,
+                'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+                'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
                 'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
                 'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
             }
@@ -327,8 +331,8 @@ def get_geofences_by_imei(request, imei):
                 'title': geofence.title,
                 'type': geofence.type,
                 'boundary': geofence.boundary,
-                'createdAt': geofence.created_at.isoformat() if geofence.created_at else None,
-                'updatedAt': geofence.updated_at.isoformat() if geofence.updated_at else None,
+                'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
+                'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
                 'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
                 'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
             }
