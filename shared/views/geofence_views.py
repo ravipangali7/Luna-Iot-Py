@@ -239,12 +239,12 @@ def get_all_geofences(request):
         
         # Super Admin: all access
         if user.role.name == 'Super Admin':
-            geofences = Geofence.objects.prefetch_related('geofencevehicle_set__vehicle', 'geofenceuser_set__user').all()
+            geofences = Geofence.objects.prefetch_related('vehicles__vehicle', 'users__user').all()
         else:
             # Dealer/Customer: only view assigned geofences
             geofences = Geofence.objects.filter(
-                geofenceuser__user=user
-            ).prefetch_related('geofencevehicle_set__vehicle', 'geofenceuser_set__user').distinct()
+                users__user=user
+            ).prefetch_related('vehicles__vehicle', 'users__user').distinct()
         
         geofences_data = []
         for geofence in geofences:
@@ -255,8 +255,8 @@ def get_all_geofences(request):
                 'boundary': geofence.boundary,
                 'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
                 'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
-                'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
-                'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
+                'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.vehicles.all()],
+                'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.users.all()]
             }
             geofences_data.append(geofence_data)
         
@@ -277,14 +277,14 @@ def get_geofence_by_id(request, id):
         user = request.user
         
         try:
-            geofence = Geofence.objects.prefetch_related('geofencevehicle_set__vehicle', 'geofenceuser_set__user').get(id=id)
+            geofence = Geofence.objects.prefetch_related('vehicles__vehicle', 'users__user').get(id=id)
         except Geofence.DoesNotExist:
             return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
-            if not geofence.geofenceuser_set.filter(user=user).exists():
+            if not geofence.users.filter(user=user).exists():
                 return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         geofence_data = {
@@ -294,8 +294,8 @@ def get_geofence_by_id(request, id):
             'boundary': geofence.boundary,
             'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
             'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
-            'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
-            'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
+            'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.vehicles.all()],
+            'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.users.all()]
         }
         
         return success_response(geofence_data, 'Geofence retrieved successfully')
@@ -316,13 +316,13 @@ def get_geofences_by_imei(request, imei):
         
         # Get geofences by IMEI
         geofences = Geofence.objects.filter(
-            geofencevehicle__vehicle__imei=imei
-        ).prefetch_related('geofencevehicle_set__vehicle', 'geofenceuser_set__user').distinct()
+            vehicles__vehicle__imei=imei
+        ).prefetch_related('vehicles__vehicle', 'users__user').distinct()
         
         # Filter based on user access
         if user.role.name != 'Super Admin':
             # Filter to only show geofences assigned to this user
-            geofences = geofences.filter(geofenceuser__user=user).distinct()
+            geofences = geofences.filter(users__user=user).distinct()
         
         geofences_data = []
         for geofence in geofences:
@@ -333,8 +333,8 @@ def get_geofences_by_imei(request, imei):
                 'boundary': geofence.boundary,
                 'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
                 'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
-                'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
-                'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
+                'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.vehicles.all()],
+                'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.users.all()]
             }
             geofences_data.append(geofence_data)
         
@@ -357,14 +357,14 @@ def update_geofence(request, id):
         
         # Check if geofence exists
         try:
-            geofence = Geofence.objects.prefetch_related('geofenceuser_set__user').get(id=id)
+            geofence = Geofence.objects.prefetch_related('users__user').get(id=id)
         except Geofence.DoesNotExist:
             return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
-            if not geofence.geofenceuser_set.filter(user=user).exists():
+            if not geofence.users.filter(user=user).exists():
                 return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         # Update geofence
@@ -411,8 +411,8 @@ def update_geofence(request, id):
             'boundary': geofence.boundary,
             'createdAt': geofence.createdAt.isoformat() if geofence.createdAt else None,
             'updatedAt': geofence.updatedAt.isoformat() if geofence.updatedAt else None,
-            'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.geofencevehicle_set.all()],
-            'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.geofenceuser_set.all()]
+            'vehicles': [{'id': gv.vehicle.id, 'imei': gv.vehicle.imei, 'name': gv.vehicle.name} for gv in geofence.vehicles.all()],
+            'users': [{'id': gu.user.id, 'name': gu.user.name, 'phone': gu.user.phone} for gu in geofence.users.all()]
         }
         
         return success_response(geofence_data, 'Geofence updated successfully')
@@ -435,14 +435,14 @@ def delete_geofence(request, id):
         
         # Check if geofence exists
         try:
-            geofence = Geofence.objects.prefetch_related('geofenceuser_set__user').get(id=id)
+            geofence = Geofence.objects.prefetch_related('users__user').get(id=id)
         except Geofence.DoesNotExist:
             return error_response('Geofence not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check access based on role
         if user.role.name != 'Super Admin':
             # Check if user has access to this geofence
-            if not geofence.geofenceuser_set.filter(user=user).exists():
+            if not geofence.users.filter(user=user).exists():
                 return error_response('Access denied to this geofence', HTTP_STATUS['FORBIDDEN'])
         
         # Delete geofence
