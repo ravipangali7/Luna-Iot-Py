@@ -10,7 +10,7 @@ from api_common.decorators.auth_decorators import require_auth, require_role
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.validation_utils import validate_required_fields
 from api_common.utils.exception_utils import handle_api_exception
-from api_common.services.firebase_service import firebase_service
+# Firebase import will be done lazily when needed
 
 from shared.models import Notification, UserNotification
 from core.models import User
@@ -134,6 +134,8 @@ def create_notification(request):
         
         # Send push notifications using Firebase
         try:
+            from api_common.services.firebase_service import firebase_service
+            
             fcm_tokens = []
             for target_user in target_users:
                 if target_user.fcm_token:

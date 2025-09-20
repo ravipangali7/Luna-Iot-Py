@@ -26,7 +26,13 @@ class FirebaseService:
     def __init__(self):
         self.app = None
         self.initialized = False
-        self._initialize_firebase()
+        # Don't initialize immediately - wait until first use
+    
+    def _ensure_initialized(self):
+        """Ensure Firebase is initialized before use"""
+        if not self.initialized:
+            self._initialize_firebase()
+        return self.initialized
     
     def _initialize_firebase(self):
         """Initialize Firebase Admin SDK"""
@@ -45,6 +51,8 @@ class FirebaseService:
             project_id = getattr(settings, 'FIREBASE_PROJECT_ID', '')
             client_email = getattr(settings, 'FIREBASE_CLIENT_EMAIL', '')
             private_key = getattr(settings, 'FIREBASE_PRIVATE_KEY', '')
+            
+            logger.info(f"Firebase config - Project ID: {project_id[:10]}..., Email: {client_email[:20]}..., Key: {private_key[:20]}...")
             
             if not all([project_id, client_email, private_key]):
                 logger.error("Firebase credentials not found in Django settings")
@@ -81,7 +89,7 @@ class FirebaseService:
         Returns:
             Dict with success status and message ID or error
         """
-        if not self.initialized:
+        if not self._ensure_initialized():
             return {"success": False, "error": "Firebase not initialized"}
         
         try:
@@ -126,7 +134,7 @@ class FirebaseService:
         Returns:
             Dict with success status and counts
         """
-        if not self.initialized:
+        if not self._ensure_initialized():
             return {"success": False, "error": "Firebase not initialized"}
         
         if not fcm_tokens:
@@ -179,7 +187,7 @@ class FirebaseService:
         Returns:
             Dict with success status and message ID or error
         """
-        if not self.initialized:
+        if not self._ensure_initialized():
             return {"success": False, "error": "Firebase not initialized"}
         
         try:
