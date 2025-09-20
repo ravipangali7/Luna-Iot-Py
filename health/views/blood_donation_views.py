@@ -131,10 +131,10 @@ def create_blood_donation(request):
             name=name,
             phone=phone,
             address=address,
-            blood_group=blood_group,
-            apply_type=apply_type,
+            bloodGroup=blood_group,
+            applyType=apply_type,
             status=status,
-            last_donated_at=last_donated_at
+            lastDonatedAt=last_donated_at
         )
         
         blood_donation_data = {
