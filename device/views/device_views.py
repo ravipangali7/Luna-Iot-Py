@@ -928,15 +928,16 @@ def search_devices(request):
                     'id': user_device.user.id,
                     'name': user_device.user.name,
                     'phone': user_device.user.phone,
-                    'email': user_device.user.email,
-                    'status': 'ACTIVE' if user_device.user.is_active else 'INACTIVE',
-                    'role': user_device.user.groups.first().name if user_device.user.groups.exists() else 'User',
-                    'createdAt': user_device.user.created_at.isoformat() if user_device.user.created_at else None,
-                    'updatedAt': user_device.user.updated_at.isoformat() if user_device.user.updated_at else None
+                    'status': 'active',  # Default status
+                    'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_device.user.groups.all()],
+                    'createdAt': user_device.createdAt.isoformat(),
+                    'updatedAt': user_device.createdAt.isoformat()
                 }
                 
                 user_devices_data.append({
                     'id': user_device.id,
+                    'userId': user_device.user.id,
+                    'deviceId': device.id,
                     'user': user_data,
                     'createdAt': user_device.createdAt.isoformat(),
                     'updatedAt': user_device.createdAt.isoformat()
@@ -951,15 +952,17 @@ def search_devices(request):
                         'id': user_vehicle.user.id,
                         'name': user_vehicle.user.name,
                         'phone': user_vehicle.user.phone,
-                        'email': user_vehicle.user.email,
-                        'status': 'ACTIVE' if user_vehicle.user.is_active else 'INACTIVE',
-                        'role': user_vehicle.user.groups.first().name if user_vehicle.user.groups.exists() else 'User',
-                        'createdAt': user_vehicle.user.created_at.isoformat() if user_vehicle.user.created_at else None,
-                        'updatedAt': user_vehicle.user.updated_at.isoformat() if user_vehicle.user.updated_at else None
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                        'createdAt': user_vehicle.createdAt.isoformat(),
+                        'updatedAt': user_vehicle.createdAt.isoformat()
                     }
                     
                     user_vehicles_data.append({
                         'id': user_vehicle.id,
+                        'userId': user_vehicle.user.id,
+                        'vehicleId': vehicle.id,
+                        'isMain': user_vehicle.isMain,
                         'user': user_data,
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()

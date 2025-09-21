@@ -214,10 +214,10 @@ def get_all_vehicles_detailed(request):
                         'id': uv.user.id,
                         'name': uv.user.name,
                         'phone': uv.user.phone,
-                        'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                        'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
-                        'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
-                        'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                        'createdAt': uv.createdAt.isoformat(),
+                        'updatedAt': uv.createdAt.isoformat()
                     },
                     'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
                     'allAccess': uv.allAccess,
@@ -245,8 +245,8 @@ def get_all_vehicles_detailed(request):
                             'id': uv.user.id,
                             'name': uv.user.name,
                             'phone': uv.user.phone,
-                            'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                            'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
                             'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
                             'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
                         },
@@ -1093,10 +1093,10 @@ def get_vehicles_paginated(request):
                         'id': uv.user.id,
                         'name': uv.user.name,
                         'phone': uv.user.phone,
-                        'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                        'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
-                        'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
-                        'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                        'createdAt': uv.createdAt.isoformat(),
+                        'updatedAt': uv.createdAt.isoformat()
                     },
                     'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
                     'allAccess': uv.allAccess,
@@ -1124,8 +1124,8 @@ def get_vehicles_paginated(request):
                             'id': uv.user.id,
                             'name': uv.user.name,
                             'phone': uv.user.phone,
-                            'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                            'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
                             'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
                             'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
                         },
@@ -1315,10 +1315,10 @@ def search_vehicles(request):
                         'id': uv.user.id,
                         'name': uv.user.name,
                         'phone': uv.user.phone,
-                        'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                        'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
-                        'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
-                        'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                        'createdAt': uv.createdAt.isoformat(),
+                        'updatedAt': uv.createdAt.isoformat()
                     },
                     'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
                     'allAccess': uv.allAccess,
@@ -1346,8 +1346,8 @@ def search_vehicles(request):
                             'id': uv.user.id,
                             'name': uv.user.name,
                             'phone': uv.user.phone,
-                            'status': 'ACTIVE' if uv.user.is_active else 'INACTIVE',
-                            'role': uv.user.groups.first().name if uv.user.groups.exists() else 'User',
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
                             'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
                             'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
                         },
