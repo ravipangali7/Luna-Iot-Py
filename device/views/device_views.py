@@ -833,3 +833,156 @@ def get_devices_paginated(request):
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def search_devices(request):
+    """
+    Search devices with multiple fields: device imei, phone, protocol, sim, model, 
+    related vehicle (vehicle no and vehicle name), related user (name and phone),
+    and users related to vehicles (name and phone)
+    """
+    try:
+        from django.db.models import Q
+        
+        user = request.user
+        search_query = request.GET.get('q', '').strip()
+        
+        if not search_query:
+            return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Get user groups (Django's role system)
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        is_dealer = any(group.name == 'Dealer' for group in user_groups)
+        
+        # Super Admin: all access
+        if is_super_admin:
+            devices = Device.objects.prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups'
+            ).all()
+        # Dealer: devices assigned to them
+        elif is_dealer:
+            devices = Device.objects.filter(
+                userDevices__user=user
+            ).prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups'
+            ).distinct()
+        # Regular user: devices assigned to them
+        else:
+            devices = Device.objects.filter(
+                userDevices__user=user
+            ).prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups'
+            ).distinct()
+        
+        # Apply search filters
+        search_filter = Q()
+        
+        # Search in device fields
+        search_filter |= Q(imei__icontains=search_query)
+        search_filter |= Q(phone__icontains=search_query)
+        search_filter |= Q(protocol__icontains=search_query)
+        search_filter |= Q(sim__icontains=search_query)
+        search_filter |= Q(model__icontains=search_query)
+        search_filter |= Q(iccid__icontains=search_query)
+        
+        # Search in related users (name and phone)
+        search_filter |= Q(userDevices__user__name__icontains=search_query)
+        search_filter |= Q(userDevices__user__phone__icontains=search_query)
+        
+        # Search in related vehicles (vehicle no and vehicle name)
+        search_filter |= Q(vehicles__vehicleNo__icontains=search_query)
+        search_filter |= Q(vehicles__name__icontains=search_query)
+        
+        # Search in users related to vehicles (name and phone)
+        search_filter |= Q(vehicles__userVehicles__user__name__icontains=search_query)
+        search_filter |= Q(vehicles__userVehicles__user__phone__icontains=search_query)
+        
+        # Apply the search filter
+        devices = devices.filter(search_filter).distinct()
+        
+        devices_data = []
+        for device in devices:
+            # Get user devices with user info and roles
+            user_devices_data = []
+            for user_device in device.userDevices.all():
+                user_data = {
+                    'id': user_device.user.id,
+                    'name': user_device.user.name,
+                    'phone': user_device.user.phone,
+                    'email': user_device.user.email,
+                    'status': 'ACTIVE' if user_device.user.is_active else 'INACTIVE',
+                    'role': user_device.user.groups.first().name if user_device.user.groups.exists() else 'User',
+                    'createdAt': user_device.user.created_at.isoformat() if user_device.user.created_at else None,
+                    'updatedAt': user_device.user.updated_at.isoformat() if user_device.user.updated_at else None
+                }
+                
+                user_devices_data.append({
+                    'id': user_device.id,
+                    'user': user_data,
+                    'createdAt': user_device.createdAt.isoformat(),
+                    'updatedAt': user_device.createdAt.isoformat()
+                })
+            
+            # Get vehicles with user info
+            vehicles_data = []
+            for vehicle in device.vehicles.all():
+                user_vehicles_data = []
+                for user_vehicle in vehicle.userVehicles.all():
+                    user_data = {
+                        'id': user_vehicle.user.id,
+                        'name': user_vehicle.user.name,
+                        'phone': user_vehicle.user.phone,
+                        'email': user_vehicle.user.email,
+                        'status': 'ACTIVE' if user_vehicle.user.is_active else 'INACTIVE',
+                        'role': user_vehicle.user.groups.first().name if user_vehicle.user.groups.exists() else 'User',
+                        'createdAt': user_vehicle.user.created_at.isoformat() if user_vehicle.user.created_at else None,
+                        'updatedAt': user_vehicle.user.updated_at.isoformat() if user_vehicle.user.updated_at else None
+                    }
+                    
+                    user_vehicles_data.append({
+                        'id': user_vehicle.id,
+                        'user': user_data,
+                        'createdAt': user_vehicle.createdAt.isoformat(),
+                        'updatedAt': user_vehicle.createdAt.isoformat()
+                    })
+                
+                vehicles_data.append({
+                    'id': vehicle.id,
+                    'imei': vehicle.imei,
+                    'name': vehicle.name,
+                    'vehicleNo': vehicle.vehicleNo,
+                    'vehicleType': vehicle.vehicleType,
+                    'userVehicles': user_vehicles_data
+                })
+            
+            devices_data.append({
+                'id': device.id,
+                'imei': device.imei,
+                'phone': device.phone,
+                'sim': device.sim,
+                'protocol': device.protocol,
+                'iccid': device.iccid,
+                'model': device.model,
+                'status': 'active',  # Default status
+                'userDevices': user_devices_data,
+                'vehicles': vehicles_data,
+                'createdAt': device.createdAt.isoformat(),
+                'updatedAt': device.updatedAt.isoformat()
+            })
+        
+        return success_response(
+            data=devices_data,
+            message=f'Found {len(devices_data)} devices matching "{search_query}"'
+        )
+    
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
