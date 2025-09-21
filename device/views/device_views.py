@@ -842,12 +842,16 @@ def search_devices(request):
     Search devices with multiple fields: device imei, phone, protocol, sim, model, 
     related vehicle (vehicle no and vehicle name), related user (name and phone),
     and users related to vehicles (name and phone)
+    Supports pagination with page parameter
     """
     try:
         from django.db.models import Q
+        from django.core.paginator import Paginator
         
         user = request.user
         search_query = request.GET.get('q', '').strip()
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size
         
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
@@ -906,8 +910,17 @@ def search_devices(request):
         # Apply the search filter
         devices = devices.filter(search_filter).distinct()
         
+        # Create paginator
+        paginator = Paginator(devices, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
         devices_data = []
-        for device in devices:
+        for device in page_obj:
             # Get user devices with user info and roles
             user_devices_data = []
             for user_device in device.userDevices.all():
@@ -976,9 +989,26 @@ def search_devices(request):
                 'updatedAt': device.updatedAt.isoformat()
             })
         
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'devices': devices_data,
+            'pagination': pagination_info
+        }
+        
         return success_response(
-            data=devices_data,
-            message=f'Found {len(devices_data)} devices matching "{search_query}"'
+            data=response_data,
+            message=f'Found {paginator.count} devices matching "{search_query}"'
         )
     
     except Exception as e:

@@ -1251,10 +1251,13 @@ def get_vehicles_paginated(request):
 def search_vehicles(request):
     """
     Search vehicles with multiple fields: vehicle name, vehicle no, device imei, device phone, device sim, related users (name and phone)
+    Supports pagination with page parameter
     """
     try:
         user = request.user
         search_query = request.GET.get('q', '').strip()
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size
         
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
@@ -1289,8 +1292,17 @@ def search_vehicles(request):
         # Apply the search filter
         vehicles = vehicles.filter(search_filter).distinct()
         
+        # Create paginator
+        paginator = Paginator(vehicles, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
         vehicles_data = []
-        for vehicle in vehicles:
+        for vehicle in page_obj:
             # Get all users with access to this vehicle
             user_vehicles = []
             for uv in vehicle.userVehicles.all():
@@ -1432,7 +1444,24 @@ def search_vehicles(request):
             }
             vehicles_data.append(vehicle_data)
         
-        return success_response(vehicles_data, f'Found {len(vehicles_data)} vehicles matching "{search_query}"')
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'vehicles': vehicles_data,
+            'pagination': pagination_info
+        }
+        
+        return success_response(response_data, f'Found {paginator.count} vehicles matching "{search_query}"')
     
     except Exception as e:
         return handle_api_exception(e)
