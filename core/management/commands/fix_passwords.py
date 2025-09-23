@@ -22,7 +22,7 @@ class Command(BaseCommand):
                 
                 # If it's a plain text password or bcrypt hash, we need to reset it
                 # For now, let's set a default password that users can change
-                user.password = make_password('default123')
+                user.password = make_password('12345678')
                 user.save()
                 fixed_count += 1
                 self.stdout.write(f'Fixed password for user {user.phone}')

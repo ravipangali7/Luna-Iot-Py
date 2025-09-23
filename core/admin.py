@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin
 from django.contrib.auth.models import Group, Permission
-from .models import User, Otp
+from .models import User, Otp, InstituteService, Institute, InstituteModule
 
 # Unregister default Group admin and register with custom admin
 admin.site.unregister(Group)
@@ -55,3 +55,55 @@ class OtpAdmin(admin.ModelAdmin):
     list_display = ('phone', 'otp', 'expiresAt', 'createdAt')
     search_fields = ('phone',)
     readonly_fields = ('createdAt',)
+
+
+@admin.register(InstituteService)
+class InstituteServiceAdmin(admin.ModelAdmin):
+    list_display = ('name', 'icon', 'created_at')
+    search_fields = ('name', 'description')
+    list_filter = ('created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('name',)
+    
+    fieldsets = (
+        (None, {'fields': ('name', 'icon', 'description')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+
+@admin.register(Institute)
+class InstituteAdmin(admin.ModelAdmin):
+    list_display = ('name', 'phone', 'address', 'created_at')
+    search_fields = ('name', 'phone', 'address', 'description')
+    list_filter = ('created_at', 'institute_services')
+    readonly_fields = ('created_at', 'updated_at', 'location')
+    filter_horizontal = ('institute_services',)
+    ordering = ('name',)
+    
+    fieldsets = (
+        (None, {'fields': ('name', 'description')}),
+        ('Contact Information', {'fields': ('phone', 'address')}),
+        ('Location', {'fields': ('latitude', 'longitude', 'location')}),
+        ('Media', {'fields': ('logo',)}),
+        ('Services', {'fields': ('institute_services',)}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+
+@admin.register(InstituteModule)
+class InstituteModuleAdmin(admin.ModelAdmin):
+    list_display = ('institute', 'group', 'user_count', 'created_at')
+    search_fields = ('institute__name', 'group__name')
+    list_filter = ('institute', 'group', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'user_count')
+    filter_horizontal = ('users',)
+    ordering = ('institute__name', 'group__name')
+    
+    fieldsets = (
+        (None, {'fields': ('institute', 'group')}),
+        ('Users', {'fields': ('users', 'user_count')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('institute', 'group').prefetch_related('users')

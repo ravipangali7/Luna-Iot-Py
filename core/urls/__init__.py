@@ -15,4 +15,7 @@ urlpatterns = [
     
     # Permission routes (for /api/core/permission/...)
     path('permission/', include('core.urls.role_urls')),
+    
+    # Institute routes
+    path('institute/', include('core.urls.institute_urls')),
 ]

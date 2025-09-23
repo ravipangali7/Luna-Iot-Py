@@ -1,15 +1,10 @@
-INFO 2025-09-21 04:30:19,682 firebase_service 11768 16632 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:30:46,592 firebase_service 7840 3372 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:32:02,617 firebase_service 14244 13180 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:42:40,104 firebase_service 17340 1756 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:42:41,799 firebase_service 15528 2984 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:42:41,818 autoreload 15528 2984 Watching for file changes with StatReloader
-INFO 2025-09-21 04:42:50,573 firebase_service 15696 16244 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:47:11,276 firebase_service 12912 10076 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:47:19,357 firebase_service 8572 1584 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:47:21,438 firebase_service 16460 13560 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 04:47:21,473 autoreload 16460 13560 Watching for file changes with StatReloader
-INFO 2025-09-21 04:47:29,476 firebase_service 10272 1372 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 21:54:52,561 firebase_service 12492 10956 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 22:00:31,745 firebase_service 13132 8652 Firebase Admin SDK initialized successfully
-INFO 2025-09-21 22:03:05,141 firebase_service 7300 1472 Firebase Admin SDK initialized successfully
+INFO 2025-09-23 17:21:28,256 firebase_service 3184 6560 Firebase Admin SDK initialized successfully
+INFO 2025-09-23 17:21:36,184 firebase_service 2228 7876 Firebase Admin SDK initialized successfully
+INFO 2025-09-23 17:22:43,391 firebase_service 6936 12720 Firebase Admin SDK initialized successfully
+INFO 2025-09-23 17:35:04,313 firebase_service 11260 12472 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:07:26,912 firebase_service 15056 15492 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:08:19,692 firebase_service 11320 13708 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:08:30,841 firebase_service 5016 6936 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:11:20,286 firebase_service 9696 9640 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:11:22,423 firebase_service 13372 7856 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 02:11:22,469 autoreload 13372 7856 Watching for file changes with StatReloader
