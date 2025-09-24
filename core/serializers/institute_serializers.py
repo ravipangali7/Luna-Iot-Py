@@ -158,13 +158,14 @@ class InstituteUpdateSerializer(serializers.ModelSerializer):
 
 class InstituteListSerializer(serializers.ModelSerializer):
     """Serializer for institute list (minimal data)"""
+    institute_services = InstituteServiceSerializer(many=True, read_only=True)
     service_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Institute
         fields = [
             'id', 'name', 'phone', 'address', 
-            'service_count', 'created_at'
+            'institute_services', 'service_count', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
     

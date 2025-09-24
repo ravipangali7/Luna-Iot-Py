@@ -97,7 +97,8 @@ def get_all_vehicles(request):
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                userVehicles__user=user
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         vehicles_data = []
@@ -197,7 +198,8 @@ def get_all_vehicles_detailed(request):
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                userVehicles__user=user
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         vehicles_data = []
@@ -1067,7 +1069,8 @@ def get_vehicles_paginated(request):
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                userVehicles__user=user
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         # Create paginator
@@ -1269,7 +1272,8 @@ def search_vehicles(request):
         else:
             # Get vehicles where user has access
             vehicles = Vehicle.objects.filter(
-                userVehicles__user=user
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         # Apply search filters
