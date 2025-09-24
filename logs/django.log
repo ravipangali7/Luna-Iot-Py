@@ -8,3 +8,15 @@ INFO 2025-09-24 02:08:30,841 firebase_service 5016 6936 Firebase Admin SDK initi
 INFO 2025-09-24 02:11:20,286 firebase_service 9696 9640 Firebase Admin SDK initialized successfully
 INFO 2025-09-24 02:11:22,423 firebase_service 13372 7856 Firebase Admin SDK initialized successfully
 INFO 2025-09-24 02:11:22,469 autoreload 13372 7856 Watching for file changes with StatReloader
+INFO 2025-09-24 14:27:08,337 firebase_service 7588 9512 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:27:09,647 firebase_service 12540 3792 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:27:09,715 autoreload 12540 3792 Watching for file changes with StatReloader
+INFO 2025-09-24 14:30:14,304 firebase_service 11176 9932 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:30:15,858 firebase_service 12908 1100 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:30:15,910 autoreload 12908 1100 Watching for file changes with StatReloader
+INFO 2025-09-24 14:34:01,463 autoreload 12908 1100 C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\core\serializers\institute_serializers.py changed, reloading.
+INFO 2025-09-24 14:34:03,272 firebase_service 3044 6676 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:34:03,315 autoreload 3044 6676 Watching for file changes with StatReloader
+INFO 2025-09-24 14:34:13,799 autoreload 3044 6676 C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\core\serializers\institute_serializers.py changed, reloading.
+INFO 2025-09-24 14:34:15,934 firebase_service 4724 5432 Firebase Admin SDK initialized successfully
+INFO 2025-09-24 14:34:15,965 autoreload 4724 5432 Watching for file changes with StatReloader

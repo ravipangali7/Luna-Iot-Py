@@ -67,5 +67,5 @@ class InstituteServiceListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InstituteService
-        fields = ['id', 'name', 'icon']
-        read_only_fields = ['id']
+        fields = ['id', 'name', 'icon', 'description', 'created_at']
+        read_only_fields = ['id', 'created_at']

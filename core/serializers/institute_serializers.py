@@ -4,6 +4,7 @@ Handles serialization for institute management endpoints
 """
 from rest_framework import serializers
 from core.models import Institute, InstituteService
+from .institute_service_serializers import InstituteServiceSerializer
 
 
 class InstituteSerializer(serializers.ModelSerializer):
