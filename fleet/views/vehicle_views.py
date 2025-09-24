@@ -367,8 +367,9 @@ def get_vehicle_by_imei(request, imei):
             vehicle = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').filter(imei=imei).first()
         else:
             vehicle = Vehicle.objects.filter(
-                imei=imei,
-                userVehicles__user=user
+                Q(imei=imei) |
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').first()
         
         if not vehicle:
