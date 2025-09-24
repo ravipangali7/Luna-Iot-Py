@@ -14,7 +14,7 @@ from api_common.utils.validation_utils import validate_required_fields, validate
 from api_common.utils.exception_utils import handle_api_exception
 
 from fleet.models import Vehicle, UserVehicle
-from device.models import Device
+from device.models import Device, UserDevice
 from device.models.location import Location
 from device.models.status import Status
 from core.models import User
@@ -1275,7 +1275,7 @@ def search_vehicles(request):
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
-        
+            print("VEHICLE: ", vehicles)
         # Apply search filters
         search_filter = Q()
         
