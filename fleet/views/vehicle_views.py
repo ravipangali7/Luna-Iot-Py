@@ -360,17 +360,22 @@ def get_vehicle_by_imei(request, imei):
     """
     try:
         user = request.user
+        print(f"DEBUG: get_vehicle_by_imei called with IMEI: {imei} for user: {user.username}")
         
         # Get vehicle with access check
         user_group = user.groups.first()
         if user_group and user_group.name == 'Super Admin':
             vehicle = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').filter(imei=imei).first()
+            print(f"DEBUG: Super Admin - Found vehicle: {vehicle.imei if vehicle else 'None'}")
         else:
+            # First check if the specific IMEI exists and user has access to it
             vehicle = Vehicle.objects.filter(
-                Q(imei=imei) |
+                imei=imei
+            ).filter(
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').first()
+            print(f"DEBUG: Customer - Found vehicle: {vehicle.imei if vehicle else 'None'}")
         
         if not vehicle:
             return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
@@ -435,6 +440,8 @@ def get_vehicle_by_imei(request, imei):
                     'notification': uv.notification
                 }
             })
+        
+        print(f"DEBUG: Returning vehicle data for IMEI: {vehicle.imei}, Name: {vehicle.name}, VehicleNo: {vehicle.vehicleNo}")
         
         vehicle_data = {
             'id': vehicle.id,
