@@ -1563,9 +1563,9 @@ def deactivate_vehicle(request, imei):
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check permissions
-        user_vehicle = vehicle.userVehicles.filter(user=user).first()
-        if not user_vehicle or not user_vehicle.edit:
-            return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
+        # user_vehicle = vehicle.userVehicles.filter(user=user).first()
+        # if not user_vehicle or not user_vehicle.edit:
+        #     return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Deactivate vehicle
         vehicle.is_active = False
