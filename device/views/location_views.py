@@ -245,6 +245,10 @@ def get_combined_history_by_date_range(request, imei):
         end = datetime.fromisoformat(end_date.replace('Z', '+23:59'))
         end = end.replace(hour=23, minute=59, second=59, microsecond=999000)
         
+        print('---- DATE ----')
+        print(start)
+        print(end)
+        print('----  END DATE ----')
         # Get location data
         locations = Location.objects.filter(
             imei=imei,
