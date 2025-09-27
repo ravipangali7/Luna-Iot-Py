@@ -18,7 +18,7 @@ class VehicleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'imei', 'device_imei', 'device_model', 'name', 
             'vehicle_no', 'vehicle_type', 'odometer', 'mileage', 
-            'minimum_fuel', 'speed_limit', 'expire_date', 
+            'minimum_fuel', 'speed_limit', 'expire_date', 'is_active',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -35,7 +35,7 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'imei', 'name', 'vehicle_no', 'vehicle_type', 
-            'odometer', 'mileage', 'minimum_fuel', 'speed_limit', 'expire_date'
+            'odometer', 'mileage', 'minimum_fuel', 'speed_limit', 'expire_date', 'is_active'
         ]
     
     def validate_imei(self, value):
@@ -106,7 +106,7 @@ class VehicleUpdateSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'name', 'vehicle_no', 'vehicle_type', 'odometer', 
-            'mileage', 'minimum_fuel', 'speed_limit', 'expire_date'
+            'mileage', 'minimum_fuel', 'speed_limit', 'expire_date', 'is_active'
         ]
     
     def validate_name(self, value):
@@ -155,7 +155,7 @@ class VehicleListSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'id', 'imei', 'device_imei', 'device_model', 
-            'name', 'vehicle_no', 'vehicle_type', 'created_at'
+            'name', 'vehicle_no', 'vehicle_type', 'is_active', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -228,3 +228,4 @@ class VehicleStatsSerializer(serializers.Serializer):
     avg_mileage = serializers.DecimalField(max_digits=10, decimal_places=2)
     expired_vehicles = serializers.IntegerField()
     active_vehicles = serializers.IntegerField()
+    inactive_vehicles = serializers.IntegerField()
