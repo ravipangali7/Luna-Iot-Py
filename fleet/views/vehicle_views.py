@@ -1261,7 +1261,7 @@ def get_vehicles_paginated(request):
 @require_auth
 def search_vehicles(request):
     """
-    Search vehicles with multiple fields: vehicle name, vehicle no, device imei, device phone, device sim, related users (name and phone)
+    Search vehicles with multiple fields: vehicle name, vehicle no, device imei, device phone, device sim, related users (name and phone), device-related users (name and phone)
     Supports pagination with page parameter
     """
     try:
