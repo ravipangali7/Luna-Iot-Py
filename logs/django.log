@@ -20,3 +20,4 @@ INFO 2025-09-24 14:34:03,315 autoreload 3044 6676 Watching for file changes with
 INFO 2025-09-24 14:34:13,799 autoreload 3044 6676 C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\core\serializers\institute_serializers.py changed, reloading.
 INFO 2025-09-24 14:34:15,934 firebase_service 4724 5432 Firebase Admin SDK initialized successfully
 INFO 2025-09-24 14:34:15,965 autoreload 4724 5432 Watching for file changes with StatReloader
+INFO 2025-09-27 12:06:49,412 firebase_service 13748 12392 Firebase Admin SDK initialized successfully
