@@ -46,6 +46,15 @@ def create_location(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Check if any vehicle with this IMEI is active
+        from fleet.models import Vehicle
+        active_vehicles = Vehicle.objects.filter(imei=data['imei'], is_active=True)
+        if not active_vehicles.exists():
+            return error_response(
+                message='No active vehicle found with IMEI: ' + data['imei'],
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
         # Create location record
         location_obj = Location.objects.create(
             device=device,

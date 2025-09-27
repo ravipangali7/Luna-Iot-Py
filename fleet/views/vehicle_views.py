@@ -153,6 +153,7 @@ def get_all_vehicles(request):
                 'minimumFuel': float(vehicle.minimumFuel),
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'is_active': vehicle.is_active,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'userVehicle': {
@@ -325,6 +326,7 @@ def get_all_vehicles_detailed(request):
                 'minimumFuel': float(vehicle.minimumFuel),
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'is_active': vehicle.is_active,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
@@ -551,7 +553,8 @@ def create_vehicle(request):
                 mileage=data.get('mileage', 0),
                 minimumFuel=data.get('minimumFuel', 0),
                 speedLimit=data.get('speedLimit', 60),
-                expireDate=expire_date
+                expireDate=expire_date,
+                is_active=data.get('is_active', True)
             )
             
             # Create user-vehicle relationship
@@ -664,6 +667,8 @@ def update_vehicle(request, imei):
                     vehicle.expireDate = None
             if 'status' in data:
                 vehicle.status = data['status']
+            if 'is_active' in data:
+                vehicle.is_active = data['is_active']
             
             vehicle.save()
         
@@ -1213,6 +1218,7 @@ def get_vehicles_paginated(request):
                 'minimumFuel': float(vehicle.minimumFuel),
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'is_active': vehicle.is_active,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
@@ -1459,6 +1465,7 @@ def search_vehicles(request):
                 'minimumFuel': float(vehicle.minimumFuel),
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'is_active': vehicle.is_active,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
@@ -1497,6 +1504,80 @@ def search_vehicles(request):
         }
         
         return success_response(response_data, f'Found {paginator.count} vehicles matching "{search_query}"')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+@require_auth
+def activate_vehicle(request, imei):
+    """
+    Activate a vehicle
+    """
+    try:
+        user = request.user
+        
+        # Get vehicle
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check permissions
+        user_vehicle = vehicle.userVehicles.filter(user=user).first()
+        if not user_vehicle or not user_vehicle.edit:
+            return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
+        
+        # Activate vehicle
+        vehicle.is_active = True
+        vehicle.save()
+        
+        return success_response({
+            'id': vehicle.id,
+            'imei': vehicle.imei,
+            'name': vehicle.name,
+            'vehicleNo': vehicle.vehicleNo,
+            'is_active': vehicle.is_active
+        }, 'Vehicle activated successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+@require_auth
+def deactivate_vehicle(request, imei):
+    """
+    Deactivate a vehicle
+    """
+    try:
+        user = request.user
+        
+        # Get vehicle
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check permissions
+        user_vehicle = vehicle.userVehicles.filter(user=user).first()
+        if not user_vehicle or not user_vehicle.edit:
+            return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
+        
+        # Deactivate vehicle
+        vehicle.is_active = False
+        vehicle.save()
+        
+        return success_response({
+            'id': vehicle.id,
+            'imei': vehicle.imei,
+            'name': vehicle.name,
+            'vehicleNo': vehicle.vehicleNo,
+            'is_active': vehicle.is_active
+        }, 'Vehicle deactivated successfully')
     
     except Exception as e:
         return handle_api_exception(e)
