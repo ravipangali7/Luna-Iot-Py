@@ -1273,19 +1273,7 @@ def search_vehicles(request):
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
         
-        # Get vehicles based on user role
-        user_group = user.groups.first()
-        if user_group and user_group.name == 'Super Admin':
-            vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
-        else:
-            # Get vehicles where user has access
-            vehicles = Vehicle.objects.filter(
-                Q(userVehicles__user=user) |  # Direct vehicle access
-                Q(device__userDevices__user=user)  # Device access
-            ).select_related('device').prefetch_related('userVehicles__user').distinct()
-            print("VEHICLE: ", vehicles)
-        
-        # Apply search filters
+        # Build search filters first
         search_filter = Q()
         
         # Search in vehicle fields
@@ -1306,14 +1294,27 @@ def search_vehicles(request):
         search_filter |= Q(device__userDevices__user__name__icontains=search_query)
         search_filter |= Q(device__userDevices__user__phone__icontains=search_query)
         
-        # Apply the search filter
-        vehicles = vehicles.filter(search_filter).distinct()
-        
-        # For non-Super Admin users, if search found vehicles through device-related users
-        # that the current user doesn't have direct access to, we need to include them
-        if user_group and user_group.name != 'Super Admin':
-            # Find additional vehicles that match the search but weren't in the user's accessible vehicles
-            additional_vehicles = Vehicle.objects.filter(search_filter).exclude(
+        # Get vehicles based on user role and apply search
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles that match search
+            vehicles = Vehicle.objects.filter(search_filter).select_related('device').prefetch_related('userVehicles__user').distinct()
+        else:
+            # For regular users, find vehicles that match search AND user has access to
+            # OR vehicles that match search through device-related users
+            vehicles = Vehicle.objects.filter(
+                Q(search_filter) & (
+                    Q(userVehicles__user=user) |  # Direct vehicle access
+                    Q(device__userDevices__user=user)  # Device access
+                )
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Also include vehicles that match search through device-related users
+            # even if current user doesn't have direct access
+            additional_vehicles = Vehicle.objects.filter(
+                Q(device__userDevices__user__name__icontains=search_query) |
+                Q(device__userDevices__user__phone__icontains=search_query)
+            ).exclude(
                 Q(userVehicles__user=user) |  # Exclude vehicles user already has access to
                 Q(device__userDevices__user=user)
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
