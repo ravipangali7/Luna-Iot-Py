@@ -18,6 +18,10 @@ urlpatterns = [
     path('vehicle/access/remove', vehicle_views.remove_vehicle_access, name='remove_vehicle_access'),
     path('vehicle/<str:imei>/access', vehicle_views.get_vehicle_access_assignments, name='get_vehicle_access_assignments'),
     
+    # Vehicle activation routes - must come before vehicle/<str:imei> to avoid conflicts
+    path('vehicle/<str:imei>/activate', vehicle_views.activate_vehicle, name='activate_vehicle'),
+    path('vehicle/<str:imei>/deactivate', vehicle_views.deactivate_vehicle, name='deactivate_vehicle'),
+    
     # This must come last to avoid conflicts with specific patterns above
     path('vehicle/<str:imei>', vehicle_views.get_vehicle_by_imei, name='get_vehicle_by_imei'),
 ]
