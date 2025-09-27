@@ -21,3 +21,6 @@ INFO 2025-09-24 14:34:13,799 autoreload 3044 6676 C:\Mine\Projects\Luna_IOT\Luna
 INFO 2025-09-24 14:34:15,934 firebase_service 4724 5432 Firebase Admin SDK initialized successfully
 INFO 2025-09-24 14:34:15,965 autoreload 4724 5432 Watching for file changes with StatReloader
 INFO 2025-09-27 12:06:49,412 firebase_service 13748 12392 Firebase Admin SDK initialized successfully
+INFO 2025-09-27 12:08:40,155 firebase_service 8032 4580 Firebase Admin SDK initialized successfully
+INFO 2025-09-27 12:08:47,128 firebase_service 12992 14020 Firebase Admin SDK initialized successfully
+INFO 2025-09-27 12:09:03,235 firebase_service 13752 2540 Firebase Admin SDK initialized successfully
