@@ -455,6 +455,7 @@ def get_vehicle_by_imei(request, imei):
             'mileage': float(vehicle.mileage),
             'minimumFuel': float(vehicle.minimumFuel),
             'speedLimit': vehicle.speedLimit,
+            'is_active': vehicle.is_active,
             'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
             'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
             'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
