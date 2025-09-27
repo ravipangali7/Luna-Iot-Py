@@ -22,6 +22,9 @@ urlpatterns = [
     path('vehicle/<str:imei>/activate', vehicle_views.activate_vehicle, name='activate_vehicle'),
     path('vehicle/<str:imei>/deactivate', vehicle_views.deactivate_vehicle, name='deactivate_vehicle'),
     
+    # Light vehicle endpoint for dropdowns
+    path('vehicle/light', vehicle_views.get_light_vehicles, name='get_light_vehicles'),
+    
     # This must come last to avoid conflicts with specific patterns above
     path('vehicle/<str:imei>', vehicle_views.get_vehicle_by_imei, name='get_vehicle_by_imei'),
 ]

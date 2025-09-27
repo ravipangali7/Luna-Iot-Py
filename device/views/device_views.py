@@ -1019,3 +1019,51 @@ def search_devices(request):
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_light_devices(request):
+    """
+    Get light device data for dropdown lists (recharge select)
+    Returns only essential fields: id, imei, phone, sim, protocol, model
+    """
+    try:
+        user = request.user
+        
+        # Get user groups (Django's role system)
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        is_dealer = any(group.name == 'Dealer' for group in user_groups)
+        
+        # Super Admin: all access
+        if is_super_admin:
+            devices = Device.objects.values(
+                'id', 'imei', 'phone', 'sim', 'protocol', 'model'
+            ).order_by('imei')
+        # Dealer: only view assigned devices
+        elif is_dealer:
+            devices = Device.objects.filter(
+                userDevices__user=user
+            ).values(
+                'id', 'imei', 'phone', 'sim', 'protocol', 'model'
+            ).distinct().order_by('imei')
+        # Customer: no access to devices
+        else:
+            return error_response(
+                message='Access denied. Customers cannot view devices',
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        devices_list = list(devices)
+        
+        return success_response(
+            data=devices_list,
+            message='Light devices retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )

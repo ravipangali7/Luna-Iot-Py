@@ -1581,3 +1581,39 @@ def deactivate_vehicle(request, imei):
     
     except Exception as e:
         return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_light_vehicles(request):
+    """
+    Get light vehicle data for dropdown lists (playback and history)
+    Returns only essential fields: id, imei, name, vehicleNo, vehicleType
+    """
+    try:
+        user = request.user
+        
+        # Get vehicles based on user role
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            vehicles = Vehicle.objects.filter(is_active=True).values(
+                'id', 'imei', 'name', 'vehicleNo', 'vehicleType'
+            ).order_by('name')
+        else:
+            # Get vehicles where user has access
+            vehicles = Vehicle.objects.filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            ).filter(is_active=True).values(
+                'id', 'imei', 'name', 'vehicleNo', 'vehicleType'
+            ).distinct().order_by('name')
+        
+        vehicles_list = list(vehicles)
+        
+        return success_response(
+            data=vehicles_list,
+            message='Light vehicles retrieved successfully'
+        )
+    except Exception as e:
+        return handle_api_exception(e)
