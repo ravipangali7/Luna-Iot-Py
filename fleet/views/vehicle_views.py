@@ -1598,7 +1598,7 @@ def get_light_vehicles(request):
         user_group = user.groups.first()
         if user_group and user_group.name == 'Super Admin':
             vehicles = Vehicle.objects.filter(is_active=True).values(
-                'id', 'imei', 'name', 'vehicleNo', 'vehicleType'
+                'id', 'imei', 'name', 'vehicleNo', 'vehicleType', 'is_active'
             ).order_by('name')
         else:
             # Get vehicles where user has access
@@ -1606,7 +1606,7 @@ def get_light_vehicles(request):
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).filter(is_active=True).values(
-                'id', 'imei', 'name', 'vehicleNo', 'vehicleType'
+                'id', 'imei', 'name', 'vehicleNo', 'vehicleType', 'is_active'
             ).distinct().order_by('name')
         
         vehicles_list = list(vehicles)
