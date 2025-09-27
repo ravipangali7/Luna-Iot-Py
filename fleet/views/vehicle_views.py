@@ -1526,10 +1526,10 @@ def activate_vehicle(request, imei):
         except Vehicle.DoesNotExist:
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
-        # Check permissions
-        user_vehicle = vehicle.userVehicles.filter(user=user).first()
-        if not user_vehicle or not user_vehicle.edit:
-            return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
+        # # Check permissions
+        # user_vehicle = vehicle.userVehicles.filter(user=user).first()
+        # if not user_vehicle or not user_vehicle.edit:
+        #     return error_response('You do not have permission to edit this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Activate vehicle
         vehicle.is_active = True
