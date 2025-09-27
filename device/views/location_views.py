@@ -240,7 +240,7 @@ def get_combined_history_by_date_range(request, imei):
         
         # Set timezone-aware dates
         start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-        start = start.replace(hour=12, minute=0, second=1, microsecond=0)
+        start = start.replace(hour=0, minute=0, second=1, microsecond=0)
         
         end = datetime.fromisoformat(end_date.replace('Z', '+23:59'))
         end = end.replace(hour=23, minute=59, second=59, microsecond=999000)
