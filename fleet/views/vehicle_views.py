@@ -1301,6 +1301,10 @@ def search_vehicles(request):
         search_filter |= Q(userVehicles__user__name__icontains=search_query)
         search_filter |= Q(userVehicles__user__phone__icontains=search_query)
         
+        # Search in device-related users (name and phone)
+        search_filter |= Q(device__userDevices__user__name__icontains=search_query)
+        search_filter |= Q(device__userDevices__user__phone__icontains=search_query)
+        
         # Apply the search filter
         vehicles = vehicles.filter(search_filter).distinct()
         
