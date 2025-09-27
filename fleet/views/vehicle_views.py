@@ -1319,8 +1319,13 @@ def search_vehicles(request):
                 Q(device__userDevices__user=user)
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
             
+            print(f"DEBUG: Initial vehicles count: {vehicles.count()}")
+            print(f"DEBUG: Additional vehicles count: {additional_vehicles.count()}")
+            print(f"DEBUG: Search query: {search_query}")
+            
             # Combine the results
             vehicles = vehicles.union(additional_vehicles)
+            print(f"DEBUG: Final vehicles count: {vehicles.count()}")
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)
