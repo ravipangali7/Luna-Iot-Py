@@ -47,16 +47,23 @@ def initialize_firebase():
         # Check if firebase-service.json exists
         firebase_config_path = os.path.join(BASE_DIR, 'firebase-service.json')
         if not os.path.exists(firebase_config_path):
-            logger.warning("Firebase service account key not found. Push notifications will be disabled.")
+            logger.error(f"Firebase service account key not found at: {firebase_config_path}")
+            logger.error("Please ensure firebase-service.json is in the project root directory.")
             FIREBASE_INITIALIZED = False
             return False
         
         # Initialize Firebase with fresh app
-        cred = credentials.Certificate(firebase_config_path)
-        firebase_admin.initialize_app(cred)
-        FIREBASE_INITIALIZED = True
-        logger.info("Firebase Admin SDK initialized successfully")
-        return True
+        try:
+            cred = credentials.Certificate(firebase_config_path)
+            firebase_admin.initialize_app(cred)
+            FIREBASE_INITIALIZED = True
+            logger.info("Firebase Admin SDK initialized successfully")
+            return True
+        except Exception as cred_error:
+            logger.error(f"Failed to load Firebase credentials: {cred_error}")
+            logger.error("Please check that firebase-service.json is valid and contains proper service account credentials.")
+            FIREBASE_INITIALIZED = False
+            return False
         
     except Exception as e:
         logger.error(f"Firebase initialization failed: {e}")
@@ -120,11 +127,20 @@ def send_push_notification(notification_id, title, body, notification_type, targ
         if messages:
             # Send notifications in batches
             try:
+                logger.info(f"Attempting to send {len(messages)} Firebase messages")
                 response = messaging.send_all(messages)
                 logger.info(f"Successfully sent {response.success_count} notifications, {response.failure_count} failed")
+                
+                # Log any failures for debugging
+                if response.failure_count > 0:
+                    for i, response in enumerate(response.responses):
+                        if not response.success:
+                            logger.error(f"Failed to send message {i}: {response.exception}")
+                
                 return True
             except Exception as send_error:
                 logger.error(f"Error sending Firebase messages: {send_error}")
+                logger.error(f"Error type: {type(send_error).__name__}")
                 return False
         else:
             logger.warning("No valid messages to send")

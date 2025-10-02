@@ -29,3 +29,5 @@ INFO 2025-09-28 00:31:10,675 firebase_service 4468 11956 Firebase Admin SDK init
 INFO 2025-09-28 00:31:57,166 firebase_service 11560 1032 Firebase Admin SDK initialized successfully
 INFO 2025-09-28 00:32:59,834 firebase_service 4488 11344 Firebase Admin SDK initialized successfully
 INFO 2025-09-28 00:33:40,229 firebase_service 13128 5752 Firebase Admin SDK initialized successfully
+ERROR 2025-10-02 19:53:10,139 firebase_service 5740 6020 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-10-02 19:53:10,150 firebase_service 5740 6020 Please ensure firebase-service.json is in the project root directory.
