@@ -8,7 +8,7 @@ from django.db import transaction
 import logging
 
 from .models import Notification, UserNotification
-from api_common.services.firebase_service import send_notification_to_user_notifications
+from api_common.services.nodejs_notification_service import send_push_notification_to_user_notifications, send_push_notification_to_specific_user
 
 logger = logging.getLogger(__name__)
 
@@ -20,19 +20,18 @@ def send_notification_push(sender, instance, created, **kwargs):
     """
     if created:
         try:
-            logger.info(f"Sending push notification for notification {instance.id}")
+            logger.info(f"Sending push notification via Node.js API for notification {instance.id}")
             
-            # Use the send_notification_to_user_notifications function
-            # which will send to users who have UserNotification records
-            success = send_notification_to_user_notifications(instance)
+            # Use the Node.js API service to send push notifications
+            success = send_push_notification_to_user_notifications(instance)
             
             if success:
-                logger.info(f"Successfully sent push notification for notification {instance.id}")
+                logger.info(f"Successfully sent push notification via Node.js API for notification {instance.id}")
             else:
-                logger.warning(f"Failed to send push notification for notification {instance.id}")
+                logger.warning(f"Failed to send push notification via Node.js API for notification {instance.id}")
                 
         except Exception as e:
-            logger.error(f"Error sending push notification for notification {instance.id}: {e}")
+            logger.error(f"Error sending push notification via Node.js API for notification {instance.id}: {e}")
 
 
 @receiver(post_save, sender=UserNotification)
@@ -43,29 +42,21 @@ def send_individual_notification_push(sender, instance, created, **kwargs):
     """
     if created:
         try:
-            logger.info(f"Sending individual push notification for UserNotification {instance.id}")
+            logger.info(f"Sending individual push notification via Node.js API for UserNotification {instance.id}")
             
-            # Send notification to this specific user
+            # Send notification to this specific user via Node.js API
             notification = instance.notification
             user = instance.user
             
             if user.fcm_token and user.is_active:
-                from api_common.services.firebase_service import send_push_notification
-                
-                success = send_push_notification(
-                    notification_id=notification.id,
-                    title=notification.title,
-                    body=notification.message,
-                    notification_type='specific',
-                    target_user_ids=[user.id]
-                )
+                success = send_push_notification_to_specific_user(notification, user)
                 
                 if success:
-                    logger.info(f"Successfully sent individual push notification to user {user.id}")
+                    logger.info(f"Successfully sent individual push notification via Node.js API to user {user.id}")
                 else:
-                    logger.warning(f"Failed to send individual push notification to user {user.id}")
+                    logger.warning(f"Failed to send individual push notification via Node.js API to user {user.id}")
             else:
                 logger.warning(f"User {user.id} has no FCM token or is inactive")
                 
         except Exception as e:
-            logger.error(f"Error sending individual push notification for UserNotification {instance.id}: {e}")
+            logger.error(f"Error sending individual push notification via Node.js API for UserNotification {instance.id}: {e}")

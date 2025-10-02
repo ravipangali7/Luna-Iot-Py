@@ -269,3 +269,6 @@ LOGGING = {
 
 # Create logs directory if it doesn't exist
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+
+# Node.js API Configuration
+NODEJS_API_BASE_URL = os.getenv('NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')

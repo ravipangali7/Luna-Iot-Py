@@ -31,3 +31,16 @@ INFO 2025-09-28 00:32:59,834 firebase_service 4488 11344 Firebase Admin SDK init
 INFO 2025-09-28 00:33:40,229 firebase_service 13128 5752 Firebase Admin SDK initialized successfully
 ERROR 2025-10-02 19:53:10,139 firebase_service 5740 6020 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
 ERROR 2025-10-02 19:53:10,150 firebase_service 5740 6020 Please ensure firebase-service.json is in the project root directory.
+ERROR 2025-10-02 20:31:33,327 firebase_service 8484 3208 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-10-02 20:31:33,327 firebase_service 8484 3208 Please ensure firebase-service.json is in the project root directory.
+ERROR 2025-10-02 20:33:08,502 firebase_service 7232 6976 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-10-02 20:33:08,502 firebase_service 7232 6976 Please ensure firebase-service.json is in the project root directory.
+INFO 2025-10-02 20:33:44,386 firebase_service 14172 11188 Firebase Admin SDK initialized successfully
+INFO 2025-10-02 20:33:56,136 firebase_service 9276 4960 Firebase Admin SDK initialized successfully
+INFO 2025-10-02 20:37:47,473 firebase_service 13596 11640 Firebase Admin SDK initialized successfully with app name: luna_iot_app
+INFO 2025-10-02 20:39:17,936 firebase_service 504 5688 Firebase Admin SDK initialized successfully with app name: luna_iot_app
+INFO 2025-10-02 20:39:17,936 firebase_service 504 5688 Removed existing Firebase app: luna_iot_app
+WARNING 2025-10-02 20:39:17,936 firebase_service 504 5688 Error removing existing apps: dictionary changed size during iteration
+INFO 2025-10-02 20:39:18,085 firebase_service 504 5688 Firebase Admin SDK initialized successfully with app name: luna_iot_app
+WARNING 2025-10-02 20:39:18,085 firebase_service 504 5688 Invalid notification type or missing parameters: test
+WARNING 2025-10-02 20:39:18,085 firebase_service 504 5688 No FCM tokens found for notification type: test

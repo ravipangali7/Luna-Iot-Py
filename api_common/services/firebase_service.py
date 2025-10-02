@@ -55,9 +55,10 @@ def initialize_firebase():
         # Initialize Firebase with fresh app
         try:
             cred = credentials.Certificate(firebase_config_path)
-            firebase_admin.initialize_app(cred)
+            # Initialize with a specific app name to avoid conflicts
+            app = firebase_admin.initialize_app(cred, name='luna_iot_app')
             FIREBASE_INITIALIZED = True
-            logger.info("Firebase Admin SDK initialized successfully")
+            logger.info("Firebase Admin SDK initialized successfully with app name: luna_iot_app")
             return True
         except Exception as cred_error:
             logger.error(f"Failed to load Firebase credentials: {cred_error}")
@@ -128,7 +129,9 @@ def send_push_notification(notification_id, title, body, notification_type, targ
             # Send notifications in batches
             try:
                 logger.info(f"Attempting to send {len(messages)} Firebase messages")
-                response = messaging.send_all(messages)
+                # Get the specific Firebase app
+                app = firebase_admin.get_app('luna_iot_app')
+                response = messaging.send_all(messages, app=app)
                 logger.info(f"Successfully sent {response.success_count} notifications, {response.failure_count} failed")
                 
                 # Log any failures for debugging
@@ -247,7 +250,9 @@ def send_notification_to_user_notifications(notification):
         if messages:
             # Send notifications in batches
             try:
-                response = messaging.send_all(messages)
+                # Get the specific Firebase app
+                app = firebase_admin.get_app('luna_iot_app')
+                response = messaging.send_all(messages, app=app)
                 logger.info(f"Successfully sent {response.success_count} notifications for notification {notification.id}, {response.failure_count} failed")
                 return True
             except Exception as send_error:
