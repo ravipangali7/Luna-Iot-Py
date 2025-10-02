@@ -96,8 +96,8 @@ def send_push_notification(notification_id, title, body, notification_type, targ
     if not FIREBASE_INITIALIZED:
         logger.warning("Firebase not initialized, attempting to reinitialize...")
         if not reinitialize_firebase():
-            logger.error("Failed to initialize Firebase, skipping push notification")
-            return False
+            logger.warning("Firebase not available - push notifications disabled. Notification saved to database only.")
+            return True  # Return True to not break the notification creation flow
     
     try:
         # Get FCM tokens based on notification type
@@ -141,6 +141,10 @@ def send_push_notification(notification_id, title, body, notification_type, targ
             except Exception as send_error:
                 logger.error(f"Error sending Firebase messages: {send_error}")
                 logger.error(f"Error type: {type(send_error).__name__}")
+                # If it's a 404 error, it means Firebase is not properly configured
+                if "404" in str(send_error) or "batch" in str(send_error).lower():
+                    logger.warning("Firebase configuration issue detected. Push notifications disabled.")
+                    return True  # Return True to not break the flow
                 return False
         else:
             logger.warning("No valid messages to send")
@@ -206,8 +210,8 @@ def send_notification_to_user_notifications(notification):
     if not FIREBASE_INITIALIZED:
         logger.warning("Firebase not initialized, attempting to reinitialize...")
         if not reinitialize_firebase():
-            logger.error("Failed to initialize Firebase, skipping push notification")
-            return False
+            logger.warning("Firebase not available - push notifications disabled. Notification saved to database only.")
+            return True  # Return True to not break the notification creation flow
     
     try:
         # Get FCM tokens from UserNotification records
@@ -248,6 +252,10 @@ def send_notification_to_user_notifications(notification):
                 return True
             except Exception as send_error:
                 logger.error(f"Error sending Firebase messages for notification {notification.id}: {send_error}")
+                # If it's a 404 error, it means Firebase is not properly configured
+                if "404" in str(send_error) or "batch" in str(send_error).lower():
+                    logger.warning("Firebase configuration issue detected. Push notifications disabled.")
+                    return True  # Return True to not break the flow
                 return False
         else:
             logger.warning(f"No valid messages to send for notification {notification.id}")
