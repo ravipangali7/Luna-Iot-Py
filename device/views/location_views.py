@@ -68,18 +68,22 @@ def create_location(request):
             if created_at_str.endswith('Z'):
                 # Remove Z and treat as Nepal time
                 created_at_str = created_at_str[:-1]
+                print("LOCATION: After removing Z:", created_at_str)
                 # Parse as Nepal timezone
                 nepal_tz = pytz.timezone('Asia/Kathmandu')
-                created_at = nepal_tz.localize(datetime.fromisoformat(created_at_str))
+                parsed_dt = datetime.fromisoformat(created_at_str)
+                created_at = nepal_tz.localize(parsed_dt)
+                print("LOCATION: Successfully parsed as Nepal time:", created_at)
             else:
                 # Parse as regular datetime and convert to Nepal time
                 parsed_dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
                 nepal_tz = pytz.timezone('Asia/Kathmandu')
                 created_at = nepal_tz.localize(parsed_dt)
+                print("LOCATION: Successfully parsed and converted to Nepal time:", created_at)
             
-            print("LOCATION: parsed created_at", created_at)
         except Exception as parse_error:
-            print("LOCATION: Error parsing datetime:", parse_error)
+            print("LOCATION: Error parsing datetime:", str(parse_error))
+            print("LOCATION: Error type:", type(parse_error).__name__)
             # Fallback to current Nepal time
             nepal_tz = pytz.timezone('Asia/Kathmandu')
             created_at = datetime.now(nepal_tz)
