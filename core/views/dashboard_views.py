@@ -9,14 +9,55 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count, Q
 from datetime import datetime
+import requests
+import json
 
 from core.models.user import User
 from device.models.device import Device
 from fleet.models.vehicle import Vehicle
+from django.contrib.auth.models import Group
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth
+
+
+def get_sms_balance():
+    """
+    Fetch SMS balance from external API
+    """
+    try:
+        api_key = "568383D0C5AA82"
+        url = f"https://sms.kaichogroup.com/miscapi/{api_key}/getBalance/true/"
+        
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Extract balance from response
+        # The API might return different formats, so we'll handle common cases
+        if isinstance(data, dict):
+            # Try different possible keys for balance
+            balance = (
+                data.get('balance', 0) or 
+                data.get('Balance', 0) or 
+                data.get('BALANCE', 0) or 
+                data.get('credit', 0) or 
+                data.get('Credit', 0) or 
+                data.get('CREDIT', 0) or
+                0
+            )
+        elif isinstance(data, (int, float)):
+            balance = data
+        else:
+            balance = 0
+            
+        return float(balance) if balance else 0
+        
+    except Exception as e:
+        print(f"Error fetching SMS balance: {str(e)}")
+        return 0
 
 
 @api_view(['GET'])
@@ -69,6 +110,9 @@ def get_dashboard_stats(request):
             expireDate__lt=current_date
         ).count()
         
+        # Fetch SMS balance from external API
+        sms_balance = get_sms_balance()
+        
         # Prepare response data
         stats_data = {
             'totalUsers': total_users,
@@ -78,7 +122,7 @@ def get_dashboard_stats(request):
             'totalDevices': total_devices,
             'totalVehicles': total_vehicles,
             'expiredVehicles': expired_vehicles,
-            'totalSms': 0,  # Placeholder - would need SMS service
+            'totalSms': sms_balance,  # Real SMS balance from API
             'totalBalance': 0,  # Placeholder - would need balance service
             'serverBalance': 0,  # Placeholder - would need server balance service
         }
