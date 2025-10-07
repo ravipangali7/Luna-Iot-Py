@@ -30,33 +30,54 @@ def get_sms_balance():
         api_key = "568383D0C5AA82"
         url = f"https://sms.kaichogroup.com/miscapi/{api_key}/getBalance/true/"
         
+        print(f"Fetching SMS balance from: {url}")
+        
         response = requests.get(url, timeout=10)
+        print(f"SMS API Response Status: {response.status_code}")
+        
         response.raise_for_status()
         
-        data = response.json()
+        # Try to get text first to see raw response
+        response_text = response.text
+        print(f"SMS API Raw Response: {response_text}")
         
-        # Extract balance from response
-        # The API might return different formats, so we'll handle common cases
-        if isinstance(data, dict):
-            # Try different possible keys for balance
-            balance = (
-                data.get('balance', 0) or 
-                data.get('Balance', 0) or 
-                data.get('BALANCE', 0) or 
-                data.get('credit', 0) or 
-                data.get('Credit', 0) or 
-                data.get('CREDIT', 0) or
-                0
-            )
-        elif isinstance(data, (int, float)):
-            balance = data
-        else:
-            balance = 0
+        # Check if response starts with ERR:
+        if response_text.startswith("ERR:"):
+            print(f"SMS API Error: {response_text}")
+            return 0
+        
+        # Try to parse as JSON
+        try:
+            data = response.json()
+            print(f"SMS API JSON Response: {data}")
+        except json.JSONDecodeError:
+            print("SMS API response is not valid JSON")
+            return 0
+        
+        # Handle the correct response format: [{"ROUTE_ID":"xx","ROUTE":"<name>","BALANCE":"<balance>"}]
+        if isinstance(data, list) and len(data) > 0:
+            # Sum up all balances from all routes
+            total_balance = 0
+            for route in data:
+                if isinstance(route, dict) and 'BALANCE' in route:
+                    try:
+                        balance = float(route['BALANCE'])
+                        total_balance += balance
+                        print(f"Route {route.get('ROUTE', 'Unknown')}: {balance} SMS")
+                    except (ValueError, TypeError):
+                        print(f"Invalid balance format for route: {route}")
+                        continue
             
-        return float(balance) if balance else 0
+            print(f"Total SMS Balance: {total_balance}")
+            return total_balance
+        else:
+            print("Unexpected response format - not a list or empty list")
+            return 0
         
     except Exception as e:
         print(f"Error fetching SMS balance: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return 0
 
 
