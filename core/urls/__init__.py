@@ -18,4 +18,7 @@ urlpatterns = [
     
     # Institute routes
     path('institute/', include('core.urls.institute_urls')),
+    
+    # Dashboard routes
+    path('dashboard/', include('core.urls.dashboard_urls')),
 ]
