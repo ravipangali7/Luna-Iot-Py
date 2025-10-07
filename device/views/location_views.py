@@ -59,23 +59,31 @@ def create_location(request):
         
         # Parse the created_at timestamp correctly
         # Node.js sends Nepal time with Z suffix, we need to handle this properly
-        from api_common.utils.datetime_utils import get_nepal_datetime
         import pytz
         
         created_at_str = data['created_at']
         
-        # If it has Z suffix, it's actually Nepal time (not UTC)
-        if created_at_str.endswith('Z'):
-            # Remove Z and treat as Nepal time
-            created_at_str = created_at_str[:-1]
-            # Parse as Nepal timezone
+        try:
+            # If it has Z suffix, it's actually Nepal time (not UTC)
+            if created_at_str.endswith('Z'):
+                # Remove Z and treat as Nepal time
+                created_at_str = created_at_str[:-1]
+                # Parse as Nepal timezone
+                nepal_tz = pytz.timezone('Asia/Kathmandu')
+                created_at = nepal_tz.localize(datetime.fromisoformat(created_at_str))
+            else:
+                # Parse as regular datetime and convert to Nepal time
+                parsed_dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
+                nepal_tz = pytz.timezone('Asia/Kathmandu')
+                created_at = nepal_tz.localize(parsed_dt)
+            
+            print("LOCATION: parsed created_at", created_at)
+        except Exception as parse_error:
+            print("LOCATION: Error parsing datetime:", parse_error)
+            # Fallback to current Nepal time
             nepal_tz = pytz.timezone('Asia/Kathmandu')
-            created_at = nepal_tz.localize(datetime.fromisoformat(created_at_str))
-        else:
-            # Use the datetime utility to handle other formats
-            created_at = get_nepal_datetime(created_at_str)
-        
-        print("LOCATION: parsed created_at", created_at)
+            created_at = datetime.now(nepal_tz)
+            print("LOCATION: Using fallback time:", created_at)
         
         # Create location record
         location_obj = Location.objects.create(
