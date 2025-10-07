@@ -13,6 +13,7 @@ import requests
 import json
 
 from core.models.user import User
+from core.models.my_setting import MySetting
 from device.models.device import Device
 from fleet.models.vehicle import Vehicle
 from django.contrib.auth.models import Group
@@ -134,6 +135,9 @@ def get_dashboard_stats(request):
         # Fetch SMS balance from external API
         sms_balance = get_sms_balance()
         
+        # Get MyPay balance from MySetting
+        mypay_balance = MySetting.get_balance()
+        
         # Prepare response data
         stats_data = {
             'totalUsers': total_users,
@@ -144,7 +148,7 @@ def get_dashboard_stats(request):
             'totalVehicles': total_vehicles,
             'expiredVehicles': expired_vehicles,
             'totalSms': sms_balance,  # Real SMS balance from API
-            'totalBalance': 0,  # Placeholder - would need balance service
+            'totalBalance': mypay_balance,  # MyPay balance from mobile topup
             'serverBalance': 0,  # Placeholder - would need server balance service
         }
         

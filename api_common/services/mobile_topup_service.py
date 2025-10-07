@@ -9,6 +9,7 @@ import time
 import random
 import string
 from django.conf import settings
+from core.models.my_setting import MySetting
 
 
 class MobileTopupService:
@@ -47,6 +48,18 @@ class MobileTopupService:
         timestamp = int(time.time() * 1000)
         random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         return f'RCH_{timestamp}_{random_str}'
+    
+    def update_balance(self, credits_available):
+        """
+        Update MyPay balance in MySetting
+        """
+        try:
+            MySetting.update_balance(credits_available)
+            print(f"Updated MyPay balance to: {credits_available}")
+            return True
+        except Exception as e:
+            print(f"Error updating MyPay balance: {str(e)}")
+            return False
     
     def validate_phone_number(self, phone):
         """
@@ -146,7 +159,8 @@ class MobileTopupService:
                     'description': f'JSON parse error: {str(json_error)}'
                 }
             
-            return {
+            # Extract response data
+            result = {
                 'success': response_data.get('Status', False),
                 'message': response_data.get('Message', ''),
                 'data': response_data.get('Data'),
@@ -154,6 +168,13 @@ class MobileTopupService:
                 'state': response_data.get('State', ''),
                 'description': response_data.get('Description', '')
             }
+            
+            # Update balance if transaction was successful
+            if result['success'] and result['data'] and 'CreditsAvailable' in result['data']:
+                credits_available = result['data']['CreditsAvailable']
+                self.update_balance(credits_available)
+            
+            return result
             
         except requests.exceptions.RequestException as e:
             return {
@@ -221,7 +242,8 @@ class MobileTopupService:
                     'description': f'JSON parse error: {str(json_error)}'
                 }
             
-            return {
+            # Extract response data
+            result = {
                 'success': response_data.get('Status', False),
                 'message': response_data.get('Message', ''),
                 'data': response_data.get('Data'),
@@ -229,6 +251,13 @@ class MobileTopupService:
                 'state': response_data.get('State', ''),
                 'description': response_data.get('Description', '')
             }
+            
+            # Update balance if transaction was successful
+            if result['success'] and result['data'] and 'CreditsAvailable' in result['data']:
+                credits_available = result['data']['CreditsAvailable']
+                self.update_balance(credits_available)
+            
+            return result
             
         except requests.exceptions.RequestException as e:
             return {
