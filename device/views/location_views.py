@@ -54,6 +54,8 @@ def create_location(request):
                 message='No active vehicle found with IMEI: ' + data['imei'],
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
+
+        print("LOCATION: data['created_at']", data['created_at'])
         
         # Create location record
         location_obj = Location.objects.create(
