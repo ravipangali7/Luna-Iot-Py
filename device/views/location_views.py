@@ -63,9 +63,9 @@ def create_location(request):
             longitude=data['longitude'],
             speed=data['speed'],
             course=data['course'],
-            realTimeGps=data['real_time_gps'],
+            realTimeGps=data['realTimeGps'],
             satellite=data['satellite'],
-            createdAt=data['created_at']
+            createdAt=data['createdAt']
         )
         
         location_data = {
