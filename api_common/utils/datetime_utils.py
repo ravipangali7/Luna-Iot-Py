@@ -33,13 +33,29 @@ def get_nepal_datetime(given_date=None):
         return datetime.now(nepal_tz)
     
     if isinstance(given_date, str):
-        given_date = datetime.fromisoformat(given_date.replace('Z', '+00:00'))
+        # Handle different string formats
+        if given_date.endswith('Z'):
+            # Remove Z and treat as Nepal time (not UTC)
+            given_date = given_date[:-1]
+            return nepal_tz.localize(datetime.fromisoformat(given_date))
+        else:
+            # Try to parse as ISO format
+            try:
+                given_date = datetime.fromisoformat(given_date.replace('Z', '+00:00'))
+            except ValueError:
+                # If that fails, try other common formats
+                try:
+                    given_date = datetime.strptime(given_date, '%Y-%m-%d %H:%M:%S')
+                except ValueError:
+                    given_date = datetime.strptime(given_date, '%Y-%m-%dT%H:%M:%S')
     
     # Convert to Nepal timezone
     if given_date.tzinfo is None:
-        given_date = pytz.utc.localize(given_date)
-    
-    return given_date.astimezone(nepal_tz)
+        # If no timezone info, assume it's already in Nepal time
+        return nepal_tz.localize(given_date)
+    else:
+        # Convert from whatever timezone to Nepal time
+        return given_date.astimezone(nepal_tz)
 
 
 def format_datetime_for_db(dt):
