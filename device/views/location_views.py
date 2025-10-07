@@ -70,15 +70,13 @@ def create_location(request):
                 print("LOCATION: After removing Z:", created_at_str)
                 dt = datetime.fromisoformat(created_at_str)
                 print("LOCATION: Parsed datetime:", dt)
-                # Create timezone-aware datetime in Nepal timezone
-                nepal_tz = pytz.timezone('Asia/Kathmandu')
-                createdAt = nepal_tz.localize(dt)
-                print("LOCATION: Localized to Nepal timezone:", createdAt)
+                # Keep as naive datetime (Nepal time) - Django will treat it as Nepal time due to TIME_ZONE setting
+                createdAt = dt
+                print("LOCATION: Using naive datetime (Nepal time):", createdAt)
             else:
                 # Handle other formats
                 dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
-                nepal_tz = pytz.timezone('Asia/Kathmandu')
-                createdAt = nepal_tz.localize(dt)
+                createdAt = dt
             
             print("LOCATION: Final timezone-aware createdAt:", createdAt)
             print("LOCATION: createdAt timezone:", createdAt.tzinfo)
