@@ -11,7 +11,7 @@ class Location(models.Model):
     course = models.IntegerField()
     realTimeGps = models.BooleanField(db_column='real_time_gps')
     satellite = models.IntegerField()
-    createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
+    createdAt = models.DateTimeField(db_column='created_at')
 
     class Meta:
         db_table = 'locations'

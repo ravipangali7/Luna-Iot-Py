@@ -62,13 +62,13 @@ def create_location(request):
         if created_at_str.endswith('Z'):
             # Remove Z and parse the datetime
             created_at_str = created_at_str[:-1]
-            dt = datetime.fromisoformat(created_at_str)
+            createdAt = datetime.fromisoformat(created_at_str)
             # Format as string in required format
-            createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            # createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
         else:
             # Handle other formats
-            dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
-            createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            createdAt = datetime.fromisoformat(created_at_str.replace('Z', ''))
+            # createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
         
         print("LOCATION: formatted createdAt:", createdAt)
         
