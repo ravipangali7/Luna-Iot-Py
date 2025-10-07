@@ -57,20 +57,25 @@ def create_location(request):
 
         print("LOCATION: data['created_at']", data['created_at'])
         
-        # Convert timestamp to string format
+        # Convert timestamp to timezone-aware datetime object
+        import pytz
+        
         created_at_str = data['created_at']
         if created_at_str.endswith('Z'):
             # Remove Z and parse the datetime
             created_at_str = created_at_str[:-1]
-            createdAt = datetime.fromisoformat(created_at_str)
-            # Format as string in required format
-            # createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            dt = datetime.fromisoformat(created_at_str)
+            # Create timezone-aware datetime in Nepal timezone
+            nepal_tz = pytz.timezone('Asia/Kathmandu')
+            createdAt = nepal_tz.localize(dt)
         else:
             # Handle other formats
-            createdAt = datetime.fromisoformat(created_at_str.replace('Z', ''))
-            # createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+            dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
+            nepal_tz = pytz.timezone('Asia/Kathmandu')
+            createdAt = nepal_tz.localize(dt)
         
-        print("LOCATION: formatted createdAt:", createdAt)
+        print("LOCATION: timezone-aware createdAt:", createdAt)
+        print("LOCATION: createdAt timezone:", createdAt.tzinfo)
         
         # Create location record
         location_obj = Location.objects.create(
