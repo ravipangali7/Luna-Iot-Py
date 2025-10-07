@@ -32,16 +32,30 @@ def get_dashboard_stats(request):
         total_users = User.objects.count()
         active_users = User.objects.filter(is_active=True).count()
         
-        # Get user role statistics
-        user_role_stats = User.objects.values('groups__name').annotate(
+        # Get user role statistics - more robust approach
+        user_role_stats = User.objects.filter(
+            groups__isnull=False
+        ).values('groups__name').annotate(
             count=Count('id')
         ).values('groups__name', 'count')
         
         # Convert to dictionary for easier access
         role_counts = {item['groups__name']: item['count'] for item in user_role_stats if item['groups__name']}
         
-        total_dealers = role_counts.get('DEALER', 0)
-        total_customers = role_counts.get('CUSTOMER', 0)
+        # Debug: Print available roles for troubleshooting
+        print(f"Available roles in system: {role_counts}")
+        
+        # Try different possible role names
+        total_dealers = (
+            role_counts.get('DEALER', 0) + 
+            role_counts.get('dealer', 0) + 
+            role_counts.get('Dealer', 0)
+        )
+        total_customers = (
+            role_counts.get('CUSTOMER', 0) + 
+            role_counts.get('customer', 0) + 
+            role_counts.get('Customer', 0)
+        )
         
         # Device statistics
         total_devices = Device.objects.count()
