@@ -57,6 +57,21 @@ def create_location(request):
 
         print("LOCATION: data['created_at']", data['created_at'])
         
+        # Convert timestamp to string format
+        created_at_str = data['created_at']
+        if created_at_str.endswith('Z'):
+            # Remove Z and parse the datetime
+            created_at_str = created_at_str[:-1]
+            dt = datetime.fromisoformat(created_at_str)
+            # Format as string in required format
+            createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            # Handle other formats
+            dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
+            createdAt = dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        print("LOCATION: formatted createdAt:", createdAt)
+        
         # Create location record
         location_obj = Location.objects.create(
             device=device,
@@ -67,7 +82,7 @@ def create_location(request):
             course=data['course'],
             realTimeGps=data['real_time_gps'],
             satellite=data['satellite'],
-            createdAt=data['created_at']
+            createdAt=createdAt
         )
         
         location_data = {
