@@ -57,19 +57,6 @@ def create_location(request):
 
         print("LOCATION: data['created_at']", data['created_at'])
         
-        # Parse the created_at timestamp correctly
-        # Node.js sends Nepal time with Z suffix, we need to handle this properly
-        import pytz
-        
-        created_at_str = data['created_at']
-        
-       
-        # # Parse created_at string to Nepal timezone-aware datetime in a simple way
-        # from api_common.utils.datetime_utils import get_nepal_datetime, format_datetime_for_db
-
-        # created_at = format_datetime_for_db(created_at_str)
-        # print("LOCATION: Successfully parsed and formatted as Nepal time:", created_at)
-            
         # Create location record
         location_obj = Location.objects.create(
             device=device,
@@ -80,7 +67,7 @@ def create_location(request):
             course=data['course'],
             realTimeGps=data['real_time_gps'],
             satellite=data['satellite'],
-            createdAt=created_at_str.isoformat()
+            createdAt=data['created_at']
         )
         
         location_data = {
