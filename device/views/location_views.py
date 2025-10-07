@@ -29,7 +29,7 @@ def create_location(request):
         data = request.data
         
         # Validate required fields
-        required_fields = ['imei', 'latitude', 'longitude', 'speed', 'course', 'real_time_gps', 'satellite', 'created_at']
+        required_fields = ['imei', 'latitude', 'longitude', 'speed', 'course', 'realTimeGps', 'satellite', 'createdAt']
         for field in required_fields:
             if field not in data:
                 return error_response(
