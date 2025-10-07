@@ -62,23 +62,32 @@ def create_location(request):
         
         try:
             created_at_str = data['created_at']
+            print("LOCATION: Original created_at_str:", created_at_str)
+            
             if created_at_str.endswith('Z'):
                 # Remove Z and parse the datetime
                 created_at_str = created_at_str[:-1]
+                print("LOCATION: After removing Z:", created_at_str)
                 dt = datetime.fromisoformat(created_at_str)
+                print("LOCATION: Parsed datetime:", dt)
                 # Create timezone-aware datetime in Nepal timezone
                 nepal_tz = pytz.timezone('Asia/Kathmandu')
                 createdAt = nepal_tz.localize(dt)
+                print("LOCATION: Localized to Nepal timezone:", createdAt)
             else:
                 # Handle other formats
                 dt = datetime.fromisoformat(created_at_str.replace('Z', ''))
                 nepal_tz = pytz.timezone('Asia/Kathmandu')
                 createdAt = nepal_tz.localize(dt)
             
-            print("LOCATION: timezone-aware createdAt:", createdAt)
+            print("LOCATION: Final timezone-aware createdAt:", createdAt)
             print("LOCATION: createdAt timezone:", createdAt.tzinfo)
         except Exception as dt_error:
             print("LOCATION: Error parsing datetime:", str(dt_error))
+            print("LOCATION: Error type:", type(dt_error).__name__)
+            import traceback
+            print("LOCATION: Datetime parsing traceback:")
+            print(traceback.format_exc())
             # Fallback to current Nepal time
             nepal_tz = pytz.timezone('Asia/Kathmandu')
             createdAt = datetime.now(nepal_tz)
@@ -120,6 +129,11 @@ def create_location(request):
             message='Location created successfully'
         )
     except Exception as e:
+        import traceback
+        print("LOCATION: Full error traceback:")
+        print(traceback.format_exc())
+        print("LOCATION: Error message:", str(e))
+        print("LOCATION: Error type:", type(e).__name__)
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
