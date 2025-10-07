@@ -77,7 +77,7 @@ def create_location(request):
             'course': float(location_obj.course) if location_obj.course else 0,
             'satellite': location_obj.satellite,
             'realTimeGps': location_obj.realTimeGps,
-            'createdAt': location_obj.createdAt.isoformat()
+            'createdAt': location_obj.createdAt
         }
         
         return success_response(
