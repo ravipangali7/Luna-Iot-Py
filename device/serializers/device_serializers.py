@@ -14,7 +14,7 @@ class DeviceSerializer(serializers.ModelSerializer):
         model = Device
         fields = [
             'id', 'imei', 'phone', 'sim', 'protocol', 
-            'iccid', 'model', 'created_at', 'updated_at'
+            'iccid', 'model', 'subscription_plan', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -26,7 +26,7 @@ class DeviceCreateSerializer(serializers.ModelSerializer):
         model = Device
         fields = [
             'imei', 'phone', 'sim', 'protocol', 
-            'iccid', 'model'
+            'iccid', 'model', 'subscription_plan'
         ]
     
     def validate_imei(self, value):
@@ -53,7 +53,7 @@ class DeviceUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = [
-            'phone', 'sim', 'protocol', 'iccid', 'model'
+            'phone', 'sim', 'protocol', 'iccid', 'model', 'subscription_plan'
         ]
     
     def validate_phone(self, value):
@@ -70,7 +70,7 @@ class DeviceListSerializer(serializers.ModelSerializer):
         model = Device
         fields = [
             'id', 'imei', 'phone', 'sim', 'protocol', 
-            'model', 'created_at'
+            'model', 'subscription_plan', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

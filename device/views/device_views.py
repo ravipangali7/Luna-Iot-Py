@@ -109,6 +109,11 @@ def get_all_devices(request):
                     'iccid': device.iccid,
                     'model': device.model,
                     'status': 'active',  # Default status
+                    'subscription_plan': {
+                        'id': device.subscription_plan.id,
+                        'title': device.subscription_plan.title,
+                        'price': float(device.subscription_plan.price)
+                    } if device.subscription_plan else None,
                     'userDevices': user_devices_data,
                     'vehicles': vehicles_data,
                     'createdAt': device.createdAt.isoformat(),
@@ -192,6 +197,11 @@ def get_all_devices(request):
                     'iccid': device.iccid,
                     'model': device.model,
                     'status': 'active',  # Default status
+                    'subscription_plan': {
+                        'id': device.subscription_plan.id,
+                        'title': device.subscription_plan.title,
+                        'price': float(device.subscription_plan.price)
+                    } if device.subscription_plan else None,
                     'userDevices': user_devices_data,
                     'vehicles': vehicles_data,
                     'createdAt': device.createdAt.isoformat(),
@@ -331,6 +341,11 @@ def get_device_by_imei(request, imei):
             'iccid': device.iccid,
             'model': device.model,
             'status': 'active',  # Default status
+            'subscription_plan': {
+                'id': device.subscription_plan.id,
+                'title': device.subscription_plan.title,
+                'price': float(device.subscription_plan.price)
+            } if device.subscription_plan else None,
             'userDevices': user_devices_data,
             'vehicles': vehicles_data,
             'createdAt': device.createdAt.isoformat(),
@@ -368,6 +383,11 @@ def create_device(request):
             'protocol': device.protocol,
             'iccid': device.iccid,
             'model': device.model,
+            'subscription_plan': {
+                'id': device.subscription_plan.id,
+                'title': device.subscription_plan.title,
+                'price': float(device.subscription_plan.price)
+            } if device.subscription_plan else None,
             'createdAt': device.createdAt.isoformat(),
             'updatedAt': device.updatedAt.isoformat()
         }
@@ -418,6 +438,11 @@ def update_device(request, imei):
             'protocol': device.protocol,
             'iccid': device.iccid,
             'model': device.model,
+            'subscription_plan': {
+                'id': device.subscription_plan.id,
+                'title': device.subscription_plan.title,
+                'price': float(device.subscription_plan.price)
+            } if device.subscription_plan else None,
             'createdAt': device.createdAt.isoformat(),
             'updatedAt': device.updatedAt.isoformat()
         }
@@ -873,7 +898,8 @@ def search_devices(request):
                 userDevices__user=user
             ).prefetch_related(
                 'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups'
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
             ).distinct()
         # Regular user: devices assigned to them
         else:
@@ -881,7 +907,8 @@ def search_devices(request):
                 userDevices__user=user
             ).prefetch_related(
                 'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups'
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
             ).distinct()
         
         # Apply search filters
