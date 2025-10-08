@@ -12,4 +12,7 @@ urlpatterns = [
     
     # Relay control routes
     path('relay/', include('device.urls.relay_urls')),
+    
+    # Subscription plan routes
+    path('subscription-plan/', include('device.urls.subscription_plan_urls')),
 ]

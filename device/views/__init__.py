@@ -1,2 +1,2 @@
 # Device Views Package
-# Contains device, location, status, and relay views
+# Contains device, location, status, relay, and subscription plan views
