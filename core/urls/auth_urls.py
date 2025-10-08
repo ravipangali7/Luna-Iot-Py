@@ -20,4 +20,5 @@ urlpatterns = [
     # Protected routes (authentication required)
     path('logout', auth_views.logout, name='logout'),
     path('me', auth_views.get_current_user, name='get_current_user'),
+    path('delete-account', auth_views.delete_account, name='delete_account'),
 ]

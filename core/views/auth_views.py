@@ -44,6 +44,13 @@ def get_current_user(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Check if user is active
+        if not user.is_active:
+            return error_response(
+                message='Your account is deactivated. Please contact administration.',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
         # Get all user roles with their permissions
         user_groups = user.groups.all()
         roles_data = []
@@ -341,7 +348,7 @@ def login(request):
         # Check if user is active
         if not user.is_active:
             return error_response(
-                message='User account is not active',
+                message='Your account is deactivated. Please contact administration.',
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
@@ -620,6 +627,38 @@ def reset_password(request):
                 'directPermissions': direct_permissions,  # Only direct user permissions
             },
             message=SUCCESS_MESSAGES['PASSWORD_RESET']
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@api_response
+def delete_account(request):
+    """
+    Delete user account (deactivate account)
+    Sets user.is_active = False instead of permanent deletion
+    """
+    try:
+        user = request.user
+        
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Deactivate user account instead of deleting
+        user.is_active = False
+        user.token = None  # Invalidate token
+        user.save()
+        
+        return success_response(
+            message='Account has been deactivated successfully. Please contact administration to reactivate your account.'
         )
     except Exception as e:
         return error_response(
