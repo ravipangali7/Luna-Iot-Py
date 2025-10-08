@@ -735,13 +735,15 @@ def get_devices_paginated(request):
         if is_super_admin:
             devices = Device.objects.prefetch_related(
                 'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups'
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
             ).all()
         # Dealer: only view assigned devices
         elif is_dealer:
             user_devices = UserDevice.objects.filter(user=user).select_related('device').prefetch_related(
                 'device__userDevices__user__groups',
-                'device__vehicles__userVehicles__user__groups'
+                'device__vehicles__userVehicles__user__groups',
+                'device__subscription_plan'
             )
             devices = [ud.device for ud in user_devices]
         # Customer: no access to devices
@@ -825,6 +827,11 @@ def get_devices_paginated(request):
                 'iccid': device.iccid,
                 'model': device.model,
                 'status': 'active',  # Default status
+                'subscription_plan': {
+                    'id': device.subscription_plan.id,
+                    'title': device.subscription_plan.title,
+                    'price': float(device.subscription_plan.price)
+                } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'createdAt': device.createdAt.isoformat(),
@@ -890,7 +897,8 @@ def search_devices(request):
         if is_super_admin:
             devices = Device.objects.prefetch_related(
                 'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups'
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
             ).all()
         # Dealer: devices assigned to them
         elif is_dealer:
@@ -1013,6 +1021,11 @@ def search_devices(request):
                 'iccid': device.iccid,
                 'model': device.model,
                 'status': 'active',  # Default status
+                'subscription_plan': {
+                    'id': device.subscription_plan.id,
+                    'title': device.subscription_plan.title,
+                    'price': float(device.subscription_plan.price)
+                } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'createdAt': device.createdAt.isoformat(),
