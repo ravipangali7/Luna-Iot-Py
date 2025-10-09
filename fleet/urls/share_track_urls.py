@@ -12,5 +12,5 @@ urlpatterns = [
     path('existing/<str:imei>/', get_existing_share_track, name='get_existing_share_track'),
     path('delete/<str:imei>/', delete_share_track, name='delete_share_track'),
     path('my-tracks/', get_my_share_tracks, name='get_my_share_tracks'),
-    path('<str:token>/', get_share_track_by_token, name='get_share_track_by_token'),
+    path('token/<str:token>/', get_share_track_by_token, name='get_share_track_by_token'),
 ]
