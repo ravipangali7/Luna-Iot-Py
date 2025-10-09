@@ -53,11 +53,31 @@ def create_share_track(request):
             }, status=status.HTTP_404_NOT_FOUND)
         
         with transaction.atomic():
-            # Deactivate any existing share tracks for this IMEI
+            # Check if there's already an active share track for this IMEI by this user
+            existing_share = ShareTrack.objects.filter(
+                imei=imei,
+                user=user,
+                is_active=True,
+                scheduled_for__gt=timezone.now()  # Not expired
+            ).first()
+            
+            if existing_share:
+                # Return existing share track instead of creating a new one
+                response_serializer = ShareTrackResponseSerializer(existing_share)
+                return Response({
+                    'success': True,
+                    'message': 'Active share track already exists for this vehicle',
+                    'data': response_serializer.data,
+                    'token': existing_share.token,
+                    'is_existing': True
+                }, status=status.HTTP_200_OK)
+            
+            # Deactivate any expired share tracks for this IMEI by this user
             ShareTrack.objects.filter(
                 imei=imei,
                 user=user,
-                is_active=True
+                is_active=True,
+                scheduled_for__lte=timezone.now()  # Expired
             ).update(is_active=False)
             
             # Calculate scheduled_for time
@@ -70,17 +90,13 @@ def create_share_track(request):
                 scheduled_for=scheduled_for
             )
             
+            response_serializer = ShareTrackResponseSerializer(share_track)
             return Response({
                 'success': True,
                 'message': 'Share track created successfully',
-                'data': {
-                    'id': share_track.id,
-                    'imei': share_track.imei,
-                    'token': str(share_track.token),
-                    'created_at': share_track.created_at.isoformat(),
-                    'scheduled_for': share_track.scheduled_for.isoformat(),
-                    'duration_minutes': duration_minutes
-                }
+                'data': response_serializer.data,
+                'token': share_track.token,
+                'is_existing': False
             }, status=status.HTTP_201_CREATED)
             
     except Exception as e:
