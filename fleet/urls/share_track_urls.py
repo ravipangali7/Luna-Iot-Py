@@ -1,5 +1,5 @@
 from django.urls import path
-from .views.share_track_views import (
+from fleet.views.share_track_views import (
     create_share_track,
     get_existing_share_track,
     delete_share_track,
