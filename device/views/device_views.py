@@ -741,6 +741,98 @@ def send_reset(request):
         )
 
 
+@api_view(['POST'])
+@require_auth
+@api_response
+def send_relay_on(request):
+    """
+    Send relay ON command via SMS
+    Matches Node.js DeviceController.sendRelayOn
+    """
+    try:
+        data = request.data
+        phone = data.get('phone')
+        
+        if not phone:
+            return error_response(
+                message='Phone number is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Relay ON command message
+        relay_on_message = 'RELAY,1#'
+        
+        # Send SMS using SMS service
+        sms_result = sms_service.send_relay_on_command(phone)
+        
+        if sms_result['success']:
+            return success_response(
+                data={
+                    'phone': phone,
+                    'message': relay_on_message,
+                    'sent': True
+                },
+                message='Relay ON command sent successfully'
+            )
+        else:
+            return error_response(
+                message=f'Failed to send relay ON command: {sms_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
+            
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def send_relay_off(request):
+    """
+    Send relay OFF command via SMS
+    Matches Node.js DeviceController.sendRelayOff
+    """
+    try:
+        data = request.data
+        phone = data.get('phone')
+        
+        if not phone:
+            return error_response(
+                message='Phone number is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Relay OFF command message
+        relay_off_message = 'RELAY,0#'
+        
+        # Send SMS using SMS service
+        sms_result = sms_service.send_relay_off_command(phone)
+        
+        if sms_result['success']:
+            return success_response(
+                data={
+                    'phone': phone,
+                    'message': relay_off_message,
+                    'sent': True
+                },
+                message='Relay OFF command sent successfully'
+            )
+        else:
+            return error_response(
+                message=f'Failed to send relay OFF command: {sms_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
+            
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
 @api_view(['GET'])
 @require_auth
 @api_response

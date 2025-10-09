@@ -17,6 +17,8 @@ urlpatterns = [
     path('remove-assignment', device_views.remove_device_assignment, name='remove_device_assignment'),
     path('server-point', device_views.send_server_point, name='send_server_point'),
     path('reset', device_views.send_reset, name='send_reset'),
+    path('relay-on', device_views.send_relay_on, name='send_relay_on'),
+    path('relay-off', device_views.send_relay_off, name='send_relay_off'),
     path('light', device_views.get_light_devices, name='get_light_devices'),
     path('<str:imei>', device_views.get_device_by_imei, name='get_device_by_imei'),
 ]

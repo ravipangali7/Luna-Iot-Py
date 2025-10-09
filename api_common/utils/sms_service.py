@@ -148,6 +148,32 @@ class SMSService:
         """
         message = f"RELAY,{1 if relay_state else 0}#"
         return self.send_sms(phone_number, message)
+    
+    def send_relay_on_command(self, phone_number: str) -> Dict[str, Any]:
+        """
+        Send relay ON command via SMS
+        
+        Args:
+            phone_number (str): Phone number to send command to
+            
+        Returns:
+            Dict[str, Any]: Result containing success status and message
+        """
+        message = "RELAY,1#"
+        return self.send_sms(phone_number, message)
+    
+    def send_relay_off_command(self, phone_number: str) -> Dict[str, Any]:
+        """
+        Send relay OFF command via SMS
+        
+        Args:
+            phone_number (str): Phone number to send command to
+            
+        Returns:
+            Dict[str, Any]: Result containing success status and message
+        """
+        message = "RELAY,0#"
+        return self.send_sms(phone_number, message)
 
 
 # Create singleton instance
