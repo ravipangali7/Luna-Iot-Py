@@ -27,7 +27,6 @@ class ShareTrack(models.Model):
     def __str__(self):
         return f"Share Track for {self.imei} - {self.token}"
     
-    @property
     def is_expired(self):
         """Check if the share has expired"""
         return timezone.now() > self.scheduled_for
