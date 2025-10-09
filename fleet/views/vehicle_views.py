@@ -167,7 +167,8 @@ def get_all_vehicles(request):
                     'geofence': user_vehicle.geofence if user_vehicle else False,
                     'edit': user_vehicle.edit if user_vehicle else False,
                     'shareTracking': user_vehicle.shareTracking if user_vehicle else False,
-                    'notification': user_vehicle.notification if user_vehicle else False
+                    'notification': user_vehicle.notification if user_vehicle else False,
+                    'relay': user_vehicle.relay if user_vehicle else False
                 } if user_vehicle else None,
                 'todayKm': today_km,
                 'latestStatus': latest_status,
@@ -232,7 +233,8 @@ def get_all_vehicles_detailed(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification
+                    'notification': uv.notification,
+                    'relay': getattr(uv, 'relay', False)
                 })
             
             # Get main customer (user with isMain=True)
@@ -263,7 +265,8 @@ def get_all_vehicles_detailed(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification
+                        'notification': uv.notification,
+                        'relay': getattr(uv, 'relay', False)
                     }
                     break
             
@@ -1125,7 +1128,8 @@ def get_vehicles_paginated(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification
+                    'notification': uv.notification,
+                    'relay': getattr(uv, 'relay', False)
                 })
             
             # Get main customer (user with isMain=True)
@@ -1156,7 +1160,8 @@ def get_vehicles_paginated(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification
+                        'notification': uv.notification,
+                        'relay': getattr(uv, 'relay', False)
                     }
                     break
             
@@ -1372,7 +1377,8 @@ def search_vehicles(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification
+                    'notification': uv.notification,
+                    'relay': getattr(uv, 'relay', False)
                 })
             
             # Get main customer (user with isMain=True)
@@ -1403,7 +1409,8 @@ def search_vehicles(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification
+                        'notification': uv.notification,
+                        'relay': getattr(uv, 'relay', False)
                     }
                     break
             

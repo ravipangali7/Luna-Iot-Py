@@ -22,7 +22,7 @@ class UserVehicleSerializer(serializers.ModelSerializer):
             'id', 'user', 'user_name', 'user_phone', 'vehicle', 'vehicle_name', 
             'vehicle_imei', 'vehicle_no', 'is_main', 'all_access', 'live_tracking', 
             'history', 'report', 'vehicle_profile', 'events', 'geofence', 
-            'edit', 'share_tracking', 'notification', 'created_at'
+            'edit', 'share_tracking', 'notification', 'relay', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -42,7 +42,7 @@ class UserVehicleCreateSerializer(serializers.ModelSerializer):
         fields = [
             'user_id', 'vehicle_imei', 'is_main', 'all_access', 
             'live_tracking', 'history', 'report', 'vehicle_profile', 
-            'events', 'geofence', 'edit', 'share_tracking', 'notification'
+            'events', 'geofence', 'edit', 'share_tracking', 'notification', 'relay'
         ]
     
     def validate_user_id(self, value):
@@ -101,7 +101,7 @@ class UserVehicleUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'is_main', 'all_access', 'live_tracking', 'history', 
             'report', 'vehicle_profile', 'events', 'geofence', 
-            'edit', 'share_tracking', 'notification'
+            'edit', 'share_tracking', 'notification', 'relay'
         ]
     
     def validate(self, data):
