@@ -373,6 +373,20 @@ def create_device(request):
     """
     try:
         data = request.data
+        
+        # Handle subscription_plan foreign key
+        subscription_plan_id = data.pop('subscription_plan', None)
+        if subscription_plan_id is not None:
+            try:
+                from device.models import SubscriptionPlan
+                subscription_plan = SubscriptionPlan.objects.get(id=subscription_plan_id)
+                data['subscription_plan'] = subscription_plan
+            except SubscriptionPlan.DoesNotExist:
+                return error_response(
+                    message=f"Subscription plan with ID {subscription_plan_id} not found",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        
         device = Device.objects.create(**data)
         
         device_data = {
@@ -426,7 +440,22 @@ def update_device(request, imei):
         # Update device fields
         for key, value in data.items():
             if hasattr(device, key):
-                setattr(device, key, value)
+                if key == 'subscription_plan':
+                    # Handle subscription_plan foreign key
+                    if value is None:
+                        device.subscription_plan = None
+                    else:
+                        try:
+                            from device.models import SubscriptionPlan
+                            subscription_plan = SubscriptionPlan.objects.get(id=value)
+                            device.subscription_plan = subscription_plan
+                        except SubscriptionPlan.DoesNotExist:
+                            return error_response(
+                                message=f"Subscription plan with ID {value} not found",
+                                status_code=HTTP_STATUS['BAD_REQUEST']
+                            )
+                else:
+                    setattr(device, key, value)
         
         device.save()
         
