@@ -8,9 +8,9 @@ from django.shortcuts import get_object_or_404
 from datetime import timedelta
 import logging
 
-from .models.share_track import ShareTrack
-from .models.vehicle import Vehicle
-from .serializers.share_track_serializers import (
+from fleet.models.share_track import ShareTrack
+from fleet.models.vehicle import Vehicle
+from fleet.serializers.share_track_serializers import (
     ShareTrackSerializer,
     ShareTrackCreateSerializer,
     ShareTrackResponseSerializer
