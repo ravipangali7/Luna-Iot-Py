@@ -15,7 +15,7 @@ from fleet.serializers.share_track_serializers import (
     ShareTrackCreateSerializer,
     ShareTrackResponseSerializer
 )
-from core.middleware import get_current_user
+from core.views.auth_views import get_current_user
 
 logger = logging.getLogger(__name__)
 
