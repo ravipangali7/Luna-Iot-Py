@@ -89,7 +89,6 @@ def create_location(request):
                 satellite=data['satellite'],
                 createdAt=createdAt
             )
-            print("LOCATION: Successfully created location with ID:", location_obj.id)
         except Exception as create_error:
             print("LOCATION: Error creating location record:", str(create_error))
             print("LOCATION: Error type:", type(create_error).__name__)
