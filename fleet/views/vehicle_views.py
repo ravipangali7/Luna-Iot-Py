@@ -1154,6 +1154,27 @@ def get_vehicles_paginated(request):
                     'relay': getattr(uv, 'relay', False)
                 })
             
+            # Current user's single userVehicle convenience object
+            try:
+                current_user_uv = vehicle.userVehicles.filter(user=user).first()
+            except Exception:
+                current_user_uv = None
+
+            user_vehicle_single = {
+                'isMain': current_user_uv.isMain if current_user_uv else False,
+                'allAccess': current_user_uv.allAccess if current_user_uv else False,
+                'liveTracking': current_user_uv.liveTracking if current_user_uv else False,
+                'history': current_user_uv.history if current_user_uv else False,
+                'report': current_user_uv.report if current_user_uv else False,
+                'vehicleProfile': current_user_uv.vehicleProfile if current_user_uv else False,
+                'events': current_user_uv.events if current_user_uv else False,
+                'geofence': current_user_uv.geofence if current_user_uv else False,
+                'edit': current_user_uv.edit if current_user_uv else False,
+                'shareTracking': current_user_uv.shareTracking if current_user_uv else False,
+                'notification': current_user_uv.notification if current_user_uv else False,
+                'relay': getattr(current_user_uv, 'relay', False) if current_user_uv else False
+            } if current_user_uv else None
+
             # Get main customer (user with isMain=True)
             main_customer = None
             for uv in vehicle.userVehicles.all():
@@ -1259,6 +1280,7 @@ def get_vehicles_paginated(request):
                     'model': vehicle.device.model
                 } if vehicle.device else None,
                 'userVehicles': user_vehicles,
+                'userVehicle': user_vehicle_single,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
                 'latestStatus': latest_status,
