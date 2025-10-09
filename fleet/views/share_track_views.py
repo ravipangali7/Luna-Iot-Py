@@ -140,7 +140,7 @@ def get_existing_share_track(request, imei):
             }, status=status.HTTP_404_NOT_FOUND)
         
         # Check if expired
-        if share_track.is_expired:
+        if share_track.is_expired():
             share_track.deactivate()
             return Response({
                 'success': False,
@@ -221,7 +221,7 @@ def get_my_share_tracks(request):
         
         data = []
         for share_track in share_tracks:
-            if not share_track.is_expired:
+            if not share_track.is_expired():
                 data.append({
                     'id': share_track.id,
                     'imei': share_track.imei,
@@ -248,6 +248,7 @@ def get_my_share_tracks(request):
 
 
 @api_view(['GET'])
+@permission_classes([])  # No authentication required for public access
 def get_share_track_by_token(request, token):
     """
     Get share track by token (public endpoint for shared links)
@@ -257,56 +258,86 @@ def get_share_track_by_token(request, token):
         share_track = get_object_or_404(ShareTrack, token=token, is_active=True)
         
         # Check if expired
-        if share_track.is_expired:
+        if share_track.is_expired():
             share_track.deactivate()
             return Response({
                 'success': False,
                 'message': 'Share track has expired'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Get vehicle information
+        # Get vehicle information with all related data
         try:
-            vehicle = Vehicle.objects.get(imei=share_track.imei)
+            vehicle = Vehicle.objects.select_related().prefetch_related(
+                'latestLocation', 'latestStatus'
+            ).get(imei=share_track.imei)
+            
+            # Check if vehicle is active
+            if not vehicle.is_active:
+                return Response({
+                    'success': False,
+                    'message': 'Vehicle has been deactivated'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
             vehicle_data = {
+                'id': vehicle.id,
                 'imei': vehicle.imei,
-                'vehicle_no': vehicle.vehicle_no,
+                'vehicleNo': vehicle.vehicleNo,
                 'name': vehicle.name,
-                'vehicle_type': vehicle.vehicle_type,
-                'latest_location': {
-                    'latitude': vehicle.latest_location.latitude if vehicle.latest_location else None,
-                    'longitude': vehicle.latest_location.longitude if vehicle.latest_location else None,
-                    'speed': vehicle.latest_location.speed if vehicle.latest_location else None,
-                    'course': vehicle.latest_location.course if vehicle.latest_location else None,
-                    'created_at': vehicle.latest_location.created_at.isoformat() if vehicle.latest_location else None,
-                } if vehicle.latest_location else None,
-                'latest_status': {
-                    'battery': vehicle.latest_status.battery if vehicle.latest_status else None,
-                    'signal': vehicle.latest_status.signal if vehicle.latest_status else None,
-                    'charging': vehicle.latest_status.charging if vehicle.latest_status else None,
-                    'ignition': vehicle.latest_status.ignition if vehicle.latest_status else None,
-                    'created_at': vehicle.latest_status.created_at.isoformat() if vehicle.latest_status else None,
-                } if vehicle.latest_status else None,
+                'vehicleType': vehicle.vehicleType,
+                'odometer': float(vehicle.odometer) if vehicle.odometer else 0,
+                'speedLimit': vehicle.speedLimit,
+                'is_active': vehicle.is_active,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
             }
+            
+            # Add latest location if available
+            if hasattr(vehicle, 'latestLocation') and vehicle.latestLocation:
+                vehicle_data['latestLocation'] = {
+                    'id': vehicle.latestLocation.id,
+                    'imei': vehicle.latestLocation.imei,
+                    'latitude': float(vehicle.latestLocation.latitude),
+                    'longitude': float(vehicle.latestLocation.longitude),
+                    'speed': float(vehicle.latestLocation.speed) if vehicle.latestLocation.speed else 0,
+                    'course': float(vehicle.latestLocation.course) if vehicle.latestLocation.course else 0,
+                    'satellite': float(vehicle.latestLocation.satellite) if vehicle.latestLocation.satellite else 0,
+                    'realTimeGps': vehicle.latestLocation.realTimeGps,
+                    'createdAt': vehicle.latestLocation.createdAt.isoformat() if vehicle.latestLocation.createdAt else None,
+                    'updatedAt': vehicle.latestLocation.updatedAt.isoformat() if vehicle.latestLocation.updatedAt else None,
+                }
+            else:
+                vehicle_data['latestLocation'] = None
+                
+            # Add latest status if available
+            if hasattr(vehicle, 'latestStatus') and vehicle.latestStatus:
+                vehicle_data['latestStatus'] = {
+                    'id': vehicle.latestStatus.id,
+                    'imei': vehicle.latestStatus.imei,
+                    'battery': float(vehicle.latestStatus.battery) if vehicle.latestStatus.battery else 0,
+                    'signal': float(vehicle.latestStatus.signal) if vehicle.latestStatus.signal else 0,
+                    'ignition': vehicle.latestStatus.ignition,
+                    'charging': vehicle.latestStatus.charging,
+                    'relay': vehicle.latestStatus.relay,
+                    'createdAt': vehicle.latestStatus.createdAt.isoformat() if vehicle.latestStatus.createdAt else None,
+                    'updatedAt': vehicle.latestStatus.updatedAt.isoformat() if vehicle.latestStatus.updatedAt else None,
+                }
+            else:
+                vehicle_data['latestStatus'] = None
         except Vehicle.DoesNotExist:
             return Response({
                 'success': False,
                 'message': 'Vehicle not found'
             }, status=status.HTTP_404_NOT_FOUND)
         
+        # Serialize share track data
+        share_track_serializer = ShareTrackResponseSerializer(share_track)
+        
         return Response({
             'success': True,
-            'data': {
-                'share_track': {
-                    'id': share_track.id,
-                    'imei': share_track.imei,
-                    'token': str(share_track.token),
-                    'created_at': share_track.created_at.isoformat(),
-                    'scheduled_for': share_track.scheduled_for.isoformat(),
-                    'expires_in_minutes': int((share_track.scheduled_for - timezone.now()).total_seconds() / 60)
-                },
-                'vehicle': vehicle_data
-            }
-        })
+            'message': 'Share track retrieved successfully',
+            'data': share_track_serializer.data,
+            'vehicle': vehicle_data
+        }, status=status.HTTP_200_OK)
         
     except Exception as e:
         logger.error(f"Error getting share track by token: {str(e)}")
