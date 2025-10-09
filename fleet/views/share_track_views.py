@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
@@ -248,7 +248,7 @@ def get_my_share_tracks(request):
 
 
 @api_view(['GET'])
-@permission_classes([])  # No authentication required for public access
+@permission_classes([AllowAny])  # No authentication required for public access
 def get_share_track_by_token(request, token):
     """
     Get share track by token (public endpoint for shared links)
