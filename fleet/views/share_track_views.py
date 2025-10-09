@@ -26,6 +26,8 @@ def create_share_track(request):
     """
     Create a new share track for a vehicle
     """
+    logger.info(f"create_share_track called with method: {request.method}")
+    logger.info(f"Request data: {request.data}")
     try:
         # Validate input data using serializer
         serializer = ShareTrackCreateSerializer(data=request.data)
