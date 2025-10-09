@@ -41,7 +41,7 @@ def create_share_track(request):
         duration_minutes = serializer.validated_data['duration_minutes']
         
         # Check if user has access to this vehicle
-        user = get_current_user(request)
+        user = request.user if hasattr(request, 'user') else get_current_user(request)
         try:
             vehicle = Vehicle.objects.get(imei=imei)
             # Add your vehicle access check here based on your permission system
