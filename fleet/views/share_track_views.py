@@ -265,11 +265,9 @@ def get_share_track_by_token(request, token):
                 'message': 'Share track has expired'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Get vehicle information with all related data
+        # Get vehicle information
         try:
-            vehicle = Vehicle.objects.select_related().prefetch_related(
-                'latestLocation', 'latestStatus'
-            ).get(imei=share_track.imei)
+            vehicle = Vehicle.objects.get(imei=share_track.imei)
             
             # Check if vehicle is active
             if not vehicle.is_active:
@@ -291,37 +289,49 @@ def get_share_track_by_token(request, token):
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
             }
             
-            # Add latest location if available
-            if hasattr(vehicle, 'latestLocation') and vehicle.latestLocation:
-                vehicle_data['latestLocation'] = {
-                    'id': vehicle.latestLocation.id,
-                    'imei': vehicle.latestLocation.imei,
-                    'latitude': float(vehicle.latestLocation.latitude),
-                    'longitude': float(vehicle.latestLocation.longitude),
-                    'speed': float(vehicle.latestLocation.speed) if vehicle.latestLocation.speed else 0,
-                    'course': float(vehicle.latestLocation.course) if vehicle.latestLocation.course else 0,
-                    'satellite': float(vehicle.latestLocation.satellite) if vehicle.latestLocation.satellite else 0,
-                    'realTimeGps': vehicle.latestLocation.realTimeGps,
-                    'createdAt': vehicle.latestLocation.createdAt.isoformat() if vehicle.latestLocation.createdAt else None,
-                    'updatedAt': vehicle.latestLocation.updatedAt.isoformat() if vehicle.latestLocation.updatedAt else None,
-                }
-            else:
+            # Get latest location from Location model
+            try:
+                from device.models import Location
+                latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                if latest_location_obj:
+                    vehicle_data['latestLocation'] = {
+                        'id': latest_location_obj.id,
+                        'imei': latest_location_obj.imei,
+                        'latitude': float(latest_location_obj.latitude),
+                        'longitude': float(latest_location_obj.longitude),
+                        'speed': float(latest_location_obj.speed) if latest_location_obj.speed else 0,
+                        'course': float(latest_location_obj.course) if latest_location_obj.course else 0,
+                        'satellite': float(latest_location_obj.satellite) if latest_location_obj.satellite else 0,
+                        'realTimeGps': latest_location_obj.realTimeGps,
+                        'createdAt': latest_location_obj.createdAt.isoformat() if latest_location_obj.createdAt else None,
+                        'updatedAt': latest_location_obj.updatedAt.isoformat() if latest_location_obj.updatedAt else None,
+                    }
+                else:
+                    vehicle_data['latestLocation'] = None
+            except Exception as e:
+                logger.warning(f"Error getting latest location: {str(e)}")
                 vehicle_data['latestLocation'] = None
                 
-            # Add latest status if available
-            if hasattr(vehicle, 'latestStatus') and vehicle.latestStatus:
-                vehicle_data['latestStatus'] = {
-                    'id': vehicle.latestStatus.id,
-                    'imei': vehicle.latestStatus.imei,
-                    'battery': float(vehicle.latestStatus.battery) if vehicle.latestStatus.battery else 0,
-                    'signal': float(vehicle.latestStatus.signal) if vehicle.latestStatus.signal else 0,
-                    'ignition': vehicle.latestStatus.ignition,
-                    'charging': vehicle.latestStatus.charging,
-                    'relay': vehicle.latestStatus.relay,
-                    'createdAt': vehicle.latestStatus.createdAt.isoformat() if vehicle.latestStatus.createdAt else None,
-                    'updatedAt': vehicle.latestStatus.updatedAt.isoformat() if vehicle.latestStatus.updatedAt else None,
-                }
-            else:
+            # Get latest status from Status model
+            try:
+                from device.models import Status
+                latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                if latest_status_obj:
+                    vehicle_data['latestStatus'] = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': float(latest_status_obj.battery) if latest_status_obj.battery else 0,
+                        'signal': float(latest_status_obj.signal) if latest_status_obj.signal else 0,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat() if latest_status_obj.createdAt else None,
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if latest_status_obj.updatedAt else None,
+                    }
+                else:
+                    vehicle_data['latestStatus'] = None
+            except Exception as e:
+                logger.warning(f"Error getting latest status: {str(e)}")
                 vehicle_data['latestStatus'] = None
         except Vehicle.DoesNotExist:
             return Response({
