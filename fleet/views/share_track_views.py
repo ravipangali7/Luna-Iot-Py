@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def create_share_track(request):
     """
     Create a new share track for a vehicle
