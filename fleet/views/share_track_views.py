@@ -255,7 +255,13 @@ def get_share_track_by_token(request, token):
     """
     try:
         # Get share track by token
-        share_track = get_object_or_404(ShareTrack, token=token, is_active=True)
+        try:
+            share_track = ShareTrack.objects.get(token=token, is_active=True)
+        except ShareTrack.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Share track not found or has been deactivated'
+            }, status=status.HTTP_404_NOT_FOUND)
         
         # Check if expired
         if share_track.is_expired():
