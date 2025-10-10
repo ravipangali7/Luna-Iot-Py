@@ -655,10 +655,110 @@ def delete_account(request):
         # Deactivate user account instead of deleting
         user.is_active = False
         user.token = None  # Invalidate token
+        user.biometric_token = None  # Invalidate biometric token
         user.save()
         
         return success_response(
             message='Account has been deactivated successfully. Please contact administration to reactivate your account.'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@api_response
+def biometric_login(request):
+    """
+    Biometric login using stored biometric token
+    Matches Node.js AuthController.biometricLogin
+    """
+    try:
+        import json
+        data = json.loads(request.body) if request.body else {}
+        phone = data.get('phone')
+        biometric_token = data.get('biometric_token')
+        
+        if not phone or not biometric_token:
+            return error_response(
+                message='Phone number and biometric token are required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Find user by phone
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if user is active
+        if not user.is_active:
+            return error_response(
+                message='Your account is deactivated. Please contact administration.',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
+        # Verify biometric token
+        if not user.biometric_token or user.biometric_token != biometric_token:
+            return error_response(
+                message='Invalid biometric credentials',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
+        # Generate new session token for this login
+        new_token = generate_token()
+        user.token = new_token
+        user.save()
+        
+        # Get all user roles with their permissions
+        user_groups = user.groups.all()
+        roles_data = []
+        all_permissions = set()
+        
+        for group in user_groups:
+            # Get role permissions
+            group_permissions = list(group.permissions.values_list('name', flat=True))
+            all_permissions.update(group_permissions)
+            
+            roles_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': group_permissions
+            })
+        
+        # Get direct user permissions from Django's built-in system
+        django_direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(django_direct_permissions)
+        
+        # Get direct user permissions from custom UserPermission model
+        custom_direct_permissions = list(user.userpermission_set.values_list('permission__name', flat=True))
+        all_permissions.update(custom_direct_permissions)
+        
+        # Combine all direct permissions for backward compatibility
+        direct_permissions = list(set(django_direct_permissions + custom_direct_permissions))
+        
+        # Get primary role for backward compatibility
+        primary_role = user_groups.first()
+        primary_role_name = primary_role.name if primary_role else None
+        
+        return success_response(
+            data={
+                'id': user.id,
+                'name': user.name,
+                'phone': user.phone,
+                'token': user.token,
+                'role': primary_role_name,  # Primary role for backward compatibility
+                'roles': roles_data,  # All user roles with their permissions
+                'permissions': list(all_permissions),  # All permissions (role + direct)
+                'directPermissions': direct_permissions,  # Only direct user permissions
+            },
+            message='Biometric login successful'
         )
     except Exception as e:
         return error_response(

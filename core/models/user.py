@@ -27,6 +27,7 @@ class User(AbstractUser):
         db_table = 'users'
         indexes = [
             models.Index(fields=['phone', 'username', 'fcm_token']),
+            models.Index(fields=['biometric_token']),
         ]
 
     def save(self, *args, **kwargs):

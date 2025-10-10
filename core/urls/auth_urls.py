@@ -17,6 +17,9 @@ urlpatterns = [
     path('forgot-password/verify-otp', auth_views.verify_forgot_password_otp, name='verify_forgot_password_otp'),
     path('forgot-password/reset-password', auth_views.reset_password, name='reset_password'),
     
+    # Biometric authentication route (public)
+    path('biometric-login', auth_views.biometric_login, name='biometric_login'),
+    
     # Protected routes (authentication required)
     path('logout', auth_views.logout, name='logout'),
     path('me', auth_views.get_current_user, name='get_current_user'),
