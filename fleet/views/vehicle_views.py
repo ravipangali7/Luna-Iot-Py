@@ -1162,8 +1162,7 @@ def get_vehicles_with_access_paginated(request):
                 'device': {
                     'id': vehicle.device.id if vehicle.device else None,
                     'imei': vehicle.device.imei if vehicle.device else None,
-                    'phone': vehicle.device.phone if vehicle.device else None,
-                    'status': vehicle.device.status if vehicle.device else None
+                    'phone': vehicle.device.phone if vehicle.device else None
                 } if vehicle.device else None,
                 'userVehicles': user_vehicles_data,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
@@ -1287,8 +1286,7 @@ def search_vehicles_with_access(request):
                 'device': {
                     'id': vehicle.device.id if vehicle.device else None,
                     'imei': vehicle.device.imei if vehicle.device else None,
-                    'phone': vehicle.device.phone if vehicle.device else None,
-                    'status': vehicle.device.status if vehicle.device else None
+                    'phone': vehicle.device.phone if vehicle.device else None
                 } if vehicle.device else None,
                 'userVehicles': user_vehicles_data,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
