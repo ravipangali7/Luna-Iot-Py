@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status as http_status
 from django.utils import timezone
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -35,7 +35,7 @@ def create_share_track(request):
                 'success': False,
                 'message': 'Invalid input data.',
                 'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=http_status.HTTP_400_BAD_REQUEST)
         
         imei = serializer.validated_data['imei']
         duration_minutes = serializer.validated_data['duration_minutes']
@@ -50,7 +50,7 @@ def create_share_track(request):
             return Response({
                 'success': False,
                 'message': 'Vehicle not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         with transaction.atomic():
             # Check if there's already an active share track for this IMEI by this user
@@ -70,7 +70,7 @@ def create_share_track(request):
                     'data': response_serializer.data,
                     'token': existing_share.token,
                     'is_existing': True
-                }, status=status.HTTP_200_OK)
+                }, status=http_status.HTTP_200_OK)
             
             # Deactivate any expired share tracks for this IMEI by this user
             ShareTrack.objects.filter(
@@ -97,14 +97,14 @@ def create_share_track(request):
                 'data': response_serializer.data,
                 'token': share_track.token,
                 'is_existing': False
-            }, status=status.HTTP_201_CREATED)
+            }, status=http_status.HTTP_201_CREATED)
             
     except Exception as e:
         logger.error(f"Error creating share track: {str(e)}")
         return Response({
             'success': False,
             'message': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -124,7 +124,7 @@ def get_existing_share_track(request, imei):
             return Response({
                 'success': False,
                 'message': 'Vehicle not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         # Get active share track for this IMEI and user
         share_track = ShareTrack.objects.filter(
@@ -137,7 +137,7 @@ def get_existing_share_track(request, imei):
             return Response({
                 'success': False,
                 'message': 'No active share track found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         # Check if expired
         if share_track.is_expired():
@@ -145,7 +145,7 @@ def get_existing_share_track(request, imei):
             return Response({
                 'success': False,
                 'message': 'Share track has expired'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         return Response({
             'success': True,
@@ -164,7 +164,7 @@ def get_existing_share_track(request, imei):
         return Response({
             'success': False,
             'message': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['DELETE'])
@@ -187,7 +187,7 @@ def delete_share_track(request, imei):
             return Response({
                 'success': False,
                 'message': 'No active share track found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         # Deactivate the share track
         share_track.deactivate()
@@ -202,7 +202,7 @@ def delete_share_track(request, imei):
         return Response({
             'success': False,
             'message': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -244,7 +244,7 @@ def get_my_share_tracks(request):
         return Response({
             'success': False,
             'message': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -259,10 +259,10 @@ def get_share_track_by_token(request, token):
             token_uuid = uuid.UUID(token)
             share_track = ShareTrack.objects.get(token=token_uuid, is_active=True)
         except (ShareTrack.DoesNotExist, ValueError):
-            return Response({
-                'success': False,
-                'message': 'Share track not found or has expired'
-            }, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            'success': False,
+            'message': 'Share track not found or has expired'
+        }, status=http_http_status.HTTP_404_NOT_FOUND)
         
         # Check if expired
         if share_track.is_expired():
@@ -270,7 +270,7 @@ def get_share_track_by_token(request, token):
             return Response({
                 'success': False,
                 'message': 'Share track has expired'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         # Get vehicle information
         try:
@@ -283,9 +283,6 @@ def get_share_track_by_token(request, token):
             # Get latest location
             latest_location = None
             try:
-                location_count = Location.objects.filter(imei=share_track.imei).count()
-                print(f"Location count for IMEI {share_track.imei}: {location_count}")
-                
                 location = Location.objects.filter(imei=share_track.imei).order_by('-createdAt').first()
                 if location:
                     latest_location = {
@@ -299,18 +296,12 @@ def get_share_track_by_token(request, token):
                         'realTimeGps': location.realTimeGps,
                         'createdAt': location.createdAt.isoformat()
                     }
-                    print(f"Found location: {latest_location}")
-                else:
-                    print(f"No location found for IMEI {share_track.imei}")
             except Exception as e:
-                print(f"Error getting latest location: {e}")
+                logger.error(f"Error getting latest location: {e}")
             
             # Get latest status
             latest_status = None
             try:
-                status_count = Status.objects.filter(imei=share_track.imei).count()
-                print(f"Status count for IMEI {share_track.imei}: {status_count}")
-                
                 status = Status.objects.filter(imei=share_track.imei).order_by('-createdAt').first()
                 if status:
                     latest_status = {
@@ -323,11 +314,8 @@ def get_share_track_by_token(request, token):
                         'relay': status.relay,
                         'createdAt': status.createdAt.isoformat()
                     }
-                    print(f"Found status: {latest_status}")
-                else:
-                    print(f"No status found for IMEI {share_track.imei}")
             except Exception as e:
-                print(f"Error getting latest status: {e}")
+                logger.error(f"Error getting latest status: {e}")
             
             vehicle_data = {
                 'imei': vehicle.imei,
@@ -341,7 +329,7 @@ def get_share_track_by_token(request, token):
             return Response({
                 'success': False,
                 'message': 'Vehicle not found'
-            }, status=status.HTTP_404_NOT_FOUND)
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         return Response({
             'success': True,
@@ -356,7 +344,7 @@ def get_share_track_by_token(request, token):
                 },
                 'vehicle': vehicle_data
             }
-        }, status=status.HTTP_200_OK)
+        }, status=http_status.HTTP_200_OK)
         
     except Exception as e:
         import traceback
@@ -365,4 +353,4 @@ def get_share_track_by_token(request, token):
         return Response({
             'success': False,
             'message': 'Internal server error'
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        }, status=http_status.HTTP_500_INTERNAL_SERVER_ERROR)
