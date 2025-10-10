@@ -765,3 +765,73 @@ def biometric_login(request):
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
+
+
+@api_view(['PUT'])
+@api_response
+def update_biometric_token(request):
+    """
+    Update user's biometric token
+    """
+    try:
+        user = request.user
+        
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        import json
+        data = json.loads(request.body) if request.body else {}
+        biometric_token = data.get('biometric_token')
+        
+        if not biometric_token:
+            return error_response(
+                message='Biometric token is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Update user's biometric token
+        user.biometric_token = biometric_token
+        user.save()
+        
+        return success_response(
+            message='Biometric token updated successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['DELETE'])
+@api_response
+def remove_biometric_token(request):
+    """
+    Remove user's biometric token
+    """
+    try:
+        user = request.user
+        
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Clear user's biometric token
+        user.biometric_token = None
+        user.save()
+        
+        return success_response(
+            message='Biometric token removed successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )

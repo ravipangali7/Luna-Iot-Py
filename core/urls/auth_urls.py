@@ -24,4 +24,6 @@ urlpatterns = [
     path('logout', auth_views.logout, name='logout'),
     path('me', auth_views.get_current_user, name='get_current_user'),
     path('delete-account', auth_views.delete_account, name='delete_account'),
+    path('biometric-token', auth_views.update_biometric_token, name='update_biometric_token'),
+    path('biometric-token', auth_views.remove_biometric_token, name='remove_biometric_token'),
 ]
