@@ -259,10 +259,10 @@ def get_share_track_by_token(request, token):
             token_uuid = uuid.UUID(token)
             share_track = ShareTrack.objects.get(token=token_uuid, is_active=True)
         except (ShareTrack.DoesNotExist, ValueError):
-        return Response({
-            'success': False,
-            'message': 'Share track not found or has expired'
-        }, status=http_http_status.HTTP_404_NOT_FOUND)
+            return Response({
+                'success': False,
+                'message': 'Share track not found or has expired'
+            }, status=http_status.HTTP_404_NOT_FOUND)
         
         # Check if expired
         if share_track.is_expired():
