@@ -1002,6 +1002,7 @@ def update_vehicle_access(request):
             user_vehicle.edit = permissions.get('edit', False)
             user_vehicle.shareTracking = permissions.get('shareTracking', False)
             user_vehicle.notification = permissions.get('notification', True)
+            user_vehicle.relay = permissions.get('relay', False)
             user_vehicle.save()
         except UserVehicle.DoesNotExist:
             return error_response('Vehicle access assignment not found', HTTP_STATUS['NOT_FOUND'])
@@ -1021,7 +1022,8 @@ def update_vehicle_access(request):
                 'geofence': user_vehicle.geofence,
                 'edit': user_vehicle.edit,
                 'shareTracking': user_vehicle.shareTracking,
-                'notification': user_vehicle.notification
+                'notification': user_vehicle.notification,
+                'relay': user_vehicle.relay
             },
             'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None
         }
