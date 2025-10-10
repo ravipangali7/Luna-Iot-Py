@@ -1142,7 +1142,7 @@ def get_vehicles_with_access_paginated(request):
                     'edit': user_vehicle.edit,
                     'shareTracking': user_vehicle.shareTracking,
                     'notification': user_vehicle.notification,
-                    'relay': getattr(user_vehicle, 'relay', False),
+                    'relay': user_vehicle.relay,
                     'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
                     'user': {
                         'id': user_vehicle.user.id,
@@ -1267,7 +1267,7 @@ def search_vehicles_with_access(request):
                     'edit': user_vehicle.edit,
                     'shareTracking': user_vehicle.shareTracking,
                     'notification': user_vehicle.notification,
-                    'relay': getattr(user_vehicle, 'relay', False),
+                    'relay': user_vehicle.relay,
                     'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
                     'user': {
                         'id': user_vehicle.user.id,
