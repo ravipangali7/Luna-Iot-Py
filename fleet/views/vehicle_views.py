@@ -893,6 +893,92 @@ def get_vehicles_for_access_assignment(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 @require_auth
+def get_vehicle_access_assignments_light(request, imei):
+    """
+    Get vehicle access assignments for a specific vehicle (light version - only essential data)
+    """
+    try:
+        user = request.user
+        
+        # Check if vehicle exists
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check if user has access to this vehicle
+        user_group = user.groups.first()
+        if not user_group or user_group.name != 'Super Admin':
+            try:
+                main_user_vehicle = UserVehicle.objects.get(
+                    vehicle=vehicle,
+                    user=user,
+                    isMain=True
+                )
+            except UserVehicle.DoesNotExist:
+                return error_response('Access denied. Only main user or Super Admin can view access', HTTP_STATUS['FORBIDDEN'])
+        
+        # Get only essential vehicle data
+        vehicle_data = {
+            'id': vehicle.id,
+            'imei': vehicle.imei,
+            'name': vehicle.name,
+            'vehicleNo': vehicle.vehicleNo,
+            'vehicleType': vehicle.vehicleType,
+            'device': {
+                'id': vehicle.device.id if vehicle.device else None,
+                'imei': vehicle.device.imei if vehicle.device else None,
+                'phone': vehicle.device.phone if vehicle.device else None
+            } if vehicle.device else None
+        }
+        
+        # Get user access assignments (light version)
+        user_vehicles = UserVehicle.objects.filter(vehicle=vehicle).select_related('user')
+        user_vehicles_data = []
+        
+        for user_vehicle in user_vehicles:
+            user_vehicles_data.append({
+                'id': user_vehicle.id,
+                'userId': user_vehicle.user.id,
+                'userName': user_vehicle.user.name,
+                'userPhone': user_vehicle.user.phone,
+                'userEmail': user_vehicle.user.email,
+                'isMain': user_vehicle.isMain,
+                'allAccess': user_vehicle.allAccess,
+                'liveTracking': user_vehicle.liveTracking,
+                'history': user_vehicle.history,
+                'report': user_vehicle.report,
+                'vehicleProfile': user_vehicle.vehicleProfile,
+                'events': user_vehicle.events,
+                'geofence': user_vehicle.geofence,
+                'edit': user_vehicle.edit,
+                'shareTracking': user_vehicle.shareTracking,
+                'notification': user_vehicle.notification,
+                'relay': user_vehicle.relay,
+                'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
+                'user': {
+                    'id': user_vehicle.user.id,
+                    'name': user_vehicle.user.name,
+                    'phone': user_vehicle.user.phone,
+                    'email': user_vehicle.user.email,
+                    'role': user_vehicle.user.groups.first().name if user_vehicle.user.groups.exists() else 'User'
+                }
+            })
+        
+        response_data = {
+            'vehicle': vehicle_data,
+            'userVehicles': user_vehicles_data
+        }
+        
+        return success_response(response_data, 'Vehicle access assignments retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
 def get_vehicle_access_assignments(request, imei):
     """
     Get vehicle access assignments
