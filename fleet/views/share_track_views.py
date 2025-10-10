@@ -46,34 +46,51 @@ def create_share_track(request):
                 'success': False,
                 'message': 'Authentication required'
             }, status=http_status.HTTP_401_UNAUTHORIZED)
+        
+        logger.info(f"Share track create request - User: {user.id} ({user.name}), IMEI: {imei}")
         try:
             vehicle = Vehicle.objects.get(imei=imei)
             
-            # Check if user has access to this vehicle
-            # Check if user is super admin or has access to this vehicle
+            # Check if user has access to this vehicle and share tracking permission
             has_access = False
+            has_share_permission = False
             
             # Super admin has access to all vehicles
             if hasattr(user, 'is_superuser') and user.is_superuser:
                 has_access = True
+                has_share_permission = True
             else:
-                # Check if user has access through vehicle access permissions
-                # This would depend on your vehicle access system
-                # For now, we'll check if the user is associated with this vehicle
-                if hasattr(vehicle, 'uservehicles') and vehicle.uservehicles:
-                    # Check if current user is in the uservehicles list
-                    for uv in vehicle.uservehicles:
-                        if isinstance(uv, dict) and uv.get('userId') == user.id:
-                            has_access = True
-                            break
-                        elif hasattr(uv, 'user_id') and uv.user_id == user.id:
-                            has_access = True
-                            break
+                # Check if user has access through UserVehicle relationship
+                try:
+                    user_vehicle = vehicle.userVehicles.filter(user=user).first()
+                    logger.info(f"User vehicle found: {user_vehicle is not None}")
+                    if user_vehicle:
+                        has_access = True
+                        # Check specific share tracking permission
+                        has_share_permission = (
+                            user_vehicle.allAccess or 
+                            user_vehicle.shareTracking
+                        )
+                        logger.info(f"User vehicle permissions - allAccess: {user_vehicle.allAccess}, shareTracking: {user_vehicle.shareTracking}, has_share_permission: {has_share_permission}")
+                    else:
+                        logger.info(f"No user vehicle relationship found for user {user.id} and vehicle {vehicle.imei}")
+                except Exception as e:
+                    logger.error(f"Error checking user vehicle permissions: {str(e)}")
+                    has_access = False
+                    has_share_permission = False
+            
+            logger.info(f"Permission check result - has_access: {has_access}, has_share_permission: {has_share_permission}")
             
             if not has_access:
                 return Response({
                     'success': False,
-                    'message': 'You do not have permission to share this vehicle'
+                    'message': 'You do not have access to this vehicle'
+                }, status=http_status.HTTP_403_FORBIDDEN)
+            
+            if not has_share_permission:
+                return Response({
+                    'success': False,
+                    'message': 'You do not have permission to share this vehicle. Please contact your administrator.'
                 }, status=http_status.HTTP_403_FORBIDDEN)
                 
         except Vehicle.DoesNotExist:
@@ -156,27 +173,40 @@ def get_existing_share_track(request, imei):
         try:
             vehicle = Vehicle.objects.get(imei=imei)
             
-            # Check if user has access to this vehicle
+            # Check if user has access to this vehicle and share tracking permission
             has_access = False
+            has_share_permission = False
             
             # Super admin has access to all vehicles
             if hasattr(user, 'is_superuser') and user.is_superuser:
                 has_access = True
+                has_share_permission = True
             else:
-                # Check if user has access through vehicle access permissions
-                if hasattr(vehicle, 'uservehicles') and vehicle.uservehicles:
-                    for uv in vehicle.uservehicles:
-                        if isinstance(uv, dict) and uv.get('userId') == user.id:
-                            has_access = True
-                            break
-                        elif hasattr(uv, 'user_id') and uv.user_id == user.id:
-                            has_access = True
-                            break
+                # Check if user has access through UserVehicle relationship
+                try:
+                    user_vehicle = vehicle.userVehicles.filter(user=user).first()
+                    if user_vehicle:
+                        has_access = True
+                        # Check specific share tracking permission
+                        has_share_permission = (
+                            user_vehicle.allAccess or 
+                            user_vehicle.shareTracking
+                        )
+                except Exception as e:
+                    logger.error(f"Error checking user vehicle permissions: {str(e)}")
+                    has_access = False
+                    has_share_permission = False
             
             if not has_access:
                 return Response({
                     'success': False,
-                    'message': 'You do not have permission to view this vehicle'
+                    'message': 'You do not have access to this vehicle'
+                }, status=http_status.HTTP_403_FORBIDDEN)
+            
+            if not has_share_permission:
+                return Response({
+                    'success': False,
+                    'message': 'You do not have permission to view share tracks for this vehicle. Please contact your administrator.'
                 }, status=http_status.HTTP_403_FORBIDDEN)
                 
         except Vehicle.DoesNotExist:
