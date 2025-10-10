@@ -253,17 +253,12 @@ def get_share_track_by_token(request, token):
     Get share track by token (public endpoint for shared links)
     """
     try:
-        # Debug: Log the token being searched
-        print(f"Searching for ShareTrack with token: {token}")
-        
-        # Debug: List all existing tokens
-        existing_tokens = ShareTrack.objects.filter(is_active=True).values_list('token', flat=True)
-        print(f"Existing active tokens: {list(existing_tokens)}")
-        
-        # Get share track by token
+        # Get share track by token - convert string to UUID for comparison
         try:
-            share_track = ShareTrack.objects.get(token=token, is_active=True)
-        except ShareTrack.DoesNotExist:
+            import uuid
+            token_uuid = uuid.UUID(token)
+            share_track = ShareTrack.objects.get(token=token_uuid, is_active=True)
+        except (ShareTrack.DoesNotExist, ValueError):
             return Response({
                 'success': False,
                 'message': 'Share track not found or has expired'
@@ -279,26 +274,15 @@ def get_share_track_by_token(request, token):
         
         # Get vehicle information
         try:
+            from fleet.models.vehicle import Vehicle
             vehicle = Vehicle.objects.get(imei=share_track.imei)
             vehicle_data = {
                 'imei': vehicle.imei,
-                'vehicle_no': vehicle.vehicle_no,
+                'vehicle_no': vehicle.vehicleNo,
                 'name': vehicle.name,
-                'vehicle_type': vehicle.vehicle_type,
-                'latest_location': {
-                    'latitude': vehicle.latest_location.latitude if vehicle.latest_location else None,
-                    'longitude': vehicle.latest_location.longitude if vehicle.latest_location else None,
-                    'speed': vehicle.latest_location.speed if vehicle.latest_location else None,
-                    'course': vehicle.latest_location.course if vehicle.latest_location else None,
-                    'created_at': vehicle.latest_location.created_at.isoformat() if vehicle.latest_location else None,
-                } if vehicle.latest_location else None,
-                'latest_status': {
-                    'battery': vehicle.latest_status.battery if vehicle.latest_status else None,
-                    'signal': vehicle.latest_status.signal if vehicle.latest_status else None,
-                    'charging': vehicle.latest_status.charging if vehicle.latest_status else None,
-                    'ignition': vehicle.latest_status.ignition if vehicle.latest_status else None,
-                    'created_at': vehicle.latest_status.created_at.isoformat() if vehicle.latest_status else None,
-                } if vehicle.latest_status else None,
+                'vehicle_type': vehicle.vehicleType,
+                'latest_location': None,  # Will be populated separately if needed
+                'latest_status': None,    # Will be populated separately if needed
             }
         except Vehicle.DoesNotExist:
             return Response({
@@ -319,10 +303,12 @@ def get_share_track_by_token(request, token):
                 },
                 'vehicle': vehicle_data
             }
-        })
+        }, status=status.HTTP_200_OK)
         
     except Exception as e:
+        import traceback
         logger.error(f"Error getting share track by token: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return Response({
             'success': False,
             'message': 'Internal server error'
