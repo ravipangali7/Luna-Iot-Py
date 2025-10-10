@@ -11,6 +11,7 @@ class User(AbstractUser):
     name = models.CharField(max_length=100, blank=True, null=True)
     fcm_token = models.CharField(max_length=500, null=True, blank=True, db_column='fcm_token')
     token = models.CharField(max_length=500, null=True, blank=True)
+    biometric_token = models.CharField(max_length=500, null=True, blank=True, db_column='biometric_token')
     
     first_name = None
     last_name = None
