@@ -275,14 +275,67 @@ def get_share_track_by_token(request, token):
         # Get vehicle information
         try:
             from fleet.models.vehicle import Vehicle
+            from device.models.location import Location
+            from device.models.status import Status
+            
             vehicle = Vehicle.objects.get(imei=share_track.imei)
+            
+            # Get latest location
+            latest_location = None
+            try:
+                location_count = Location.objects.filter(imei=share_track.imei).count()
+                print(f"Location count for IMEI {share_track.imei}: {location_count}")
+                
+                location = Location.objects.filter(imei=share_track.imei).order_by('-createdAt').first()
+                if location:
+                    latest_location = {
+                        'id': location.id,
+                        'imei': location.imei,
+                        'latitude': float(location.latitude),
+                        'longitude': float(location.longitude),
+                        'speed': float(location.speed),
+                        'course': float(location.course),
+                        'satellite': float(location.satellite),
+                        'realTimeGps': location.realTimeGps,
+                        'createdAt': location.createdAt.isoformat()
+                    }
+                    print(f"Found location: {latest_location}")
+                else:
+                    print(f"No location found for IMEI {share_track.imei}")
+            except Exception as e:
+                print(f"Error getting latest location: {e}")
+            
+            # Get latest status
+            latest_status = None
+            try:
+                status_count = Status.objects.filter(imei=share_track.imei).count()
+                print(f"Status count for IMEI {share_track.imei}: {status_count}")
+                
+                status = Status.objects.filter(imei=share_track.imei).order_by('-createdAt').first()
+                if status:
+                    latest_status = {
+                        'id': status.id,
+                        'imei': status.imei,
+                        'battery': float(status.battery),
+                        'signal': float(status.signal),
+                        'ignition': status.ignition,
+                        'charging': status.charging,
+                        'relay': status.relay,
+                        'createdAt': status.createdAt.isoformat()
+                    }
+                    print(f"Found status: {latest_status}")
+                else:
+                    print(f"No status found for IMEI {share_track.imei}")
+            except Exception as e:
+                print(f"Error getting latest status: {e}")
+            
             vehicle_data = {
                 'imei': vehicle.imei,
                 'vehicle_no': vehicle.vehicleNo,
                 'name': vehicle.name,
                 'vehicle_type': vehicle.vehicleType,
-                'latest_location': None,  # Will be populated separately if needed
-                'latest_status': None,    # Will be populated separately if needed
+                'latest_location': latest_location,
+                'latest_status': latest_status,
             }
         except Vehicle.DoesNotExist:
             return Response({
