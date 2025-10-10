@@ -253,8 +253,21 @@ def get_share_track_by_token(request, token):
     Get share track by token (public endpoint for shared links)
     """
     try:
+        # Debug: Log the token being searched
+        print(f"Searching for ShareTrack with token: {token}")
+        
+        # Debug: List all existing tokens
+        existing_tokens = ShareTrack.objects.filter(is_active=True).values_list('token', flat=True)
+        print(f"Existing active tokens: {list(existing_tokens)}")
+        
         # Get share track by token
-        share_track = get_object_or_404(ShareTrack, token=token, is_active=True)
+        try:
+            share_track = ShareTrack.objects.get(token=token, is_active=True)
+        except ShareTrack.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Share track not found or has expired'
+            }, status=status.HTTP_404_NOT_FOUND)
         
         # Check if expired
         if share_track.is_expired():
