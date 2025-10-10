@@ -44,3 +44,6 @@ WARNING 2025-10-02 20:39:17,936 firebase_service 504 5688 Error removing existin
 INFO 2025-10-02 20:39:18,085 firebase_service 504 5688 Firebase Admin SDK initialized successfully with app name: luna_iot_app
 WARNING 2025-10-02 20:39:18,085 firebase_service 504 5688 Invalid notification type or missing parameters: test
 WARNING 2025-10-02 20:39:18,085 firebase_service 504 5688 No FCM tokens found for notification type: test
+INFO 2025-10-10 23:45:03,033 autoreload 3932 3228 Watching for file changes with StatReloader
+INFO 2025-10-10 23:45:07,892 autoreload 3932 3228 C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\fleet\views\share_track_views.py changed, reloading.
+INFO 2025-10-10 23:45:10,159 autoreload 7748 13044 Watching for file changes with StatReloader

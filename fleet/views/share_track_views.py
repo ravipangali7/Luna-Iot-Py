@@ -51,46 +51,46 @@ def create_share_track(request):
         try:
             vehicle = Vehicle.objects.get(imei=imei)
             
-            # Check if user has access to this vehicle and share tracking permission
+            # Check if user has access to this vehicle
             has_access = False
-            has_share_permission = False
             
-            # Super admin has access to all vehicles
-            if hasattr(user, 'is_superuser') and user.is_superuser:
+            # Check user role first - Super Admin has access to all vehicles
+            user_group = user.groups.first()
+            if user_group and user_group.name == 'Super Admin':
                 has_access = True
-                has_share_permission = True
+                logger.info(f"Super Admin access granted for user {user.id}")
             else:
-                # Check if user has access through UserVehicle relationship
+                # Check if user has access through UserVehicle or Device relationship
                 try:
+                    # Check UserVehicle relationship first
                     user_vehicle = vehicle.userVehicles.filter(user=user).first()
                     logger.info(f"User vehicle found: {user_vehicle is not None}")
+                    
                     if user_vehicle:
                         has_access = True
-                        # Check specific share tracking permission
-                        has_share_permission = (
-                            user_vehicle.allAccess or 
-                            user_vehicle.shareTracking
-                        )
-                        logger.info(f"User vehicle permissions - allAccess: {user_vehicle.allAccess}, shareTracking: {user_vehicle.shareTracking}, has_share_permission: {has_share_permission}")
+                        logger.info(f"User vehicle access granted for user {user.id}")
                     else:
-                        logger.info(f"No user vehicle relationship found for user {user.id} and vehicle {vehicle.imei}")
+                        # Check Device relationship as fallback
+                        from device.models import UserDevice
+                        user_device = UserDevice.objects.filter(
+                            device__imei=vehicle.imei,
+                            user=user
+                        ).first()
+                        if user_device:
+                            has_access = True
+                            logger.info(f"Device access granted for user {user.id} via device {vehicle.imei}")
+                        else:
+                            logger.info(f"No user vehicle or device relationship found for user {user.id} and vehicle {vehicle.imei}")
                 except Exception as e:
-                    logger.error(f"Error checking user vehicle permissions: {str(e)}")
+                    logger.error(f"Error checking user permissions: {str(e)}")
                     has_access = False
-                    has_share_permission = False
             
-            logger.info(f"Permission check result - has_access: {has_access}, has_share_permission: {has_share_permission}")
+            logger.info(f"Permission check result - has_access: {has_access}")
             
             if not has_access:
                 return Response({
                     'success': False,
                     'message': 'You do not have access to this vehicle'
-                }, status=http_status.HTTP_403_FORBIDDEN)
-            
-            if not has_share_permission:
-                return Response({
-                    'success': False,
-                    'message': 'You do not have permission to share this vehicle. Please contact your administrator.'
                 }, status=http_status.HTTP_403_FORBIDDEN)
                 
         except Vehicle.DoesNotExist:
@@ -173,40 +173,37 @@ def get_existing_share_track(request, imei):
         try:
             vehicle = Vehicle.objects.get(imei=imei)
             
-            # Check if user has access to this vehicle and share tracking permission
+            # Check if user has access to this vehicle
             has_access = False
-            has_share_permission = False
             
-            # Super admin has access to all vehicles
-            if hasattr(user, 'is_superuser') and user.is_superuser:
+            # Check user role first - Super Admin has access to all vehicles
+            user_group = user.groups.first()
+            if user_group and user_group.name == 'Super Admin':
                 has_access = True
-                has_share_permission = True
             else:
-                # Check if user has access through UserVehicle relationship
+                # Check if user has access through UserVehicle or Device relationship
                 try:
+                    # Check UserVehicle relationship first
                     user_vehicle = vehicle.userVehicles.filter(user=user).first()
                     if user_vehicle:
                         has_access = True
-                        # Check specific share tracking permission
-                        has_share_permission = (
-                            user_vehicle.allAccess or 
-                            user_vehicle.shareTracking
-                        )
+                    else:
+                        # Check Device relationship as fallback
+                        from device.models import UserDevice
+                        user_device = UserDevice.objects.filter(
+                            device__imei=vehicle.imei,
+                            user=user
+                        ).first()
+                        if user_device:
+                            has_access = True
                 except Exception as e:
-                    logger.error(f"Error checking user vehicle permissions: {str(e)}")
+                    logger.error(f"Error checking user permissions: {str(e)}")
                     has_access = False
-                    has_share_permission = False
             
             if not has_access:
                 return Response({
                     'success': False,
                     'message': 'You do not have access to this vehicle'
-                }, status=http_status.HTTP_403_FORBIDDEN)
-            
-            if not has_share_permission:
-                return Response({
-                    'success': False,
-                    'message': 'You do not have permission to view share tracks for this vehicle. Please contact your administrator.'
                 }, status=http_status.HTTP_403_FORBIDDEN)
                 
         except Vehicle.DoesNotExist:
