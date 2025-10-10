@@ -248,20 +248,13 @@ def get_my_share_tracks(request):
 
 
 @api_view(['GET'])
-@permission_classes([])  # No authentication required for public access
 def get_share_track_by_token(request, token):
     """
     Get share track by token (public endpoint for shared links)
     """
     try:
         # Get share track by token
-        try:
-            share_track = ShareTrack.objects.get(token=token, is_active=True)
-        except ShareTrack.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'Share track not found or has been deactivated'
-            }, status=status.HTTP_404_NOT_FOUND)
+        share_track = get_object_or_404(ShareTrack, token=token, is_active=True)
         
         # Check if expired
         if share_track.is_expired():
@@ -274,86 +267,46 @@ def get_share_track_by_token(request, token):
         # Get vehicle information
         try:
             vehicle = Vehicle.objects.get(imei=share_track.imei)
-            
-            # Check if vehicle is active
-            if not vehicle.is_active:
-                return Response({
-                    'success': False,
-                    'message': 'Vehicle has been deactivated'
-                }, status=status.HTTP_404_NOT_FOUND)
-            
             vehicle_data = {
-                'id': vehicle.id,
                 'imei': vehicle.imei,
-                'vehicleNo': vehicle.vehicleNo,
+                'vehicle_no': vehicle.vehicle_no,
                 'name': vehicle.name,
-                'vehicleType': vehicle.vehicleType,
-                'odometer': float(vehicle.odometer) if vehicle.odometer else 0,
-                'speedLimit': vehicle.speedLimit,
-                'is_active': vehicle.is_active,
-                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
-                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
+                'vehicle_type': vehicle.vehicle_type,
+                'latest_location': {
+                    'latitude': vehicle.latest_location.latitude if vehicle.latest_location else None,
+                    'longitude': vehicle.latest_location.longitude if vehicle.latest_location else None,
+                    'speed': vehicle.latest_location.speed if vehicle.latest_location else None,
+                    'course': vehicle.latest_location.course if vehicle.latest_location else None,
+                    'created_at': vehicle.latest_location.created_at.isoformat() if vehicle.latest_location else None,
+                } if vehicle.latest_location else None,
+                'latest_status': {
+                    'battery': vehicle.latest_status.battery if vehicle.latest_status else None,
+                    'signal': vehicle.latest_status.signal if vehicle.latest_status else None,
+                    'charging': vehicle.latest_status.charging if vehicle.latest_status else None,
+                    'ignition': vehicle.latest_status.ignition if vehicle.latest_status else None,
+                    'created_at': vehicle.latest_status.created_at.isoformat() if vehicle.latest_status else None,
+                } if vehicle.latest_status else None,
             }
-            
-            # Get latest location from Location model
-            try:
-                from device.models import Location
-                latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
-                if latest_location_obj:
-                    vehicle_data['latestLocation'] = {
-                        'id': latest_location_obj.id,
-                        'imei': latest_location_obj.imei,
-                        'latitude': float(latest_location_obj.latitude),
-                        'longitude': float(latest_location_obj.longitude),
-                        'speed': float(latest_location_obj.speed) if latest_location_obj.speed else 0,
-                        'course': float(latest_location_obj.course) if latest_location_obj.course else 0,
-                        'satellite': float(latest_location_obj.satellite) if latest_location_obj.satellite else 0,
-                        'realTimeGps': latest_location_obj.realTimeGps,
-                        'createdAt': latest_location_obj.createdAt.isoformat() if latest_location_obj.createdAt else None,
-                        'updatedAt': latest_location_obj.updatedAt.isoformat() if latest_location_obj.updatedAt else None,
-                    }
-                else:
-                    vehicle_data['latestLocation'] = None
-            except Exception as e:
-                logger.warning(f"Error getting latest location: {str(e)}")
-                vehicle_data['latestLocation'] = None
-                
-            # Get latest status from Status model
-            try:
-                from device.models import Status
-                latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
-                if latest_status_obj:
-                    vehicle_data['latestStatus'] = {
-                        'id': latest_status_obj.id,
-                        'imei': latest_status_obj.imei,
-                        'battery': float(latest_status_obj.battery) if latest_status_obj.battery else 0,
-                        'signal': float(latest_status_obj.signal) if latest_status_obj.signal else 0,
-                        'ignition': latest_status_obj.ignition,
-                        'charging': latest_status_obj.charging,
-                        'relay': latest_status_obj.relay,
-                        'createdAt': latest_status_obj.createdAt.isoformat() if latest_status_obj.createdAt else None,
-                        'updatedAt': latest_status_obj.updatedAt.isoformat() if latest_status_obj.updatedAt else None,
-                    }
-                else:
-                    vehicle_data['latestStatus'] = None
-            except Exception as e:
-                logger.warning(f"Error getting latest status: {str(e)}")
-                vehicle_data['latestStatus'] = None
         except Vehicle.DoesNotExist:
             return Response({
                 'success': False,
                 'message': 'Vehicle not found'
             }, status=status.HTTP_404_NOT_FOUND)
         
-        # Serialize share track data
-        share_track_serializer = ShareTrackResponseSerializer(share_track)
-        
         return Response({
             'success': True,
-            'message': 'Share track retrieved successfully',
-            'data': share_track_serializer.data,
-            'vehicle': vehicle_data
-        }, status=status.HTTP_200_OK)
+            'data': {
+                'share_track': {
+                    'id': share_track.id,
+                    'imei': share_track.imei,
+                    'token': str(share_track.token),
+                    'created_at': share_track.created_at.isoformat(),
+                    'scheduled_for': share_track.scheduled_for.isoformat(),
+                    'expires_in_minutes': int((share_track.scheduled_for - timezone.now()).total_seconds() / 60)
+                },
+                'vehicle': vehicle_data
+            }
+        })
         
     except Exception as e:
         logger.error(f"Error getting share track by token: {str(e)}")
