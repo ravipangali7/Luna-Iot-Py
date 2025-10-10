@@ -16,6 +16,8 @@ urlpatterns = [
     path('vehicle/access/available', vehicle_views.get_vehicles_for_access_assignment, name='get_vehicles_for_access_assignment'),
     path('vehicle/access/update', vehicle_views.update_vehicle_access, name='update_vehicle_access'),
     path('vehicle/access/remove', vehicle_views.remove_vehicle_access, name='remove_vehicle_access'),
+    path('vehicle/access/paginated', vehicle_views.get_vehicles_with_access_paginated, name='get_vehicles_with_access_paginated'),
+    path('vehicle/access/search', vehicle_views.search_vehicles_with_access, name='search_vehicles_with_access'),
     path('vehicle/<str:imei>/access', vehicle_views.get_vehicle_access_assignments, name='get_vehicle_access_assignments'),
     
     # Vehicle activation routes - must come before vehicle/<str:imei> to avoid conflicts

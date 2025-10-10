@@ -1090,6 +1090,238 @@ def remove_vehicle_access(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 @require_auth
+def get_vehicles_with_access_paginated(request):
+    """
+    Get paginated vehicles with access information for vehicle access management
+    """
+    try:
+        user = request.user
+        
+        # Get page number from query parameters, default to 1
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size as requested
+        
+        # Get vehicles based on user role
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
+        else:
+            # Get vehicles where user has access
+            vehicles = Vehicle.objects.filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
+        
+        # Create paginator
+        paginator = Paginator(vehicles, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
+        vehicles_data = []
+        for vehicle in page_obj:
+            # Get all users with access to this vehicle (userVehicles format)
+            user_vehicles_data = []
+            for user_vehicle in vehicle.userVehicles.all():
+                user_vehicles_data.append({
+                    'id': user_vehicle.id,
+                    'userId': user_vehicle.user.id,
+                    'userName': user_vehicle.user.name,
+                    'userPhone': user_vehicle.user.phone,
+                    'isMain': user_vehicle.isMain,
+                    'allAccess': user_vehicle.allAccess,
+                    'liveTracking': user_vehicle.liveTracking,
+                    'history': user_vehicle.history,
+                    'report': user_vehicle.report,
+                    'vehicleProfile': user_vehicle.vehicleProfile,
+                    'events': user_vehicle.events,
+                    'geofence': user_vehicle.geofence,
+                    'edit': user_vehicle.edit,
+                    'shareTracking': user_vehicle.shareTracking,
+                    'notification': user_vehicle.notification,
+                    'relay': getattr(user_vehicle, 'relay', False),
+                    'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
+                    'user': {
+                        'id': user_vehicle.user.id,
+                        'name': user_vehicle.user.name,
+                        'phone': user_vehicle.user.phone,
+                        'email': user_vehicle.user.email,
+                        'role': user_vehicle.user.groups.first().name if user_vehicle.user.groups.exists() else 'User'
+                    }
+                })
+            
+            vehicle_data = {
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'device': {
+                    'id': vehicle.device.id if vehicle.device else None,
+                    'imei': vehicle.device.imei if vehicle.device else None,
+                    'phone': vehicle.device.phone if vehicle.device else None,
+                    'status': vehicle.device.status if vehicle.device else None
+                } if vehicle.device else None,
+                'userVehicles': user_vehicles_data,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None
+            }
+            vehicles_data.append(vehicle_data)
+        
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'vehicles': vehicles_data,
+            'pagination': pagination_info
+        }
+        
+        return success_response(response_data, 'Paginated vehicles with access retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def search_vehicles_with_access(request):
+    """
+    Search vehicles with access information by vehicle details and user details
+    """
+    try:
+        user = request.user
+        
+        # Get search query and page number from query parameters
+        search_query = request.GET.get('q', '').strip()
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size as requested
+        
+        if not search_query:
+            return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Build search filter
+        search_filter = (
+            Q(name__icontains=search_query) |
+            Q(vehicleNo__icontains=search_query) |
+            Q(imei__icontains=search_query) |
+            Q(vehicleType__icontains=search_query) |
+            Q(userVehicles__user__name__icontains=search_query) |
+            Q(userVehicles__user__phone__icontains=search_query) |
+            Q(device__phone__icontains=search_query)
+        )
+        
+        # Get vehicles based on user role and apply search
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles that match search
+            vehicles = Vehicle.objects.filter(search_filter).select_related('device').prefetch_related('userVehicles__user').distinct()
+        else:
+            # For regular users, find vehicles that match search AND user has access to
+            vehicles = Vehicle.objects.filter(
+                Q(search_filter) & (
+                    Q(userVehicles__user=user) |  # Direct vehicle access
+                    Q(device__userDevices__user=user)  # Device access
+                )
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
+        
+        # Create paginator
+        paginator = Paginator(vehicles, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
+        vehicles_data = []
+        for vehicle in page_obj:
+            # Get all users with access to this vehicle (userVehicles format)
+            user_vehicles_data = []
+            for user_vehicle in vehicle.userVehicles.all():
+                user_vehicles_data.append({
+                    'id': user_vehicle.id,
+                    'userId': user_vehicle.user.id,
+                    'userName': user_vehicle.user.name,
+                    'userPhone': user_vehicle.user.phone,
+                    'isMain': user_vehicle.isMain,
+                    'allAccess': user_vehicle.allAccess,
+                    'liveTracking': user_vehicle.liveTracking,
+                    'history': user_vehicle.history,
+                    'report': user_vehicle.report,
+                    'vehicleProfile': user_vehicle.vehicleProfile,
+                    'events': user_vehicle.events,
+                    'geofence': user_vehicle.geofence,
+                    'edit': user_vehicle.edit,
+                    'shareTracking': user_vehicle.shareTracking,
+                    'notification': user_vehicle.notification,
+                    'relay': getattr(user_vehicle, 'relay', False),
+                    'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
+                    'user': {
+                        'id': user_vehicle.user.id,
+                        'name': user_vehicle.user.name,
+                        'phone': user_vehicle.user.phone,
+                        'email': user_vehicle.user.email,
+                        'role': user_vehicle.user.groups.first().name if user_vehicle.user.groups.exists() else 'User'
+                    }
+                })
+            
+            vehicle_data = {
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'device': {
+                    'id': vehicle.device.id if vehicle.device else None,
+                    'imei': vehicle.device.imei if vehicle.device else None,
+                    'phone': vehicle.device.phone if vehicle.device else None,
+                    'status': vehicle.device.status if vehicle.device else None
+                } if vehicle.device else None,
+                'userVehicles': user_vehicles_data,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None
+            }
+            vehicles_data.append(vehicle_data)
+        
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'vehicles': vehicles_data,
+            'pagination': pagination_info
+        }
+        
+        return success_response(response_data, f'Found {paginator.count} vehicles matching "{search_query}"')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
 def get_vehicles_paginated(request):
     """
     Get paginated vehicles with detailed data for table display (includes device, user, recharge info)
