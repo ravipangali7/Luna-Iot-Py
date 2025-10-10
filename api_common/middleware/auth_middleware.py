@@ -31,8 +31,8 @@ class AuthMiddleware(MiddlewareMixin):
             '/api/shared/popup/active',  # Public popup endpoint
         ]
         
-        # Skip authentication for share-track routes (public sharing)
-        if request.path.startswith('/api/fleet/share-track/'):
+        # Skip authentication for public share-track routes (viewing shared links)
+        if request.path.startswith('/api/fleet/share-track/token/'):
             return None
         
         # Skip authentication for media files

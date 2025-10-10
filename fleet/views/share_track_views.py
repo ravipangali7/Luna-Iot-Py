@@ -15,7 +15,6 @@ from fleet.serializers.share_track_serializers import (
     ShareTrackCreateSerializer,
     ShareTrackResponseSerializer
 )
-from core.views.auth_views import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -40,12 +39,43 @@ def create_share_track(request):
         imei = serializer.validated_data['imei']
         duration_minutes = serializer.validated_data['duration_minutes']
         
-        # Check if user has access to this vehicle
-        user = request.user if hasattr(request, 'user') else get_current_user(request)
+        # Get authenticated user
+        user = request.user
+        if not user or not hasattr(user, 'id') or user.is_anonymous:
+            return Response({
+                'success': False,
+                'message': 'Authentication required'
+            }, status=http_status.HTTP_401_UNAUTHORIZED)
         try:
             vehicle = Vehicle.objects.get(imei=imei)
-            # Add your vehicle access check here based on your permission system
-            # For now, we'll assume the user has access if they can see the vehicle
+            
+            # Check if user has access to this vehicle
+            # Check if user is super admin or has access to this vehicle
+            has_access = False
+            
+            # Super admin has access to all vehicles
+            if hasattr(user, 'is_superuser') and user.is_superuser:
+                has_access = True
+            else:
+                # Check if user has access through vehicle access permissions
+                # This would depend on your vehicle access system
+                # For now, we'll check if the user is associated with this vehicle
+                if hasattr(vehicle, 'uservehicles') and vehicle.uservehicles:
+                    # Check if current user is in the uservehicles list
+                    for uv in vehicle.uservehicles:
+                        if isinstance(uv, dict) and uv.get('userId') == user.id:
+                            has_access = True
+                            break
+                        elif hasattr(uv, 'user_id') and uv.user_id == user.id:
+                            has_access = True
+                            break
+            
+            if not has_access:
+                return Response({
+                    'success': False,
+                    'message': 'You do not have permission to share this vehicle'
+                }, status=http_status.HTTP_403_FORBIDDEN)
+                
         except Vehicle.DoesNotExist:
             return Response({
                 'success': False,
@@ -114,12 +144,41 @@ def get_existing_share_track(request, imei):
     Get existing active share track for an IMEI
     """
     try:
-        user = get_current_user(request)
+        # Get authenticated user
+        user = request.user
+        if not user or not hasattr(user, 'id') or user.is_anonymous:
+            return Response({
+                'success': False,
+                'message': 'Authentication required'
+            }, status=http_status.HTTP_401_UNAUTHORIZED)
         
         # Check if user has access to this vehicle
         try:
             vehicle = Vehicle.objects.get(imei=imei)
-            # Add your vehicle access check here
+            
+            # Check if user has access to this vehicle
+            has_access = False
+            
+            # Super admin has access to all vehicles
+            if hasattr(user, 'is_superuser') and user.is_superuser:
+                has_access = True
+            else:
+                # Check if user has access through vehicle access permissions
+                if hasattr(vehicle, 'uservehicles') and vehicle.uservehicles:
+                    for uv in vehicle.uservehicles:
+                        if isinstance(uv, dict) and uv.get('userId') == user.id:
+                            has_access = True
+                            break
+                        elif hasattr(uv, 'user_id') and uv.user_id == user.id:
+                            has_access = True
+                            break
+            
+            if not has_access:
+                return Response({
+                    'success': False,
+                    'message': 'You do not have permission to view this vehicle'
+                }, status=http_status.HTTP_403_FORBIDDEN)
+                
         except Vehicle.DoesNotExist:
             return Response({
                 'success': False,
@@ -174,7 +233,13 @@ def delete_share_track(request, imei):
     Delete active share track for an IMEI
     """
     try:
-        user = get_current_user(request)
+        # Get authenticated user
+        user = request.user
+        if not user or not hasattr(user, 'id') or user.is_anonymous:
+            return Response({
+                'success': False,
+                'message': 'Authentication required'
+            }, status=http_status.HTTP_401_UNAUTHORIZED)
         
         # Get active share track for this IMEI and user
         share_track = ShareTrack.objects.filter(
@@ -212,7 +277,13 @@ def get_my_share_tracks(request):
     Get all share tracks for the current user
     """
     try:
-        user = get_current_user(request)
+        # Get authenticated user
+        user = request.user
+        if not user or not hasattr(user, 'id') or user.is_anonymous:
+            return Response({
+                'success': False,
+                'message': 'Authentication required'
+            }, status=http_status.HTTP_401_UNAUTHORIZED)
         
         share_tracks = ShareTrack.objects.filter(
             user=user,
