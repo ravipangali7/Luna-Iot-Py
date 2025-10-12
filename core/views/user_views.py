@@ -165,6 +165,13 @@ def create_user(request):
         # Assign group to user
         user.groups.add(group)
         
+        # Create wallet for the new user
+        from core.models import Wallet
+        Wallet.objects.create(
+            user=user,
+            balance=0.00
+        )
+        
         # Get user's primary group
         user_group = user.groups.first()
         

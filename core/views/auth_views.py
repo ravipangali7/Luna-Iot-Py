@@ -234,6 +234,13 @@ def verify_otp_and_register(request):
             default_group = Group.objects.create(name='Customer')
             user.groups.add(default_group)
         
+        # Create wallet for the new user
+        from core.models import Wallet
+        Wallet.objects.create(
+            user=user,
+            balance=0.00
+        )
+        
         # Delete OTP after successful registration
         otp_record.delete()
         
