@@ -4,7 +4,6 @@ Handles date and time operations
 Matches Node.js datetime_service.js functionality
 """
 from datetime import datetime
-import pytz
 
 
 def nepal_time_date():
@@ -14,8 +13,7 @@ def nepal_time_date():
     Returns:
         datetime: Current Nepal time
     """
-    nepal_tz = pytz.timezone('Asia/Kathmandu')
-    return datetime.now(nepal_tz)
+    return datetime.now()
 
 
 def get_nepal_datetime(given_date=None):
@@ -27,35 +25,20 @@ def get_nepal_datetime(given_date=None):
     Returns:
         datetime: Nepal time datetime
     """
-    nepal_tz = pytz.timezone('Asia/Kathmandu')
-    
     if given_date is None:
-        return datetime.now(nepal_tz)
+        return datetime.now()
     
     if isinstance(given_date, str):
-        # Handle different string formats
-        if given_date.endswith('Z'):
-            # Remove Z and treat as Nepal time (not UTC)
-            given_date = given_date[:-1]
-            return nepal_tz.localize(datetime.fromisoformat(given_date))
-        else:
-            # Try to parse as ISO format
+        # Parse string to datetime
+        try:
+            return datetime.fromisoformat(given_date.replace('Z', ''))
+        except ValueError:
             try:
-                given_date = datetime.fromisoformat(given_date.replace('Z', '+00:00'))
+                return datetime.strptime(given_date, '%Y-%m-%d %H:%M:%S')
             except ValueError:
-                # If that fails, try other common formats
-                try:
-                    given_date = datetime.strptime(given_date, '%Y-%m-%d %H:%M:%S')
-                except ValueError:
-                    given_date = datetime.strptime(given_date, '%Y-%m-%dT%H:%M:%S')
+                return datetime.strptime(given_date, '%Y-%m-%dT%H:%M:%S')
     
-    # Convert to Nepal timezone
-    if given_date.tzinfo is None:
-        # If no timezone info, assume it's already in Nepal time
-        return nepal_tz.localize(given_date)
-    else:
-        # Convert from whatever timezone to Nepal time
-        return given_date.astimezone(nepal_tz)
+    return datetime(given_date) if not isinstance(given_date, datetime) else given_date
 
 
 def format_datetime_for_db(dt):
