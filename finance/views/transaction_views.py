@@ -113,7 +113,7 @@ def get_all_transactions(request):
         return error_response(
             message="Error retrieving transactions",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -145,7 +145,7 @@ def get_transaction_by_id(request, transaction_id):
         return error_response(
             message="Error retrieving transaction",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -211,7 +211,7 @@ def get_wallet_transactions(request, wallet_id):
         return error_response(
             message="Error retrieving wallet transactions",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -284,7 +284,7 @@ def get_user_transactions(request, user_id):
         return error_response(
             message="Error retrieving user transactions",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -342,7 +342,7 @@ def create_transaction(request):
         return error_response(
             message="Error creating transaction",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -404,5 +404,5 @@ def get_transaction_summary(request):
         return error_response(
             message="Error retrieving transaction summary",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )

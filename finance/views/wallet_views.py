@@ -88,7 +88,7 @@ def get_all_wallets(request):
         return error_response(
             message="Error retrieving wallets",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -128,7 +128,7 @@ def get_wallet_by_user(request, user_id):
         return error_response(
             message="Error retrieving wallet",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -168,7 +168,7 @@ def get_wallet_by_id(request, wallet_id):
         return error_response(
             message="Error retrieving wallet",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -210,7 +210,7 @@ def create_wallet(request):
         return error_response(
             message="Error creating wallet",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -266,7 +266,7 @@ def update_wallet_balance(request, wallet_id):
         return error_response(
             message="Error updating wallet balance",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -328,7 +328,7 @@ def update_wallet_balance_operation(request, wallet_id):
             else:
                 return error_response(
                     message="Failed to update balance",
-                    status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
                 )
         else:
             return error_response(
@@ -341,7 +341,7 @@ def update_wallet_balance_operation(request, wallet_id):
         return error_response(
             message="Error updating wallet balance",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -414,7 +414,7 @@ def topup_wallet(request, wallet_id):
             else:
                 return error_response(
                     message="Failed to process top-up",
-                    status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
                 )
         else:
             return error_response(
@@ -427,7 +427,7 @@ def topup_wallet(request, wallet_id):
         return error_response(
             message="Error processing wallet top-up",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -465,7 +465,7 @@ def delete_wallet(request, wallet_id):
         return error_response(
             message="Error deleting wallet",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -513,5 +513,5 @@ def get_wallet_summary(request):
         return error_response(
             message="Error retrieving wallet summary",
             data=str(e),
-            status_code=HTTP_STATUS.INTERNAL_SERVER_ERROR
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
