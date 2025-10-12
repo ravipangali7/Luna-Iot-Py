@@ -56,6 +56,15 @@ SUCCESS_MESSAGES = {
     'RESET_SENT': 'Reset command sent successfully',
     'USER_RETRIEVED': 'User information retrieved successfully',
     'USERS_RETRIEVED': 'Users retrieved successfully',
+    'DATA_RETRIEVED': 'Data retrieved successfully',
+    'WALLET_CREATED': 'Wallet created successfully',
+    'WALLET_UPDATED': 'Wallet updated successfully',
+    'WALLET_DELETED': 'Wallet deleted successfully',
+    'WALLETS_RETRIEVED': 'Wallets retrieved successfully',
+    'WALLET_RETRIEVED': 'Wallet retrieved successfully',
+    'TRANSACTION_CREATED': 'Transaction created successfully',
+    'TRANSACTIONS_RETRIEVED': 'Transactions retrieved successfully',
+    'TRANSACTION_RETRIEVED': 'Transaction retrieved successfully',
 }
 
 # Error Messages

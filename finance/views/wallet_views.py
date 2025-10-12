@@ -42,7 +42,7 @@ def get_all_wallets(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         # Get filter parameters
@@ -71,7 +71,7 @@ def get_all_wallets(request):
         serializer = WalletListSerializer(page_obj.object_list, many=True)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data={
                 'wallets': serializer.data,
                 'pagination': {
@@ -105,7 +105,7 @@ def get_wallet_by_user(request, user_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Check permissions
@@ -114,13 +114,13 @@ def get_wallet_by_user(request, user_id):
             if wallet.user != request.user:
                 return error_response(
                     message="Access denied. You can only view your own wallet.",
-                    status_code=HTTP_STATUS.FORBIDDEN
+                    status_code=HTTP_STATUS['FORBIDDEN']
                 )
         
         serializer = WalletSerializer(wallet)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data=serializer.data
         )
         
@@ -145,7 +145,7 @@ def get_wallet_by_id(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Check permissions
@@ -154,13 +154,13 @@ def get_wallet_by_id(request, wallet_id):
             if wallet.user != request.user:
                 return error_response(
                     message="Access denied. You can only view your own wallet.",
-                    status_code=HTTP_STATUS.FORBIDDEN
+                    status_code=HTTP_STATUS['FORBIDDEN']
                 )
         
         serializer = WalletSerializer(wallet)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data=serializer.data
         )
         
@@ -185,7 +185,7 @@ def create_wallet(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         serializer = WalletCreateSerializer(data=request.data)
@@ -197,13 +197,13 @@ def create_wallet(request):
             return success_response(
                 data=response_serializer.data,
                 message="Wallet created successfully",
-                status_code=HTTP_STATUS.CREATED
+                status_code=HTTP_STATUS['CREATED']
             )
         else:
             return error_response(
                 message="Invalid wallet data",
                 data=serializer.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
             
     except Exception as e:
@@ -227,7 +227,7 @@ def update_wallet_balance(request, wallet_id):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         try:
@@ -235,7 +235,7 @@ def update_wallet_balance(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         serializer = WalletUpdateSerializer(wallet, data=request.data)
@@ -259,7 +259,7 @@ def update_wallet_balance(request, wallet_id):
             return error_response(
                 message="Invalid balance data",
                 data=serializer.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
             
     except Exception as e:
@@ -283,7 +283,7 @@ def update_wallet_balance_operation(request, wallet_id):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         try:
@@ -291,7 +291,7 @@ def update_wallet_balance_operation(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         serializer = WalletBalanceUpdateSerializer(data=request.data)
@@ -312,7 +312,7 @@ def update_wallet_balance_operation(request, wallet_id):
                 if not success:
                     return error_response(
                         message="Insufficient balance",
-                        status_code=HTTP_STATUS.BAD_REQUEST
+                        status_code=HTTP_STATUS['BAD_REQUEST']
                     )
                 message = "Balance subtracted successfully"
             elif operation == 'set':
@@ -334,7 +334,7 @@ def update_wallet_balance_operation(request, wallet_id):
             return error_response(
                 message="Invalid operation data",
                 data=serializer.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
             
     except Exception as e:
@@ -358,7 +358,7 @@ def topup_wallet(request, wallet_id):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         try:
@@ -366,7 +366,7 @@ def topup_wallet(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         serializer = WalletTopUpSerializer(data=request.data)
@@ -385,7 +385,7 @@ def topup_wallet(request, wallet_id):
                 except User.DoesNotExist:
                     return error_response(
                         message="Performed by user not found",
-                        status_code=HTTP_STATUS.BAD_REQUEST
+                        status_code=HTTP_STATUS['BAD_REQUEST']
                     )
             else:
                 performed_by = request.user
@@ -401,7 +401,7 @@ def topup_wallet(request, wallet_id):
                 if not success:
                     return error_response(
                         message="Insufficient balance for deduction",
-                        status_code=HTTP_STATUS.BAD_REQUEST
+                        status_code=HTTP_STATUS['BAD_REQUEST']
                     )
                 message = "Balance deducted successfully"
             
@@ -420,7 +420,7 @@ def topup_wallet(request, wallet_id):
             return error_response(
                 message="Invalid top-up data",
                 data=serializer.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
             
     except Exception as e:
@@ -444,7 +444,7 @@ def delete_wallet(request, wallet_id):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         try:
@@ -452,7 +452,7 @@ def delete_wallet(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         wallet.delete()
@@ -482,7 +482,7 @@ def get_wallet_summary(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         # Calculate summary statistics
@@ -505,7 +505,7 @@ def get_wallet_summary(request):
         serializer = WalletSummarySerializer(summary_data)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data=serializer.data
         )
         

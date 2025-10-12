@@ -39,7 +39,7 @@ def get_all_transactions(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         # Get filter parameters
@@ -48,7 +48,7 @@ def get_all_transactions(request):
             return error_response(
                 message="Invalid filter parameters",
                 data=filters.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
         filter_data = filters.validated_data
@@ -96,7 +96,7 @@ def get_all_transactions(request):
         serializer = TransactionListSerializer(page_obj.object_list, many=True)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data={
                 'transactions': serializer.data,
                 'pagination': {
@@ -132,7 +132,7 @@ def get_transaction_by_id(request, transaction_id):
         serializer = TransactionSerializer(transaction)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data=serializer.data
         )
         
@@ -163,7 +163,7 @@ def get_wallet_transactions(request, wallet_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Check permissions
@@ -172,7 +172,7 @@ def get_wallet_transactions(request, wallet_id):
             if wallet.user != request.user:
                 return error_response(
                     message="Access denied. You can only view your own wallet transactions.",
-                    status_code=HTTP_STATUS.FORBIDDEN
+                    status_code=HTTP_STATUS['FORBIDDEN']
                 )
         
         # Get transactions
@@ -188,7 +188,7 @@ def get_wallet_transactions(request, wallet_id):
         serializer = TransactionListSerializer(page_obj.object_list, many=True)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data={
                 'wallet_id': wallet_id,
                 'wallet_owner': {
@@ -229,7 +229,7 @@ def get_user_transactions(request, user_id):
         except User.DoesNotExist:
             return error_response(
                 message="User not found",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Check permissions
@@ -238,7 +238,7 @@ def get_user_transactions(request, user_id):
             if user != request.user:
                 return error_response(
                     message="Access denied. You can only view your own transactions.",
-                    status_code=HTTP_STATUS.FORBIDDEN
+                    status_code=HTTP_STATUS['FORBIDDEN']
                 )
         
         # Get user's wallet
@@ -247,7 +247,7 @@ def get_user_transactions(request, user_id):
         except Wallet.DoesNotExist:
             return error_response(
                 message="User does not have a wallet",
-                status_code=HTTP_STATUS.NOT_FOUND
+                status_code=HTTP_STATUS['NOT_FOUND']
             )
         
         # Get transactions
@@ -263,7 +263,7 @@ def get_user_transactions(request, user_id):
         serializer = TransactionListSerializer(page_obj.object_list, many=True)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data={
                 'user_id': user_id,
                 'user_name': user.name,
@@ -300,7 +300,7 @@ def create_transaction(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         serializer = TransactionCreateSerializer(data=request.data)
@@ -308,7 +308,7 @@ def create_transaction(request):
             return error_response(
                 message="Invalid transaction data",
                 data=serializer.errors,
-                status_code=HTTP_STATUS.BAD_REQUEST
+                status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
         # Create transaction
@@ -335,7 +335,7 @@ def create_transaction(request):
         return success_response(
             message="Transaction created successfully",
             data=response_serializer.data,
-            status_code=HTTP_STATUS.CREATED
+            status_code=HTTP_STATUS['CREATED']
         )
         
     except Exception as e:
@@ -358,7 +358,7 @@ def get_transaction_summary(request):
         if not request.user.groups.filter(name='Super Admin').exists():
             return error_response(
                 message="Access denied. Super Admin role required.",
-                status_code=HTTP_STATUS.FORBIDDEN
+                status_code=HTTP_STATUS['FORBIDDEN']
             )
         
         # Get date range (default to last 30 days)
@@ -396,7 +396,7 @@ def get_transaction_summary(request):
         serializer = TransactionSummarySerializer(summary_data)
         
         return success_response(
-            message=SUCCESS_MESSAGES.DATA_RETRIEVED,
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
             data=serializer.data
         )
         
