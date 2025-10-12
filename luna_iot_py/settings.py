@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'device',
     'fleet',
     'health',
+    'finance',
     
     
     # Third party

@@ -235,7 +235,7 @@ def verify_otp_and_register(request):
             user.groups.add(default_group)
         
         # Create wallet for the new user
-        from core.models import Wallet
+        from finance.models import Wallet
         Wallet.objects.create(
             user=user,
             balance=0.00

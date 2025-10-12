@@ -49,7 +49,8 @@ class UserSerializer(serializers.ModelSerializer):
     def get_wallet(self, obj):
         """Get user's wallet information"""
         try:
-            wallet = obj.wallet
+            from finance.models import Wallet
+            wallet = Wallet.objects.get(user=obj)
             return {
                 'id': wallet.id,
                 'balance': float(wallet.balance),

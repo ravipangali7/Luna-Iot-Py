@@ -8,6 +8,5 @@ from . import (
     user_permission_views,
     institute_service_views,
     institute_views,
-    institute_module_views,
-    wallet_views
+    institute_module_views
 )
