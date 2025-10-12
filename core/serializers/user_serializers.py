@@ -11,12 +11,13 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for user model"""
     roles = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
+    wallet = serializers.SerializerMethodField()
     
     class Meta:
         model = User
         fields = [
             'id', 'name', 'phone', 'is_active', 'roles', 
-            'permissions', 'fcm_token', 'created_at', 'updated_at'
+            'permissions', 'fcm_token', 'wallet', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -44,6 +45,19 @@ class UserSerializer(serializers.ModelSerializer):
         
         # Combine and deduplicate
         return list(set(group_permissions + direct_permissions))
+    
+    def get_wallet(self, obj):
+        """Get user's wallet information"""
+        try:
+            wallet = obj.wallet
+            return {
+                'id': wallet.id,
+                'balance': float(wallet.balance),
+                'created_at': wallet.created_at.isoformat(),
+                'updated_at': wallet.updated_at.isoformat()
+            }
+        except:
+            return None
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
