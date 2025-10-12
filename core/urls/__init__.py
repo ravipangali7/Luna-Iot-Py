@@ -21,4 +21,7 @@ urlpatterns = [
     
     # Dashboard routes
     path('dashboard/', include('core.urls.dashboard_urls')),
+    
+    # Wallet routes
+    path('wallet/', include('core.urls.wallet_urls')),
 ]
