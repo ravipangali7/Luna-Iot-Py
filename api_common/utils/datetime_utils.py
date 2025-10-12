@@ -13,7 +13,12 @@ def nepal_time_date():
     Returns:
         datetime: Current Nepal time
     """
-    return datetime.now()
+    from datetime import timedelta
+    now = datetime.now()
+    # Convert from CST (UTC+8) to Nepal time (UTC+5:45)
+    # Nepal is 2 hours 15 minutes behind CST
+    nepal_time = now - timedelta(hours=2, minutes=15)
+    return nepal_time
 
 
 def get_nepal_datetime(given_date=None):
@@ -25,20 +30,29 @@ def get_nepal_datetime(given_date=None):
     Returns:
         datetime: Nepal time datetime
     """
+    from datetime import timedelta
+    
     if given_date is None:
-        return datetime.now()
+        now = datetime.now()
+        # Convert from CST (UTC+8) to Nepal time (UTC+5:45)
+        nepal_time = now - timedelta(hours=2, minutes=15)
+        return nepal_time
     
     if isinstance(given_date, str):
         # Parse string to datetime
         try:
-            return datetime.fromisoformat(given_date.replace('Z', ''))
+            parsed_date = datetime.fromisoformat(given_date.replace('Z', ''))
         except ValueError:
             try:
-                return datetime.strptime(given_date, '%Y-%m-%d %H:%M:%S')
+                parsed_date = datetime.strptime(given_date, '%Y-%m-%d %H:%M:%S')
             except ValueError:
-                return datetime.strptime(given_date, '%Y-%m-%dT%H:%M:%S')
+                parsed_date = datetime.strptime(given_date, '%Y-%m-%dT%H:%M:%S')
+    else:
+        parsed_date = given_date if isinstance(given_date, datetime) else datetime(given_date)
     
-    return datetime(given_date) if not isinstance(given_date, datetime) else given_date
+    # Convert from CST (UTC+8) to Nepal time (UTC+5:45)
+    nepal_time = parsed_date - timedelta(hours=2, minutes=15)
+    return nepal_time
 
 
 def format_datetime_for_db(dt):
