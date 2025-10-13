@@ -3,6 +3,8 @@ Institute Views
 Handles institute management endpoints
 """
 from django.http import JsonResponse
+from django.core.paginator import Paginator
+from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -42,6 +44,65 @@ def get_all_institutes(request):
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             details=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_institutes_paginated(request):
+    """
+    Get institutes with pagination and search
+    """
+    try:
+        # Get filter parameters
+        search_query = request.GET.get('search', '').strip()
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        # Start with all institutes
+        institutes = Institute.objects.prefetch_related('institute_services').all()
+        
+        # Apply search filter
+        if search_query:
+            institutes = institutes.filter(
+                Q(name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(address__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+        
+        # Order by created_at descending
+        institutes = institutes.order_by('-created_at')
+        
+        # Pagination
+        paginator = Paginator(institutes, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize data
+        serializer = InstituteListSerializer(page_obj.object_list, many=True)
+        
+        return success_response(
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Institutes retrieved successfully'),
+            data={
+                'institutes': serializer.data,
+                'pagination': {
+                    'current_page': page_obj.number,
+                    'total_pages': paginator.num_pages,
+                    'total_items': paginator.count,
+                    'page_size': page_size,
+                    'has_next': page_obj.has_next(),
+                    'has_previous': page_obj.has_previous()
+                },
+                'search_query': search_query
+            }
+        )
+        
+    except Exception as e:
+        return error_response(
+            message="Error retrieving institutes",
+            data=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 

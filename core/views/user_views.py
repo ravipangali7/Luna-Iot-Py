@@ -4,6 +4,8 @@ Handles user management endpoints
 Matches Node.js user_controller.js functionality exactly
 """
 from django.http import JsonResponse
+from django.core.paginator import Paginator
+from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -52,6 +54,77 @@ def get_all_users(request):
     except Exception as e:
         return error_response(
             message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_users_paginated(request):
+    """
+    Get users with pagination and search
+    """
+    try:
+        # Get filter parameters
+        search_query = request.GET.get('search', '').strip()
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))
+        
+        # Start with all users
+        users = User.objects.prefetch_related('groups').all()
+        
+        # Apply search filter
+        if search_query:
+            users = users.filter(
+                Q(name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+        
+        # Order by created_at descending
+        users = users.order_by('-created_at')
+        
+        # Pagination
+        paginator = Paginator(users, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize data
+        users_data = []
+        for user in page_obj.object_list:
+            user_group = user.groups.first()
+            users_data.append({
+                'id': user.id,
+                'name': user.name,
+                'phone': user.phone,
+                'email': user.email,
+                'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+                'role': user_group.name if user_group else None,
+                'fcmToken': user.fcm_token,
+                'createdAt': user.created_at.isoformat(),
+                'updatedAt': user.updated_at.isoformat()
+            })
+        
+        return success_response(
+            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
+            data={
+                'users': users_data,
+                'pagination': {
+                    'current_page': page_obj.number,
+                    'total_pages': paginator.num_pages,
+                    'total_items': paginator.count,
+                    'page_size': page_size,
+                    'has_next': page_obj.has_next(),
+                    'has_previous': page_obj.has_previous()
+                },
+                'search_query': search_query
+            }
+        )
+        
+    except Exception as e:
+        return error_response(
+            message="Error retrieving users",
+            data=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 

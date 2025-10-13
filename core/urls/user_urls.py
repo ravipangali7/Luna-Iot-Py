@@ -9,6 +9,9 @@ urlpatterns = [
     # List all users
     path('users', user_views.get_all_users, name='get_all_users'),
     
+    # List users with pagination and search
+    path('users/paginated', user_views.get_users_paginated, name='get_users_paginated'),
+    
     # Create user (admin) - must come before user/<str:phone> patterns
     path('user/create', user_views.create_user, name='create_user'),
     

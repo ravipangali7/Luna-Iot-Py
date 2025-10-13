@@ -19,6 +19,7 @@ urlpatterns = [
     
     # Institute URLs
     path('', institute_views.get_all_institutes, name='get_all_institutes'),
+    path('paginated/', institute_views.get_institutes_paginated, name='get_institutes_paginated'),
     path('<int:institute_id>/', institute_views.get_institute_by_id, name='get_institute_by_id'),
     path('create/', institute_views.create_institute, name='create_institute'),
     path('<int:institute_id>/update/', institute_views.update_institute, name='update_institute'),
