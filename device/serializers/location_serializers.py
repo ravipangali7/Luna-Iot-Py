@@ -15,9 +15,9 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = [
             'id', 'imei', 'latitude', 'longitude', 'speed', 
-            'course', 'real_time_gps', 'satellite', 'created_at'
+            'course', 'real_time_gps', 'satellite', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class LocationCreateSerializer(serializers.ModelSerializer):
@@ -93,9 +93,9 @@ class LocationListSerializer(serializers.ModelSerializer):
         model = Location
         fields = [
             'id', 'imei', 'latitude', 'longitude', 
-            'speed', 'created_at'
+            'speed', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class LocationFilterSerializer(serializers.Serializer):

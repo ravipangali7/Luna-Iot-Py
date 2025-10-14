@@ -11,6 +11,7 @@ class Status(models.Model):
     charging = models.BooleanField()
     relay = models.BooleanField()
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
+    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 
     class Meta:
         db_table = 'statuses'
@@ -18,6 +19,7 @@ class Status(models.Model):
             models.Index(fields=['imei', 'createdAt']),
             models.Index(fields=['imei', 'ignition']),
             models.Index(fields=['createdAt']),
+            models.Index(fields=['updatedAt']),
             models.Index(fields=['battery']),
         ]
     

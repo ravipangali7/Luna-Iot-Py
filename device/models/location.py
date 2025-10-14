@@ -12,12 +12,14 @@ class Location(models.Model):
     realTimeGps = models.BooleanField(db_column='real_time_gps')
     satellite = models.IntegerField()
     createdAt = models.DateTimeField(db_column='created_at')
+    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 
     class Meta:
         db_table = 'locations'
         indexes = [
             models.Index(fields=['imei', 'createdAt']),
             models.Index(fields=['createdAt']),
+            models.Index(fields=['updatedAt']),
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['speed']),
         ]

@@ -120,7 +120,8 @@ def get_all_vehicles(request):
                     'ignition': latest_status_obj.ignition,
                     'charging': latest_status_obj.charging,
                     'relay': latest_status_obj.relay,
-                    'createdAt': latest_status_obj.createdAt.isoformat()
+                    'createdAt': latest_status_obj.createdAt.isoformat(),
+                    'updatedAt': latest_status_obj.updatedAt.isoformat()
                 } if latest_status_obj else None
             except Exception as e:
                 latest_status = None
@@ -137,7 +138,8 @@ def get_all_vehicles(request):
                     'course': latest_location_obj.course,
                     'satellite': latest_location_obj.satellite,
                     'realTimeGps': latest_location_obj.realTimeGps,
-                    'createdAt': latest_location_obj.createdAt.isoformat()
+                    'createdAt': latest_location_obj.createdAt.isoformat(),
+                    'updatedAt': latest_location_obj.updatedAt.isoformat()
                 } if latest_location_obj else None
             except Exception as e:
                 latest_location = None
@@ -317,7 +319,8 @@ def get_all_vehicles_detailed(request):
                     'ignition': latest_status_obj.ignition,
                     'charging': latest_status_obj.charging,
                     'relay': latest_status_obj.relay,
-                    'createdAt': latest_status_obj.createdAt.isoformat()
+                    'createdAt': latest_status_obj.createdAt.isoformat(),
+                    'updatedAt': latest_status_obj.updatedAt.isoformat()
                 } if latest_status_obj else None
             except Exception as e:
                 latest_status = None
@@ -334,7 +337,8 @@ def get_all_vehicles_detailed(request):
                     'course': latest_location_obj.course,
                     'satellite': latest_location_obj.satellite,
                     'realTimeGps': latest_location_obj.realTimeGps,
-                    'createdAt': latest_location_obj.createdAt.isoformat()
+                    'createdAt': latest_location_obj.createdAt.isoformat(),
+                    'updatedAt': latest_location_obj.updatedAt.isoformat()
                 } if latest_location_obj else None
             except Exception as e:
                 latest_location = None
@@ -1552,7 +1556,8 @@ def get_vehicles_paginated(request):
                     'ignition': latest_status_obj.ignition,
                     'charging': latest_status_obj.charging,
                     'relay': latest_status_obj.relay,
-                    'createdAt': latest_status_obj.createdAt.isoformat()
+                    'createdAt': latest_status_obj.createdAt.isoformat(),
+                    'updatedAt': latest_status_obj.updatedAt.isoformat()
                 } if latest_status_obj else None
             except Exception as e:
                 latest_status = None
@@ -1569,7 +1574,8 @@ def get_vehicles_paginated(request):
                     'course': latest_location_obj.course,
                     'satellite': latest_location_obj.satellite,
                     'realTimeGps': latest_location_obj.realTimeGps,
-                    'createdAt': latest_location_obj.createdAt.isoformat()
+                    'createdAt': latest_location_obj.createdAt.isoformat(),
+                    'updatedAt': latest_location_obj.updatedAt.isoformat()
                 } if latest_location_obj else None
             except Exception as e:
                 latest_location = None
@@ -1802,7 +1808,8 @@ def search_vehicles(request):
                     'ignition': latest_status_obj.ignition,
                     'charging': latest_status_obj.charging,
                     'relay': latest_status_obj.relay,
-                    'createdAt': latest_status_obj.createdAt.isoformat()
+                    'createdAt': latest_status_obj.createdAt.isoformat(),
+                    'updatedAt': latest_status_obj.updatedAt.isoformat()
                 } if latest_status_obj else None
             except Exception as e:
                 latest_status = None
@@ -1819,7 +1826,8 @@ def search_vehicles(request):
                     'course': latest_location_obj.course,
                     'satellite': latest_location_obj.satellite,
                     'realTimeGps': latest_location_obj.realTimeGps,
-                    'createdAt': latest_location_obj.createdAt.isoformat()
+                    'createdAt': latest_location_obj.createdAt.isoformat(),
+                    'updatedAt': latest_location_obj.updatedAt.isoformat()
                 } if latest_location_obj else None
             except Exception as e:
                 latest_location = None

@@ -15,9 +15,9 @@ class StatusSerializer(serializers.ModelSerializer):
         model = Status
         fields = [
             'id', 'imei', 'battery', 'signal', 'ignition', 
-            'charging', 'relay', 'created_at'
+            'charging', 'relay', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class StatusCreateSerializer(serializers.ModelSerializer):
@@ -75,9 +75,9 @@ class StatusListSerializer(serializers.ModelSerializer):
         model = Status
         fields = [
             'id', 'imei', 'battery', 'signal', 'ignition', 
-            'charging', 'relay', 'created_at'
+            'charging', 'relay', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class StatusFilterSerializer(serializers.Serializer):
@@ -175,6 +175,6 @@ class LatestStatusSerializer(serializers.ModelSerializer):
         model = Status
         fields = [
             'id', 'imei', 'device_model', 'battery', 'signal', 
-            'ignition', 'charging', 'relay', 'created_at'
+            'ignition', 'charging', 'relay', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
