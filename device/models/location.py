@@ -12,7 +12,7 @@ class Location(models.Model):
     realTimeGps = models.BooleanField(db_column='real_time_gps')
     satellite = models.IntegerField()
     createdAt = models.DateTimeField(db_column='created_at')
-    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
+    updatedAt = models.DateTimeField(db_column='updated_at')
 
     class Meta:
         db_table = 'locations'

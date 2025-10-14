@@ -11,7 +11,7 @@ class Status(models.Model):
     charging = models.BooleanField()
     relay = models.BooleanField()
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
-    updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
+    updatedAt = models.DateTimeField(db_column='updated_at')
 
     class Meta:
         db_table = 'statuses'
