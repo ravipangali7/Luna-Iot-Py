@@ -278,3 +278,77 @@ class GeofenceStatsSerializer(serializers.Serializer):
     total_users = serializers.IntegerField()
     total_vehicles = serializers.IntegerField()
     recent_geofences = serializers.IntegerField()
+
+
+class GeofenceEventSerializer(serializers.Serializer):
+    """Serializer for geofence event model with full details"""
+    id = serializers.IntegerField(read_only=True)
+    vehicle_id = serializers.IntegerField()
+    geofence_id = serializers.IntegerField()
+    is_inside = serializers.BooleanField()
+    last_event_type = serializers.ChoiceField(choices=['Entry', 'Exit'])
+    last_event_at = serializers.DateTimeField()
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+    
+    # Additional fields for display
+    vehicle_name = serializers.CharField(read_only=True, required=False)
+    vehicle_no = serializers.CharField(read_only=True, required=False)
+    vehicle_imei = serializers.CharField(read_only=True, required=False)
+    geofence_title = serializers.CharField(read_only=True, required=False)
+    geofence_type = serializers.CharField(read_only=True, required=False)
+
+
+class GeofenceEventListSerializer(serializers.Serializer):
+    """Serializer for geofence event list (minimal data)"""
+    id = serializers.IntegerField(read_only=True)
+    vehicle_id = serializers.IntegerField()
+    geofence_id = serializers.IntegerField()
+    is_inside = serializers.BooleanField()
+    last_event_type = serializers.ChoiceField(choices=['Entry', 'Exit'])
+    last_event_at = serializers.DateTimeField()
+    vehicle_no = serializers.CharField(read_only=True, required=False)
+    geofence_title = serializers.CharField(read_only=True, required=False)
+
+
+class GeofenceEventFilterSerializer(serializers.Serializer):
+    """Serializer for geofence event search filters"""
+    vehicle_id = serializers.IntegerField(
+        required=False,
+        help_text="Filter by vehicle ID"
+    )
+    geofence_id = serializers.IntegerField(
+        required=False,
+        help_text="Filter by geofence ID"
+    )
+    imei = serializers.CharField(
+        required=False,
+        help_text="Filter by vehicle IMEI"
+    )
+    is_inside = serializers.BooleanField(
+        required=False,
+        help_text="Filter by current state (inside/outside)"
+    )
+    event_type = serializers.ChoiceField(
+        choices=['Entry', 'Exit'],
+        required=False,
+        help_text="Filter by event type"
+    )
+    start_date = serializers.DateTimeField(
+        required=False,
+        help_text="Start date for filtering"
+    )
+    end_date = serializers.DateTimeField(
+        required=False,
+        help_text="End date for filtering"
+    )
+    
+    def validate(self, data):
+        """Validate date range"""
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError("Start date must be before end date")
+        
+        return data

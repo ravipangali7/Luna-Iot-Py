@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser
+from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser, GeofenceEvent
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -37,3 +37,10 @@ class GeofenceUserAdmin(admin.ModelAdmin):
     list_display = ('geofence', 'user', 'createdAt')
     list_filter = ('createdAt',)
     search_fields = ('geofence__title', 'user__name')
+
+@admin.register(GeofenceEvent)
+class GeofenceEventAdmin(admin.ModelAdmin):
+    list_display = ('vehicle_id', 'geofence_id', 'is_inside', 'last_event_type', 'last_event_at', 'createdAt')
+    list_filter = ('is_inside', 'last_event_type', 'last_event_at', 'createdAt')
+    search_fields = ('vehicle_id', 'geofence_id')
+    readonly_fields = ('createdAt', 'updatedAt')

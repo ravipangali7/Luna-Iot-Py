@@ -452,3 +452,462 @@ def delete_geofence(request, id):
     
     except Exception as e:
         return handle_api_exception(e)
+
+
+# ==================== GEOFENCE EVENT VIEWS ====================
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_geofence_events(request):
+    """
+    Get all geofence events with optional filters
+    """
+    try:
+        from django.db import connection
+        
+        user = request.user
+        
+        # Get query parameters
+        vehicle_id = request.GET.get('vehicleId')
+        geofence_id = request.GET.get('geofenceId')
+        imei = request.GET.get('imei')
+        is_inside = request.GET.get('isInside')
+        event_type = request.GET.get('eventType')
+        start_date = request.GET.get('startDate')
+        end_date = request.GET.get('endDate')
+        
+        # Build SQL query with JOINs
+        sql = """
+            SELECT 
+                ge.id,
+                ge.vehicle_id,
+                ge.geofence_id,
+                ge.is_inside,
+                ge.last_event_type,
+                ge.last_event_at,
+                ge.created_at,
+                ge.updated_at,
+                v.name as vehicle_name,
+                v.vehicle_no,
+                v.imei as vehicle_imei,
+                g.title as geofence_title,
+                g.type as geofence_type
+            FROM geofence_events ge
+            LEFT JOIN vehicles v ON ge.vehicle_id = v.id
+            LEFT JOIN geofences g ON ge.geofence_id = g.id
+            WHERE 1=1
+        """
+        params = []
+        
+        # Add filters
+        if vehicle_id:
+            sql += " AND ge.vehicle_id = %s"
+            params.append(vehicle_id)
+        
+        if geofence_id:
+            sql += " AND ge.geofence_id = %s"
+            params.append(geofence_id)
+        
+        if imei:
+            sql += " AND v.imei = %s"
+            params.append(imei)
+        
+        if is_inside is not None:
+            sql += " AND ge.is_inside = %s"
+            params.append(1 if is_inside.lower() == 'true' else 0)
+        
+        if event_type:
+            sql += " AND ge.last_event_type = %s"
+            params.append(event_type)
+        
+        if start_date:
+            sql += " AND ge.last_event_at >= %s"
+            params.append(start_date)
+        
+        if end_date:
+            sql += " AND ge.last_event_at <= %s"
+            params.append(end_date)
+        
+        # Role-based access control
+        if user.role.name != 'Super Admin':
+            # Only show events for vehicles the user has access to
+            sql += """
+                AND ge.vehicle_id IN (
+                    SELECT uv.vehicle_id 
+                    FROM user_vehicles uv 
+                    WHERE uv.user_id = %s
+                )
+            """
+            params.append(user.id)
+        
+        sql += " ORDER BY ge.last_event_at DESC LIMIT 1000"
+        
+        # Execute query
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Format response
+        events_data = []
+        for row in results:
+            event_data = {
+                'id': row['id'],
+                'vehicleId': row['vehicle_id'],
+                'geofenceId': row['geofence_id'],
+                'isInside': bool(row['is_inside']),
+                'lastEventType': row['last_event_type'],
+                'lastEventAt': row['last_event_at'].isoformat() if row['last_event_at'] else None,
+                'createdAt': row['created_at'].isoformat() if row['created_at'] else None,
+                'updatedAt': row['updated_at'].isoformat() if row['updated_at'] else None,
+                'vehicle': {
+                    'name': row['vehicle_name'],
+                    'vehicleNo': row['vehicle_no'],
+                    'imei': row['vehicle_imei']
+                } if row['vehicle_name'] else None,
+                'geofence': {
+                    'title': row['geofence_title'],
+                    'type': row['geofence_type']
+                } if row['geofence_title'] else None
+            }
+            events_data.append(event_data)
+        
+        return success_response(events_data, 'Geofence events retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_geofence_event_by_id(request, id):
+    """
+    Get geofence event by ID
+    """
+    try:
+        from django.db import connection
+        
+        user = request.user
+        
+        # Build SQL query with JOINs
+        sql = """
+            SELECT 
+                ge.id,
+                ge.vehicle_id,
+                ge.geofence_id,
+                ge.is_inside,
+                ge.last_event_type,
+                ge.last_event_at,
+                ge.created_at,
+                ge.updated_at,
+                v.name as vehicle_name,
+                v.vehicle_no,
+                v.imei as vehicle_imei,
+                g.title as geofence_title,
+                g.type as geofence_type
+            FROM geofence_events ge
+            LEFT JOIN vehicles v ON ge.vehicle_id = v.id
+            LEFT JOIN geofences g ON ge.geofence_id = g.id
+            WHERE ge.id = %s
+        """
+        params = [id]
+        
+        # Role-based access control
+        if user.role.name != 'Super Admin':
+            sql += """
+                AND ge.vehicle_id IN (
+                    SELECT uv.vehicle_id 
+                    FROM user_vehicles uv 
+                    WHERE uv.user_id = %s
+                )
+            """
+            params.append(user.id)
+        
+        # Execute query
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            columns = [col[0] for col in cursor.description]
+            row = cursor.fetchone()
+        
+        if not row:
+            return error_response('Geofence event not found or access denied', HTTP_STATUS['NOT_FOUND'])
+        
+        result = dict(zip(columns, row))
+        
+        # Format response
+        event_data = {
+            'id': result['id'],
+            'vehicleId': result['vehicle_id'],
+            'geofenceId': result['geofence_id'],
+            'isInside': bool(result['is_inside']),
+            'lastEventType': result['last_event_type'],
+            'lastEventAt': result['last_event_at'].isoformat() if result['last_event_at'] else None,
+            'createdAt': result['created_at'].isoformat() if result['created_at'] else None,
+            'updatedAt': result['updated_at'].isoformat() if result['updated_at'] else None,
+            'vehicle': {
+                'name': result['vehicle_name'],
+                'vehicleNo': result['vehicle_no'],
+                'imei': result['vehicle_imei']
+            } if result['vehicle_name'] else None,
+            'geofence': {
+                'title': result['geofence_title'],
+                'type': result['geofence_type']
+            } if result['geofence_title'] else None
+        }
+        
+        return success_response(event_data, 'Geofence event retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_geofence_events_by_vehicle(request, vehicle_id):
+    """
+    Get geofence events by vehicle ID
+    """
+    try:
+        from django.db import connection
+        
+        user = request.user
+        
+        # Check access
+        if user.role.name != 'Super Admin':
+            # Check if user has access to this vehicle
+            sql_check = """
+                SELECT COUNT(*) FROM user_vehicles 
+                WHERE user_id = %s AND vehicle_id = %s
+            """
+            with connection.cursor() as cursor:
+                cursor.execute(sql_check, [user.id, vehicle_id])
+                has_access = cursor.fetchone()[0] > 0
+            
+            if not has_access:
+                return error_response('Access denied to this vehicle', HTTP_STATUS['FORBIDDEN'])
+        
+        # Get events
+        sql = """
+            SELECT 
+                ge.id,
+                ge.vehicle_id,
+                ge.geofence_id,
+                ge.is_inside,
+                ge.last_event_type,
+                ge.last_event_at,
+                ge.created_at,
+                ge.updated_at,
+                v.name as vehicle_name,
+                v.vehicle_no,
+                v.imei as vehicle_imei,
+                g.title as geofence_title,
+                g.type as geofence_type
+            FROM geofence_events ge
+            LEFT JOIN vehicles v ON ge.vehicle_id = v.id
+            LEFT JOIN geofences g ON ge.geofence_id = g.id
+            WHERE ge.vehicle_id = %s
+            ORDER BY ge.last_event_at DESC
+        """
+        
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [vehicle_id])
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Format response
+        events_data = []
+        for row in results:
+            event_data = {
+                'id': row['id'],
+                'vehicleId': row['vehicle_id'],
+                'geofenceId': row['geofence_id'],
+                'isInside': bool(row['is_inside']),
+                'lastEventType': row['last_event_type'],
+                'lastEventAt': row['last_event_at'].isoformat() if row['last_event_at'] else None,
+                'createdAt': row['created_at'].isoformat() if row['created_at'] else None,
+                'updatedAt': row['updated_at'].isoformat() if row['updated_at'] else None,
+                'vehicle': {
+                    'name': row['vehicle_name'],
+                    'vehicleNo': row['vehicle_no'],
+                    'imei': row['vehicle_imei']
+                } if row['vehicle_name'] else None,
+                'geofence': {
+                    'title': row['geofence_title'],
+                    'type': row['geofence_type']
+                } if row['geofence_title'] else None
+            }
+            events_data.append(event_data)
+        
+        return success_response(events_data, 'Vehicle geofence events retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_geofence_events_by_geofence(request, geofence_id):
+    """
+    Get geofence events by geofence ID
+    """
+    try:
+        from django.db import connection
+        
+        user = request.user
+        
+        # Build SQL query
+        sql = """
+            SELECT 
+                ge.id,
+                ge.vehicle_id,
+                ge.geofence_id,
+                ge.is_inside,
+                ge.last_event_type,
+                ge.last_event_at,
+                ge.created_at,
+                ge.updated_at,
+                v.name as vehicle_name,
+                v.vehicle_no,
+                v.imei as vehicle_imei,
+                g.title as geofence_title,
+                g.type as geofence_type
+            FROM geofence_events ge
+            LEFT JOIN vehicles v ON ge.vehicle_id = v.id
+            LEFT JOIN geofences g ON ge.geofence_id = g.id
+            WHERE ge.geofence_id = %s
+        """
+        params = [geofence_id]
+        
+        # Role-based access control
+        if user.role.name != 'Super Admin':
+            sql += """
+                AND ge.vehicle_id IN (
+                    SELECT uv.vehicle_id 
+                    FROM user_vehicles uv 
+                    WHERE uv.user_id = %s
+                )
+            """
+            params.append(user.id)
+        
+        sql += " ORDER BY ge.last_event_at DESC"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Format response
+        events_data = []
+        for row in results:
+            event_data = {
+                'id': row['id'],
+                'vehicleId': row['vehicle_id'],
+                'geofenceId': row['geofence_id'],
+                'isInside': bool(row['is_inside']),
+                'lastEventType': row['last_event_type'],
+                'lastEventAt': row['last_event_at'].isoformat() if row['last_event_at'] else None,
+                'createdAt': row['created_at'].isoformat() if row['created_at'] else None,
+                'updatedAt': row['updated_at'].isoformat() if row['updated_at'] else None,
+                'vehicle': {
+                    'name': row['vehicle_name'],
+                    'vehicleNo': row['vehicle_no'],
+                    'imei': row['vehicle_imei']
+                } if row['vehicle_name'] else None,
+                'geofence': {
+                    'title': row['geofence_title'],
+                    'type': row['geofence_type']
+                } if row['geofence_title'] else None
+            }
+            events_data.append(event_data)
+        
+        return success_response(events_data, 'Geofence events retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_geofence_events_by_imei(request, imei):
+    """
+    Get geofence events by vehicle IMEI
+    """
+    try:
+        from django.db import connection
+        
+        user = request.user
+        
+        # Build SQL query
+        sql = """
+            SELECT 
+                ge.id,
+                ge.vehicle_id,
+                ge.geofence_id,
+                ge.is_inside,
+                ge.last_event_type,
+                ge.last_event_at,
+                ge.created_at,
+                ge.updated_at,
+                v.name as vehicle_name,
+                v.vehicle_no,
+                v.imei as vehicle_imei,
+                g.title as geofence_title,
+                g.type as geofence_type
+            FROM geofence_events ge
+            LEFT JOIN vehicles v ON ge.vehicle_id = v.id
+            LEFT JOIN geofences g ON ge.geofence_id = g.id
+            WHERE v.imei = %s
+        """
+        params = [imei]
+        
+        # Role-based access control
+        if user.role.name != 'Super Admin':
+            sql += """
+                AND ge.vehicle_id IN (
+                    SELECT uv.vehicle_id 
+                    FROM user_vehicles uv 
+                    WHERE uv.user_id = %s
+                )
+            """
+            params.append(user.id)
+        
+        sql += " ORDER BY ge.last_event_at DESC"
+        
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            columns = [col[0] for col in cursor.description]
+            results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Format response
+        events_data = []
+        for row in results:
+            event_data = {
+                'id': row['id'],
+                'vehicleId': row['vehicle_id'],
+                'geofenceId': row['geofence_id'],
+                'isInside': bool(row['is_inside']),
+                'lastEventType': row['last_event_type'],
+                'lastEventAt': row['last_event_at'].isoformat() if row['last_event_at'] else None,
+                'createdAt': row['created_at'].isoformat() if row['created_at'] else None,
+                'updatedAt': row['updated_at'].isoformat() if row['updated_at'] else None,
+                'vehicle': {
+                    'name': row['vehicle_name'],
+                    'vehicleNo': row['vehicle_no'],
+                    'imei': row['vehicle_imei']
+                } if row['vehicle_name'] else None,
+                'geofence': {
+                    'title': row['geofence_title'],
+                    'type': row['geofence_type']
+                } if row['geofence_title'] else None
+            }
+            events_data.append(event_data)
+        
+        return success_response(events_data, 'Vehicle geofence events retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
