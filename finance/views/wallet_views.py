@@ -97,16 +97,23 @@ def get_all_wallets(request):
 @api_response
 def get_wallet_by_user(request, user_id):
     """
-    Get wallet by user ID
+    Get wallet by user ID - automatically creates wallet if it doesn't exist
     """
     try:
+        # First verify the user exists
         try:
-            wallet = Wallet.objects.select_related('user').get(user_id=user_id)
-        except Wallet.DoesNotExist:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
             return error_response(
-                message="Wallet not found",
+                message="User not found",
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
+
+        # Get or create wallet for the user
+        wallet, created = Wallet.objects.select_related('user').get_or_create(
+            user_id=user_id,
+            defaults={'balance': Decimal('0.00')}
+        )
         
         # Check permissions
         if not request.user.groups.filter(name='Super Admin').exists():
@@ -119,8 +126,11 @@ def get_wallet_by_user(request, user_id):
         
         serializer = WalletSerializer(wallet)
         
+        # Return success message indicating if wallet was created or retrieved
+        message = "Wallet created successfully" if created else SUCCESS_MESSAGES['DATA_RETRIEVED']
+        
         return success_response(
-            message=SUCCESS_MESSAGES['DATA_RETRIEVED'],
+            message=message,
             data=serializer.data
         )
         
