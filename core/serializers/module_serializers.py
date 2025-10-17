@@ -21,7 +21,7 @@ class ModuleCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Module
-        fields = ['name', 'slug']
+        fields = ['name']
     
     def validate_name(self, value):
         """Validate name and check uniqueness"""
@@ -34,16 +34,6 @@ class ModuleCreateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_slug(self, value):
-        """Validate slug and check uniqueness"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Slug cannot be empty")
-        
-        value = value.strip()
-        if Module.objects.filter(slug__iexact=value).exists():
-            raise serializers.ValidationError("Module with this slug already exists")
-        
-        return value
     
     def create(self, validated_data):
         """Create module with auto-generated slug if not provided"""
@@ -65,7 +55,7 @@ class ModuleUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Module
-        fields = ['name', 'slug']
+        fields = ['name']
     
     def validate_name(self, value):
         """Validate name and check uniqueness"""
@@ -78,22 +68,20 @@ class ModuleUpdateSerializer(serializers.ModelSerializer):
         
         return value
     
-    def validate_slug(self, value):
-        """Validate slug and check uniqueness"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Slug cannot be empty")
-        
-        value = value.strip()
-        if self.instance and Module.objects.filter(slug__iexact=value).exclude(id=self.instance.id).exists():
-            raise serializers.ValidationError("Module with this slug already exists")
-        
-        return value
-    
     def update(self, instance, validated_data):
-        """Update module"""
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        
+        """Update module and regenerate slug if name changes"""
+        if 'name' in validated_data and instance.name != validated_data['name']:
+            instance.name = validated_data['name']
+            instance.slug = slugify(instance.name)
+            # Ensure slug is unique by appending number if necessary
+            original_slug = instance.slug
+            counter = 1
+            while Module.objects.filter(slug=instance.slug).exclude(id=instance.id).exists():
+                instance.slug = f"{original_slug}-{counter}"
+                counter += 1
+        else:
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
         instance.save()
         return instance
 
