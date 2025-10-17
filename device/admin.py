@@ -3,8 +3,8 @@ from .models import Device, Location, Status, UserDevice
 
 @admin.register(Device)
 class DeviceAdmin(admin.ModelAdmin):
-    list_display = ('imei', 'phone', 'sim', 'protocol', 'model', 'createdAt')
-    list_filter = ('sim', 'protocol', 'model', 'createdAt')
+    list_display = ('imei', 'phone', 'sim', 'protocol', 'model', 'type', 'createdAt')
+    list_filter = ('sim', 'protocol', 'model', 'type', 'createdAt')
     search_fields = ('imei', 'phone')
     readonly_fields = ('createdAt', 'updatedAt')
 

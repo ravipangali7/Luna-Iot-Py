@@ -1,5 +1,5 @@
 from django.db import models
-from shared_utils.constants import SimType, ProtocolType, DeviceModelType
+from shared_utils.constants import SimType, ProtocolType, DeviceModelType, DeviceType
 
 class Device(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -9,6 +9,7 @@ class Device(models.Model):
     protocol = models.CharField(max_length=10, choices=ProtocolType.choices, default=ProtocolType.GT06)
     iccid = models.CharField(max_length=255, null=True, blank=True, default="")
     model = models.CharField(max_length=10, choices=DeviceModelType.choices)
+    type = models.CharField(max_length=10, choices=DeviceType.choices, default=DeviceType.GPS, null=True, blank=True)
     subscription_plan = models.ForeignKey('SubscriptionPlan', on_delete=models.SET_NULL, null=True, blank=True, related_name='devices')
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')

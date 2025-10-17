@@ -22,6 +22,20 @@ class DeviceModelType(models.TextChoices):
     EC08 = 'EC08', 'EC08'
     VL149 = 'VL149', 'VL149'
 
+class DeviceType(models.TextChoices):
+    GPS = 'gps', 'GPS'
+    BUZZER = 'buzzer', 'Buzzer'
+    SOS = 'sos', 'SOS'
+
+class AlertSource(models.TextChoices):
+    APP = 'app', 'App'
+    SWITCH = 'switch', 'Switch'
+
+class AlertStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending'
+    APPROVED = 'approved', 'Approved'
+    REJECTED = 'rejected', 'Rejected'
+
 class VehicleType(models.TextChoices):
     AMBULANCE = 'Ambulance', 'Ambulance'
     BIKE = 'Bike', 'Bike'

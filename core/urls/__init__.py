@@ -19,6 +19,9 @@ urlpatterns = [
     # Institute routes
     path('institute/', include('core.urls.institute_urls')),
     
+    # Module routes
+    path('module/', include('core.urls.module_urls')),
+    
     # Dashboard routes
     path('dashboard/', include('core.urls.dashboard_urls')),
     

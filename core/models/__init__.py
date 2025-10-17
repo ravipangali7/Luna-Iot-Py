@@ -4,6 +4,7 @@ from .user_permission import UserPermission
 from .institute_service import InstituteService
 from .institute import Institute
 from .institute_module import InstituteModule
+from .module import Module
 from .my_setting import MySetting
 
-__all__ = ['User', 'Otp', 'UserPermission', 'InstituteService', 'Institute', 'InstituteModule', 'MySetting']
+__all__ = ['User', 'Otp', 'UserPermission', 'InstituteService', 'Institute', 'InstituteModule', 'Module', 'MySetting']

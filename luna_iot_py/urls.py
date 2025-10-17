@@ -39,6 +39,9 @@ urlpatterns = [
     # Finance module URLs
     path('api/finance/', include('finance.urls')),
     
+    # Alert System module URLs
+    path('api/alert-system/', include('alert_system.urls')),
+    
     # Admin URLs
     path('admin/', admin.site.urls),
 ]

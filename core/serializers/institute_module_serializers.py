@@ -3,21 +3,20 @@ Institute Module Serializers
 Handles serialization for institute module management endpoints
 """
 from rest_framework import serializers
-from core.models import InstituteModule, Institute, User
-from django.contrib.auth.models import Group
+from core.models import InstituteModule, Institute, User, Module
 
 
 class InstituteModuleSerializer(serializers.ModelSerializer):
     """Serializer for institute module model"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
+    module_name = serializers.CharField(source='module.name', read_only=True)
     users = serializers.SerializerMethodField()
     user_count = serializers.ReadOnlyField()
     
     class Meta:
         model = InstituteModule
         fields = [
-            'id', 'institute', 'institute_name', 'group', 'group_name',
+            'id', 'institute', 'institute_name', 'module', 'module_name',
             'users', 'user_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'user_count']
@@ -46,7 +45,7 @@ class InstituteModuleCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InstituteModule
-        fields = ['institute', 'group', 'user_ids']
+        fields = ['institute', 'module', 'user_ids']
     
     def validate_institute(self, value):
         """Validate institute exists"""
@@ -54,10 +53,10 @@ class InstituteModuleCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Institute is required")
         return value
     
-    def validate_group(self, value):
-        """Validate group exists"""
+    def validate_module(self, value):
+        """Validate module exists"""
         if not value:
-            raise serializers.ValidationError("Group is required")
+            raise serializers.ValidationError("Module is required")
         return value
     
     def validate_user_ids(self, value):
@@ -69,14 +68,14 @@ class InstituteModuleCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """Validate unique institute-group combination"""
+        """Validate unique institute-module combination"""
         institute = data.get('institute')
-        group = data.get('group')
+        module = data.get('module')
         
-        if institute and group:
-            if InstituteModule.objects.filter(institute=institute, group=group).exists():
+        if institute and module:
+            if InstituteModule.objects.filter(institute=institute, module=module).exists():
                 raise serializers.ValidationError(
-                    "A module for this institute and group combination already exists"
+                    "A module for this institute and module combination already exists"
                 )
         
         return data
@@ -105,7 +104,7 @@ class InstituteModuleUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InstituteModule
-        fields = ['institute', 'group', 'user_ids']
+        fields = ['institute', 'module', 'user_ids']
     
     def validate_institute(self, value):
         """Validate institute exists"""
@@ -113,10 +112,10 @@ class InstituteModuleUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Institute is required")
         return value
     
-    def validate_group(self, value):
-        """Validate group exists"""
+    def validate_module(self, value):
+        """Validate module exists"""
         if not value:
-            raise serializers.ValidationError("Group is required")
+            raise serializers.ValidationError("Module is required")
         return value
     
     def validate_user_ids(self, value):
@@ -128,17 +127,17 @@ class InstituteModuleUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate(self, data):
-        """Validate unique institute-group combination"""
+        """Validate unique institute-module combination"""
         institute = data.get('institute')
-        group = data.get('group')
+        module = data.get('module')
         
-        if institute and group and self.instance:
+        if institute and module and self.instance:
             if InstituteModule.objects.filter(
                 institute=institute, 
-                group=group
+                module=module
             ).exclude(id=self.instance.id).exists():
                 raise serializers.ValidationError(
-                    "A module for this institute and group combination already exists"
+                    "A module for this institute and module combination already exists"
                 )
         
         return data
@@ -163,13 +162,13 @@ class InstituteModuleUpdateSerializer(serializers.ModelSerializer):
 class InstituteModuleListSerializer(serializers.ModelSerializer):
     """Serializer for institute module list (minimal data)"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
-    group_name = serializers.CharField(source='group.name', read_only=True)
+    module_name = serializers.CharField(source='module.name', read_only=True)
     user_count = serializers.ReadOnlyField()
     
     class Meta:
         model = InstituteModule
         fields = [
-            'id', 'institute', 'institute_name', 'group', 'group_name',
+            'id', 'institute', 'institute_name', 'module', 'module_name',
             'user_count', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

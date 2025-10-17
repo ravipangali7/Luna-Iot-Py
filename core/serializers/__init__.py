@@ -9,6 +9,7 @@ from .otp_serializers import *
 from .institute_service_serializers import *
 from .institute_serializers import *
 from .institute_module_serializers import *
+from .module_serializers import *
 __all__ = [
     # Auth serializers
     'LoginSerializer',
@@ -46,4 +47,10 @@ __all__ = [
     'InstituteModuleUpdateSerializer',
     'InstituteModuleListSerializer',
     'InstituteModuleUserSerializer',
+    
+    # Module serializers
+    'ModuleSerializer',
+    'ModuleCreateSerializer',
+    'ModuleUpdateSerializer',
+    'ModuleListSerializer',
 ]

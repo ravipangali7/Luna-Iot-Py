@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'shared',
     'device',
     'fleet',
+    'alert_system',
     'health',
     'finance',
     

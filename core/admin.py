@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin, GroupAdmin
 from django.contrib.auth.models import Group, Permission
-from .models import User, Otp, InstituteService, Institute, InstituteModule
+from .models import User, Otp, InstituteService, Institute, InstituteModule, Module
 
 # Unregister default Group admin and register with custom admin
 admin.site.unregister(Group)
@@ -90,21 +90,36 @@ class InstituteAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(InstituteModule)
-class InstituteModuleAdmin(admin.ModelAdmin):
-    list_display = ('institute', 'group', 'user_count', 'created_at')
-    search_fields = ('institute__name', 'group__name')
-    list_filter = ('institute', 'group', 'created_at')
-    readonly_fields = ('created_at', 'updated_at', 'user_count')
-    filter_horizontal = ('users',)
-    ordering = ('institute__name', 'group__name')
+@admin.register(Module)
+class ModuleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'created_at')
+    search_fields = ('name', 'slug')
+    list_filter = ('created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    ordering = ('name',)
+    prepopulated_fields = {'slug': ('name',)}
     
     fieldsets = (
-        (None, {'fields': ('institute', 'group')}),
+        (None, {'fields': ('name', 'slug')}),
+        ('Timestamps', {'fields': ('created_at', 'updated_at')}),
+    )
+
+
+@admin.register(InstituteModule)
+class InstituteModuleAdmin(admin.ModelAdmin):
+    list_display = ('institute', 'module', 'user_count', 'created_at')
+    search_fields = ('institute__name', 'module__name')
+    list_filter = ('institute', 'module', 'created_at')
+    readonly_fields = ('created_at', 'updated_at', 'user_count')
+    filter_horizontal = ('users',)
+    ordering = ('institute__name', 'module__name')
+    
+    fieldsets = (
+        (None, {'fields': ('institute', 'module')}),
         ('Users', {'fields': ('users', 'user_count')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at')}),
     )
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('institute', 'group').prefetch_related('users')
+        return super().get_queryset(request).select_related('institute', 'module').prefetch_related('users')
 

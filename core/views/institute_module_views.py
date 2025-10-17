@@ -9,7 +9,6 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.models import InstituteModule, Institute, User
-from django.contrib.auth.models import Group
 from core.serializers import (
     InstituteModuleSerializer, 
     InstituteModuleCreateSerializer, 
@@ -32,7 +31,7 @@ def get_all_institute_modules(request):
     Get all institute modules
     """
     try:
-        modules = InstituteModule.objects.select_related('institute', 'group').prefetch_related('users').all().order_by('institute__name', 'group__name')
+        modules = InstituteModule.objects.select_related('institute', 'module').prefetch_related('users').all().order_by('institute__name', 'module__name')
         serializer = InstituteModuleListSerializer(modules, many=True)
         
         return success_response(
@@ -59,7 +58,7 @@ def get_institute_modules_by_institute(request, institute_id):
         except Institute.DoesNotExist:
             raise NotFoundError("Institute not found")
         
-        modules = InstituteModule.objects.select_related('institute', 'group').prefetch_related('users').filter(institute=institute).order_by('group__name')
+        modules = InstituteModule.objects.select_related('institute', 'module').prefetch_related('users').filter(institute=institute).order_by('module__name')
         serializer = InstituteModuleListSerializer(modules, many=True)
         
         return success_response(
@@ -87,7 +86,7 @@ def get_institute_module_by_id(request, module_id):
     """
     try:
         try:
-            module = InstituteModule.objects.select_related('institute', 'group').prefetch_related('users').get(id=module_id)
+            module = InstituteModule.objects.select_related('institute', 'module').prefetch_related('users').get(id=module_id)
         except InstituteModule.DoesNotExist:
             raise NotFoundError("Institute module not found")
         
@@ -195,7 +194,7 @@ def delete_institute_module(request, module_id):
         except InstituteModule.DoesNotExist:
             raise NotFoundError("Institute module not found")
         
-        module_name = f"{module.institute.name} - {module.group.name}"
+        module_name = f"{module.institute.name} - {module.module.name}"
         module.delete()
         
         return success_response(
