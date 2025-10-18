@@ -1,5 +1,7 @@
 from django.db import models
 from core.models import Institute
+import secrets
+import string
 
 
 class AlertRadar(models.Model):
@@ -36,3 +38,9 @@ class AlertRadar(models.Model):
     
     def __str__(self):
         return f"{self.title} ({self.institute.name})"
+    
+    @staticmethod
+    def generate_token(length=32):
+        """Generate a secure alphanumeric token"""
+        alphabet = string.ascii_letters + string.digits  # A-Z, a-z, 0-9
+        return ''.join(secrets.choice(alphabet) for _ in range(length))

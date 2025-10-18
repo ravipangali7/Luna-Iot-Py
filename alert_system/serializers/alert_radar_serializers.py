@@ -48,6 +48,9 @@ class AlertRadarCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertRadar
         fields = ['title', 'institute', 'token', 'geofence_ids']
+        extra_kwargs = {
+            'token': {'required': False}
+        }
     
     def validate_title(self, value):
         """Validate title"""
@@ -62,14 +65,18 @@ class AlertRadarCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_token(self, value):
-        """Validate token"""
-        if not value or not value.strip():
+        """Validate token (optional)"""
+        if value and not value.strip():
             raise serializers.ValidationError("Token cannot be empty")
-        return value.strip()
+        return value.strip() if value else None
     
     def create(self, validated_data):
         """Create alert radar with geofences"""
         geofence_ids = validated_data.pop('geofence_ids', [])
+        
+        # Generate token if not provided
+        if 'token' not in validated_data or not validated_data['token']:
+            validated_data['token'] = AlertRadar.generate_token()
         
         # Create radar
         radar = AlertRadar.objects.create(**validated_data)
@@ -92,6 +99,9 @@ class AlertRadarUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertRadar
         fields = ['title', 'institute', 'token', 'geofence_ids']
+        extra_kwargs = {
+            'token': {'required': False}
+        }
     
     def validate_title(self, value):
         """Validate title"""
@@ -106,10 +116,10 @@ class AlertRadarUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_token(self, value):
-        """Validate token"""
-        if not value or not value.strip():
+        """Validate token (optional)"""
+        if value and not value.strip():
             raise serializers.ValidationError("Token cannot be empty")
-        return value.strip()
+        return value.strip() if value else None
     
     def update(self, instance, validated_data):
         """Update alert radar and geofences"""
