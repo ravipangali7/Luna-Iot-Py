@@ -236,7 +236,7 @@ def update_alert_history(request, history_id):
 
 
 @api_view(['PUT'])
-@require_super_admin
+@require_auth  # Changed from require_super_admin to allow any authenticated user
 @api_response
 def update_alert_history_status(request, history_id):
     """Update alert history status only"""
@@ -262,6 +262,47 @@ def update_alert_history_status(request, history_id):
                 data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['PUT'])
+@require_auth  # Changed from require_super_admin to allow any authenticated user
+@api_response
+def update_alert_history_remarks(request, history_id):
+    """Update alert history remarks only"""
+    try:
+        try:
+            history = AlertHistory.objects.get(id=history_id)
+        except AlertHistory.DoesNotExist:
+            raise NotFoundError("Alert history not found")
+        
+        # Validate remarks field
+        remarks = request.data.get('remarks')
+        if remarks is None:
+            return error_response(
+                message='Remarks field is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Update remarks
+        history.remarks = remarks
+        history.save()
+        
+        response_serializer = AlertHistorySerializer(history)
+        
+        return success_response(
+            data=response_serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_UPDATED', 'Alert history remarks updated successfully')
+        )
     except NotFoundError as e:
         return error_response(
             message=str(e),

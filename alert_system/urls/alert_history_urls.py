@@ -12,5 +12,6 @@ urlpatterns = [
     path('create/', alert_history_views.create_alert_history, name='create_alert_history'),
     path('<int:history_id>/update/', alert_history_views.update_alert_history, name='update_alert_history'),
     path('<int:history_id>/update-status/', alert_history_views.update_alert_history_status, name='update_alert_history_status'),
+    path('<int:history_id>/update-remarks/', alert_history_views.update_alert_history_remarks, name='update_alert_history_remarks'),  # NEW
     path('<int:history_id>/delete/', alert_history_views.delete_alert_history, name='delete_alert_history'),
 ]
