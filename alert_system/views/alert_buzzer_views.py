@@ -33,7 +33,7 @@ def get_all_alert_buzzers(request):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -62,7 +62,7 @@ def get_alert_buzzer_by_id(request, buzzer_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -82,7 +82,7 @@ def get_alert_buzzers_by_institute(request, institute_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -106,13 +106,13 @@ def create_alert_buzzer(request):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -140,7 +140,7 @@ def update_alert_buzzer(request, buzzer_id):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except NotFoundError as e:
@@ -151,7 +151,7 @@ def update_alert_buzzer(request, buzzer_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -181,5 +181,5 @@ def delete_alert_buzzer(request, buzzer_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )

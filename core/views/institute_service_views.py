@@ -40,7 +40,7 @@ def get_all_institute_services(request):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -71,7 +71,7 @@ def get_institute_service_by_id(request, service_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -97,13 +97,13 @@ def create_institute_service(request):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -133,7 +133,7 @@ def update_institute_service(request, service_id):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except NotFoundError as e:
@@ -144,7 +144,7 @@ def update_institute_service(request, service_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -176,5 +176,5 @@ def delete_institute_service(request, service_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )

@@ -35,7 +35,7 @@ def get_all_alert_radars(request):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -64,7 +64,7 @@ def get_alert_radar_by_id(request, radar_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -84,7 +84,7 @@ def get_alert_radars_by_institute(request, institute_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -108,13 +108,13 @@ def create_alert_radar(request):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -142,7 +142,7 @@ def update_alert_radar(request, radar_id):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except NotFoundError as e:
@@ -153,7 +153,7 @@ def update_alert_radar(request, radar_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -183,5 +183,5 @@ def delete_alert_radar(request, radar_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )

@@ -33,7 +33,7 @@ def get_all_alert_types(request):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -62,7 +62,7 @@ def get_alert_type_by_id(request, alert_type_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -86,13 +86,13 @@ def create_alert_type(request):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -120,7 +120,7 @@ def update_alert_type(request, alert_type_id):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except NotFoundError as e:
@@ -131,7 +131,7 @@ def update_alert_type(request, alert_type_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -161,5 +161,5 @@ def delete_alert_type(request, alert_type_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
