@@ -134,6 +134,10 @@ class AlertGeofenceUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertGeofence
         fields = ['title', 'institute', 'boundary', 'alert_type_ids']
+        extra_kwargs = {
+            'institute': {'required': False},
+            'boundary': {'required': False}
+        }
     
     def validate_title(self, value):
         """Validate title"""
@@ -142,15 +146,15 @@ class AlertGeofenceUpdateSerializer(serializers.ModelSerializer):
         return value.strip()
     
     def validate_institute(self, value):
-        """Validate institute exists"""
-        if not value:
+        """Validate institute exists (optional for updates)"""
+        if value and not value:
             raise serializers.ValidationError("Institute is required")
         return value
     
     def validate_boundary(self, value):
-        """Validate GeoJSON boundary format"""
+        """Validate GeoJSON boundary format (optional for updates)"""
         if not value:
-            raise serializers.ValidationError("Boundary is required")
+            return value  # Allow None/empty for updates
         
         if not isinstance(value, dict):
             raise serializers.ValidationError("Boundary must be a valid GeoJSON object")
