@@ -10,14 +10,17 @@ from core.models import Institute
 class AlertGeofenceSerializer(serializers.ModelSerializer):
     """Serializer for alert geofence model"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
+    institute_latitude = serializers.FloatField(source='institute.latitude', read_only=True)
+    institute_longitude = serializers.FloatField(source='institute.longitude', read_only=True)
     alert_types = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
     
     class Meta:
         model = AlertGeofence
         fields = [
-            'id', 'title', 'institute', 'institute_name', 'boundary',
-            'alert_types', 'alert_types_count', 'created_at', 'updated_at'
+            'id', 'title', 'institute', 'institute_name', 'institute_latitude', 
+            'institute_longitude', 'boundary', 'alert_types', 'alert_types_count', 
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'alert_types_count']
     

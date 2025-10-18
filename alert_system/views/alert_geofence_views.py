@@ -211,3 +211,23 @@ def delete_alert_geofence(request, geofence_id):
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
         )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_sos_alert_geofences(request):
+    """Get all alert geofences for SOS (no pagination, includes institute coordinates)"""
+    try:
+        geofences = AlertGeofence.objects.prefetch_related('alert_types').select_related('institute').all()
+        serializer = AlertGeofenceSerializer(geofences, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message='Alert geofences for SOS retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message='Failed to retrieve SOS alert geofences',
+            data=str(e)
+        )
