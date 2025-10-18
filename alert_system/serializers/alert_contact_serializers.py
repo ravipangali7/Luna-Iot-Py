@@ -179,6 +179,8 @@ class AlertContactUpdateSerializer(serializers.ModelSerializer):
 class AlertContactListSerializer(serializers.ModelSerializer):
     """Serializer for alert contact list (minimal data)"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
+    alert_geofences_names = serializers.SerializerMethodField()
+    alert_types_names = serializers.SerializerMethodField()
     geofences_count = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
     
@@ -186,9 +188,18 @@ class AlertContactListSerializer(serializers.ModelSerializer):
         model = AlertContact
         fields = [
             'id', 'name', 'phone', 'institute', 'institute_name',
-            'is_sms', 'is_call', 'geofences_count', 'alert_types_count', 'created_at'
+            'is_sms', 'is_call', 'alert_geofences_names', 'alert_types_names',
+            'geofences_count', 'alert_types_count', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+    
+    def get_alert_geofences_names(self, obj):
+        """Get alert geofence names as list of strings"""
+        return [geofence.title for geofence in obj.alert_geofences.all()]
+    
+    def get_alert_types_names(self, obj):
+        """Get alert type names as list of strings"""
+        return [alert_type.name for alert_type in obj.alert_types.all()]
     
     def get_geofences_count(self, obj):
         """Get number of geofences"""
