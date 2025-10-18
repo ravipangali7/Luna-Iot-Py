@@ -144,11 +144,12 @@ class AlertSwitchListSerializer(serializers.ModelSerializer):
     """Serializer for alert switch list (minimal data)"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
     device_imei = serializers.CharField(source='device.imei', read_only=True)
+    device_phone = serializers.CharField(source='device.phone', read_only=True)
     
     class Meta:
         model = AlertSwitch
         fields = [
-            'id', 'title', 'device', 'device_imei', 'institute', 'institute_name',
+            'id', 'title', 'device', 'device_imei', 'device_phone', 'institute', 'institute_name',
             'latitude', 'longitude', 'trigger', 'primary_phone', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
