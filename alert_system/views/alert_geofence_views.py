@@ -61,7 +61,7 @@ def get_all_alert_geofences(request):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -90,7 +90,7 @@ def get_alert_geofence_by_id(request, geofence_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -110,7 +110,7 @@ def get_alert_geofences_by_institute(request, institute_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -134,13 +134,13 @@ def create_alert_geofence(request):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -168,7 +168,7 @@ def update_alert_geofence(request, geofence_id):
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                details=serializer.errors,
+                data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except NotFoundError as e:
@@ -179,7 +179,7 @@ def update_alert_geofence(request, geofence_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )
 
 
@@ -209,5 +209,5 @@ def delete_alert_geofence(request, geofence_id):
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
-            details=str(e)
+            data=str(e)
         )

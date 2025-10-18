@@ -63,10 +63,50 @@ class AlertGeofenceCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_boundary(self, value):
-        """Validate boundary is valid GeoJSON"""
+        """Validate GeoJSON boundary format"""
         if not value:
             raise serializers.ValidationError("Boundary is required")
-        # Add more GeoJSON validation if needed
+        
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Boundary must be a valid GeoJSON object")
+        
+        # Check for required GeoJSON fields
+        if 'type' not in value:
+            raise serializers.ValidationError("Boundary must have a 'type' field")
+        
+        if 'coordinates' not in value:
+            raise serializers.ValidationError("Boundary must have a 'coordinates' field")
+        
+        # Support Polygon and MultiPolygon
+        if value['type'] not in ['Polygon', 'MultiPolygon']:
+            raise serializers.ValidationError("Boundary type must be 'Polygon' or 'MultiPolygon'")
+        
+        # Validate coordinates structure
+        coordinates = value['coordinates']
+        if not isinstance(coordinates, list):
+            raise serializers.ValidationError("Coordinates must be a list")
+        
+        if value['type'] == 'Polygon':
+            if len(coordinates) == 0:
+                raise serializers.ValidationError("Polygon must have at least one ring")
+            # Validate first ring (exterior ring)
+            if not isinstance(coordinates[0], list) or len(coordinates[0]) < 4:
+                raise serializers.ValidationError("Polygon exterior ring must have at least 4 coordinates")
+            # Check if first and last coordinates are the same (closed polygon)
+            if coordinates[0][0] != coordinates[0][-1]:
+                raise serializers.ValidationError("Polygon must be closed (first and last coordinates must be the same)")
+        
+        elif value['type'] == 'MultiPolygon':
+            if len(coordinates) == 0:
+                raise serializers.ValidationError("MultiPolygon must have at least one polygon")
+            for i, polygon in enumerate(coordinates):
+                if not isinstance(polygon, list) or len(polygon) == 0:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} must have at least one ring")
+                if not isinstance(polygon[0], list) or len(polygon[0]) < 4:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} exterior ring must have at least 4 coordinates")
+                if polygon[0][0] != polygon[0][-1]:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} must be closed")
+        
         return value
     
     def create(self, validated_data):
@@ -108,9 +148,50 @@ class AlertGeofenceUpdateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_boundary(self, value):
-        """Validate boundary is valid GeoJSON"""
+        """Validate GeoJSON boundary format"""
         if not value:
             raise serializers.ValidationError("Boundary is required")
+        
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Boundary must be a valid GeoJSON object")
+        
+        # Check for required GeoJSON fields
+        if 'type' not in value:
+            raise serializers.ValidationError("Boundary must have a 'type' field")
+        
+        if 'coordinates' not in value:
+            raise serializers.ValidationError("Boundary must have a 'coordinates' field")
+        
+        # Support Polygon and MultiPolygon
+        if value['type'] not in ['Polygon', 'MultiPolygon']:
+            raise serializers.ValidationError("Boundary type must be 'Polygon' or 'MultiPolygon'")
+        
+        # Validate coordinates structure
+        coordinates = value['coordinates']
+        if not isinstance(coordinates, list):
+            raise serializers.ValidationError("Coordinates must be a list")
+        
+        if value['type'] == 'Polygon':
+            if len(coordinates) == 0:
+                raise serializers.ValidationError("Polygon must have at least one ring")
+            # Validate first ring (exterior ring)
+            if not isinstance(coordinates[0], list) or len(coordinates[0]) < 4:
+                raise serializers.ValidationError("Polygon exterior ring must have at least 4 coordinates")
+            # Check if first and last coordinates are the same (closed polygon)
+            if coordinates[0][0] != coordinates[0][-1]:
+                raise serializers.ValidationError("Polygon must be closed (first and last coordinates must be the same)")
+        
+        elif value['type'] == 'MultiPolygon':
+            if len(coordinates) == 0:
+                raise serializers.ValidationError("MultiPolygon must have at least one polygon")
+            for i, polygon in enumerate(coordinates):
+                if not isinstance(polygon, list) or len(polygon) == 0:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} must have at least one ring")
+                if not isinstance(polygon[0], list) or len(polygon[0]) < 4:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} exterior ring must have at least 4 coordinates")
+                if polygon[0][0] != polygon[0][-1]:
+                    raise serializers.ValidationError(f"MultiPolygon polygon {i} must be closed")
+        
         return value
     
     def update(self, instance, validated_data):
