@@ -218,15 +218,20 @@ class AlertGeofenceUpdateSerializer(serializers.ModelSerializer):
 class AlertGeofenceListSerializer(serializers.ModelSerializer):
     """Serializer for alert geofence list (minimal data)"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
+    alert_types_names = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
     
     class Meta:
         model = AlertGeofence
         fields = [
             'id', 'title', 'institute', 'institute_name',
-            'alert_types_count', 'created_at'
+            'alert_types_names', 'alert_types_count', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+    
+    def get_alert_types_names(self, obj):
+        """Get alert type names as list of strings"""
+        return [alert_type.name for alert_type in obj.alert_types.all()]
     
     def get_alert_types_count(self, obj):
         """Get number of alert types"""
