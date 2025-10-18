@@ -95,6 +95,20 @@ class AlertHistoryUpdateSerializer(serializers.ModelSerializer):
             'source', 'name', 'primary_phone', 'secondary_phone', 'alert_type',
             'latitude', 'longitude', 'datetime', 'image', 'remarks', 'status', 'institute'
         ]
+        extra_kwargs = {
+            'source': {'required': False},
+            'name': {'required': False},
+            'primary_phone': {'required': False},
+            'secondary_phone': {'required': False},
+            'alert_type': {'required': False},
+            'latitude': {'required': False},
+            'longitude': {'required': False},
+            'datetime': {'required': False},
+            'image': {'required': False},
+            'remarks': {'required': False},
+            'status': {'required': False},
+            'institute': {'required': False}
+        }
     
     def validate_source(self, value):
         """Validate source is valid choice"""
@@ -168,6 +182,10 @@ class AlertHistoryStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertHistory
         fields = ['status', 'remarks']
+        extra_kwargs = {
+            'status': {'required': False},
+            'remarks': {'required': False}
+        }
     
     def validate_status(self, value):
         """Validate status is valid choice"""

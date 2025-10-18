@@ -85,6 +85,17 @@ class AlertSwitchUpdateSerializer(serializers.ModelSerializer):
             'title', 'device', 'institute', 'latitude', 'longitude',
             'trigger', 'primary_phone', 'secondary_phone', 'image'
         ]
+        extra_kwargs = {
+            'title': {'required': False},
+            'device': {'required': False},
+            'institute': {'required': False},
+            'latitude': {'required': False},
+            'longitude': {'required': False},
+            'trigger': {'required': False},
+            'primary_phone': {'required': False},
+            'secondary_phone': {'required': False},
+            'image': {'required': False}
+        }
     
     def validate_title(self, value):
         """Validate title"""

@@ -40,6 +40,10 @@ class AlertTypeUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertType
         fields = ['name', 'icon']
+        extra_kwargs = {
+            'name': {'required': False},
+            'icon': {'required': False}
+        }
     
     def validate_name(self, value):
         """Validate name and check uniqueness"""

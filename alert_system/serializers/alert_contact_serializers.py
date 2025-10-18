@@ -130,6 +130,13 @@ class AlertContactUpdateSerializer(serializers.ModelSerializer):
             'name', 'phone', 'institute', 'is_sms', 'is_call',
             'geofence_ids', 'alert_type_ids'
         ]
+        extra_kwargs = {
+            'name': {'required': False},
+            'phone': {'required': False},
+            'institute': {'required': False},
+            'is_sms': {'required': False},
+            'is_call': {'required': False}
+        }
     
     def validate_name(self, value):
         """Validate name"""
