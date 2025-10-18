@@ -14,6 +14,7 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
     institute_longitude = serializers.FloatField(source='institute.longitude', read_only=True)
     alert_types = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
+    boundary = serializers.SerializerMethodField()  # Add this
     
     class Meta:
         model = AlertGeofence
@@ -23,6 +24,39 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'alert_types_count']
+    
+    def get_boundary(self, obj):
+        """Convert GeoJSON boundary to simple coordinate array string"""
+        import json
+        
+        if not obj.boundary:
+            return ""
+        
+        try:
+            # Extract coordinates from GeoJSON
+            geojson = obj.boundary
+            
+            # Handle Polygon type
+            if geojson.get('type') == 'Polygon':
+                # Get outer ring coordinates (first element)
+                coordinates = geojson.get('coordinates', [[]])[0]
+                # Convert from [lng, lat] to [lat, lng]
+                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
+                return json.dumps(simple_coords)
+            
+            # Handle MultiPolygon type (use first polygon's outer ring)
+            elif geojson.get('type') == 'MultiPolygon':
+                # Get first polygon's outer ring
+                coordinates = geojson.get('coordinates', [[[]]])[0][0]
+                # Convert from [lng, lat] to [lat, lng]
+                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
+                return json.dumps(simple_coords)
+            
+            # Fallback: return empty string if type not recognized
+            return ""
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"Error converting boundary: {e}")
+            return ""
     
     def get_alert_types(self, obj):
         """Get alert types with basic info"""
