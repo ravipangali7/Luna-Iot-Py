@@ -11,13 +11,14 @@ class AlertRadarSerializer(serializers.ModelSerializer):
     """Serializer for alert radar model"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
     alert_geofences = serializers.SerializerMethodField()
+    alert_geofences_names = serializers.SerializerMethodField()
     geofences_count = serializers.SerializerMethodField()
     
     class Meta:
         model = AlertRadar
         fields = [
             'id', 'title', 'institute', 'institute_name', 'token',
-            'alert_geofences', 'geofences_count', 'created_at', 'updated_at'
+            'alert_geofences', 'alert_geofences_names', 'geofences_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'geofences_count']
     
@@ -30,6 +31,10 @@ class AlertRadarSerializer(serializers.ModelSerializer):
             }
             for geofence in obj.alert_geofences.all()
         ]
+    
+    def get_alert_geofences_names(self, obj):
+        """Get alert geofence names as list of strings"""
+        return [geofence.title for geofence in obj.alert_geofences.all()]
     
     def get_geofences_count(self, obj):
         """Get number of geofences"""
