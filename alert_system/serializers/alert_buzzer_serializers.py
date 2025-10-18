@@ -100,6 +100,12 @@ class AlertBuzzerUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlertBuzzer
         fields = ['title', 'device', 'institute', 'delay', 'geofence_ids']
+        extra_kwargs = {
+            'title': {'required': False},
+            'device': {'required': False},
+            'institute': {'required': False},
+            'delay': {'required': False}
+        }
     
     def validate_title(self, value):
         """Validate title"""

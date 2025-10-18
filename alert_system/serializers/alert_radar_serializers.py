@@ -100,6 +100,8 @@ class AlertRadarUpdateSerializer(serializers.ModelSerializer):
         model = AlertRadar
         fields = ['title', 'institute', 'token', 'geofence_ids']
         extra_kwargs = {
+            'title': {'required': False},
+            'institute': {'required': False},
             'token': {'required': False}
         }
     
