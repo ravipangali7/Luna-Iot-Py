@@ -13,6 +13,7 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
     institute_latitude = serializers.FloatField(source='institute.latitude', read_only=True)
     institute_longitude = serializers.FloatField(source='institute.longitude', read_only=True)
     alert_types = serializers.SerializerMethodField()
+    alert_types_names = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
     # Let boundary use default JSONField serialization for web management
     
@@ -20,8 +21,8 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
         model = AlertGeofence
         fields = [
             'id', 'title', 'institute', 'institute_name', 'institute_latitude', 
-            'institute_longitude', 'boundary', 'alert_types', 'alert_types_count', 
-            'created_at', 'updated_at'
+            'institute_longitude', 'boundary', 'alert_types', 'alert_types_names', 
+            'alert_types_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'alert_types_count']
     
@@ -35,6 +36,10 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
             }
             for alert_type in obj.alert_types.all()
         ]
+    
+    def get_alert_types_names(self, obj):
+        """Get alert type names as list of strings"""
+        return [alert_type.name for alert_type in obj.alert_types.all()]
     
     def get_alert_types_count(self, obj):
         """Get number of alert types"""
