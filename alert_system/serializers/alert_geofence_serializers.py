@@ -14,7 +14,7 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
     institute_longitude = serializers.FloatField(source='institute.longitude', read_only=True)
     alert_types = serializers.SerializerMethodField()
     alert_types_count = serializers.SerializerMethodField()
-    boundary = serializers.SerializerMethodField()  # Add this
+    # Let boundary use default JSONField serialization for web management
     
     class Meta:
         model = AlertGeofence
@@ -24,39 +24,6 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'alert_types_count']
-    
-    def get_boundary(self, obj):
-        """Convert GeoJSON boundary to simple coordinate array string"""
-        import json
-        
-        if not obj.boundary:
-            return ""
-        
-        try:
-            # Extract coordinates from GeoJSON
-            geojson = obj.boundary
-            
-            # Handle Polygon type
-            if geojson.get('type') == 'Polygon':
-                # Get outer ring coordinates (first element)
-                coordinates = geojson.get('coordinates', [[]])[0]
-                # Convert from [lng, lat] to [lat, lng]
-                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
-                return json.dumps(simple_coords)
-            
-            # Handle MultiPolygon type (use first polygon's outer ring)
-            elif geojson.get('type') == 'MultiPolygon':
-                # Get first polygon's outer ring
-                coordinates = geojson.get('coordinates', [[[]]])[0][0]
-                # Convert from [lng, lat] to [lat, lng]
-                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
-                return json.dumps(simple_coords)
-            
-            # Fallback: return empty string if type not recognized
-            return ""
-        except (KeyError, IndexError, TypeError) as e:
-            print(f"Error converting boundary: {e}")
-            return ""
     
     def get_alert_types(self, obj):
         """Get alert types with basic info"""
@@ -72,6 +39,63 @@ class AlertGeofenceSerializer(serializers.ModelSerializer):
     def get_alert_types_count(self, obj):
         """Get number of alert types"""
         return obj.alert_types.count()
+
+
+class AlertGeofenceSosSerializer(serializers.ModelSerializer):
+    """Serializer for SOS feature - converts GeoJSON to simple coordinate array"""
+    institute_name = serializers.CharField(source='institute.name', read_only=True)
+    institute_latitude = serializers.FloatField(source='institute.latitude', read_only=True)
+    institute_longitude = serializers.FloatField(source='institute.longitude', read_only=True)
+    alert_types = serializers.SerializerMethodField()
+    boundary = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AlertGeofence
+        fields = [
+            'id', 'title', 'institute', 'institute_name', 'institute_latitude', 
+            'institute_longitude', 'boundary', 'alert_types'
+        ]
+        read_only_fields = ['id']
+    
+    def get_boundary(self, obj):
+        """Convert GeoJSON boundary to simple coordinate array string for Flutter"""
+        import json
+        
+        if not obj.boundary:
+            return ""
+        
+        try:
+            geojson = obj.boundary
+            
+            # Handle Polygon type
+            if geojson.get('type') == 'Polygon':
+                coordinates = geojson.get('coordinates', [[]])[0]
+                # Convert from [lng, lat] to [lat, lng]
+                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
+                return json.dumps(simple_coords)
+            
+            # Handle MultiPolygon type
+            elif geojson.get('type') == 'MultiPolygon':
+                coordinates = geojson.get('coordinates', [[[]]])[0][0]
+                # Convert from [lng, lat] to [lat, lng]
+                simple_coords = [[coord[1], coord[0]] for coord in coordinates]
+                return json.dumps(simple_coords)
+            
+            return ""
+        except (KeyError, IndexError, TypeError) as e:
+            print(f"Error converting boundary: {e}")
+            return ""
+    
+    def get_alert_types(self, obj):
+        """Get alert types with basic info"""
+        return [
+            {
+                'id': alert_type.id,
+                'name': alert_type.name,
+                'icon': alert_type.icon
+            }
+            for alert_type in obj.alert_types.all()
+        ]
 
 
 class AlertGeofenceCreateSerializer(serializers.ModelSerializer):

@@ -8,6 +8,7 @@ from django.db.models import Q
 from alert_system.models import AlertGeofence
 from alert_system.serializers import (
     AlertGeofenceSerializer,
+    AlertGeofenceSosSerializer,
     AlertGeofenceCreateSerializer,
     AlertGeofenceUpdateSerializer,
     AlertGeofenceListSerializer
@@ -220,7 +221,7 @@ def get_sos_alert_geofences(request):
     """Get all alert geofences for SOS (no pagination, includes institute coordinates)"""
     try:
         geofences = AlertGeofence.objects.prefetch_related('alert_types').select_related('institute').all()
-        serializer = AlertGeofenceSerializer(geofences, many=True)
+        serializer = AlertGeofenceSosSerializer(geofences, many=True)
         
         return success_response(
             data=serializer.data,
