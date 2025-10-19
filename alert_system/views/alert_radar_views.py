@@ -2,7 +2,8 @@
 Alert Radar Views
 Handles alert radar management endpoints
 """
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from django.core.paginator import Paginator
 from django.db.models import Q
 from alert_system.models import AlertRadar
@@ -174,6 +175,35 @@ def delete_alert_radar(request, radar_id):
         return success_response(
             data={'id': radar_id},
             message=f"Alert radar '{radar_title}' deleted successfully"
+        )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@api_response
+def get_alert_radar_by_token(request, token):
+    """Get alert radar by token (public access)"""
+    try:
+        try:
+            radar = AlertRadar.objects.prefetch_related('alert_geofences').select_related('institute').get(token=token)
+        except AlertRadar.DoesNotExist:
+            raise NotFoundError("Invalid radar token")
+        
+        serializer = AlertRadarSerializer(radar)
+        
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Radar data retrieved successfully')
         )
     except NotFoundError as e:
         return error_response(

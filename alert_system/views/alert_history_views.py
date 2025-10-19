@@ -128,6 +128,53 @@ def get_alert_histories_by_institute(request, institute_id):
 @api_view(['GET'])
 @require_auth
 @api_response
+def get_alert_histories_by_radar(request, radar_id):
+    """Get alert histories by radar (filtered by radar's geofences)"""
+    try:
+        # Get the radar and its associated geofences
+        try:
+            from alert_system.models import AlertRadar
+            radar = AlertRadar.objects.prefetch_related('alert_geofences').get(id=radar_id)
+        except AlertRadar.DoesNotExist:
+            raise NotFoundError("Radar not found")
+        
+        # Get geofence IDs associated with this radar
+        geofence_ids = radar.alert_geofences.values_list('id', flat=True)
+        
+        if not geofence_ids:
+            # If radar has no geofences, return empty list
+            return success_response(
+                data=[],
+                message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Alert histories retrieved successfully')
+            )
+        
+        # Filter alert histories by geofences associated with this radar
+        histories = AlertHistory.objects.select_related('alert_type', 'institute').filter(
+            source='geofence',
+            geofence_id__in=geofence_ids
+        ).order_by('-datetime')
+        
+        serializer = AlertHistoryListSerializer(histories, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Alert histories retrieved successfully')
+        )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
 def get_alert_history_statistics(request):
     """Get alert history statistics"""
     try:
