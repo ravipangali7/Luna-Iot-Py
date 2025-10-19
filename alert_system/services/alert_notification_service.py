@@ -161,7 +161,8 @@ def send_alert_notification_via_nodejs(alert_history):
             "longitude": float(alert_history.longitude),
             "datetime": alert_history.datetime.isoformat(),
             "status": alert_history.status,
-            "remarks": alert_history.remarks
+            "remarks": alert_history.remarks,
+            "source": alert_history.source
         }
         
         # Prepare payload for Node.js API
