@@ -152,8 +152,8 @@ DATABASES = {
         'NAME': 'luna_iot_test',
         'USER': 'root', 
         'PASSWORD': '214fa86d5dfe4729', 
-        'HOST': '38.54.71.218', 
-        # 'HOST': 'localhost', 
+        # 'HOST': '38.54.71.218', 
+        'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 600,  # 10 minutes
