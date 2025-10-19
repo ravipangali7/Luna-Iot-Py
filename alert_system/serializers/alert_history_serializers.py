@@ -171,7 +171,7 @@ class AlertHistoryListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'source', 'source_display', 'name', 'primary_phone',
             'alert_type', 'alert_type_name', 'latitude', 'longitude',
-            'datetime', 'status', 'status_display', 'institute', 'institute_name', 'created_at'
+            'datetime', 'remarks', 'image', 'status', 'status_display', 'institute', 'institute_name', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
