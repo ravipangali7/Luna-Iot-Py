@@ -221,13 +221,17 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
                     
                     # Schedule relay OFF command after buzzer's delay
                     from alert_system.tasks import schedule_relay_off_command
+                    
+                    # Log the actual delay value being used
+                    logger.info(f"[BUZZER DELAY] Buzzer {buzzer.title} (ID: {buzzer.id}) has delay value: {buzzer.delay} seconds")
+                    
                     schedule_relay_off_command(
                         buzzer.device.phone,
                         buzzer.delay,
                         alert_history.id,
                         buzzer.id
                     )
-                    logger.info(f"Scheduled relay OFF command for buzzer {buzzer.title} after {buzzer.delay} seconds")
+                    logger.info(f"[SCHEDULED] Relay OFF command scheduled for buzzer {buzzer.title} after {buzzer.delay} seconds")
                     
                 else:
                     failed_count += 1
