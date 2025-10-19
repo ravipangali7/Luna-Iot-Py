@@ -129,24 +129,37 @@ def get_alert_histories_by_institute(request, institute_id):
 @require_auth
 @api_response
 def get_alert_histories_by_radar(request, radar_id):
-    """Get alert histories by radar (filtered by radar's institute)"""
+    """Get alert histories by radar (filtered by alerts within radar's geofences)"""
     try:
-        # Get the radar and its institute
+        # Get the radar with its geofences
         try:
             from alert_system.models import AlertRadar
-            radar = AlertRadar.objects.select_related('institute').get(id=radar_id)
+            from alert_system.services.alert_notification_service import is_point_in_polygon
+            
+            radar = AlertRadar.objects.prefetch_related('alert_geofences').select_related('institute').get(id=radar_id)
         except AlertRadar.DoesNotExist:
             raise NotFoundError("Radar not found")
         
-        # Filter alert histories by the radar's institute and source
-        # Since AlertHistory doesn't have a direct geofence relationship,
-        # we filter by institute and source='geofence'
-        histories = AlertHistory.objects.select_related('alert_type', 'institute').filter(
+        # Get all alerts from the radar's institute with both app and geofence sources
+        all_histories = AlertHistory.objects.select_related('alert_type', 'institute').filter(
             institute_id=radar.institute_id,
-            source='geofence'
+            source__in=['app', 'geofence']  # Include both sources
         ).order_by('-datetime')
         
-        serializer = AlertHistoryListSerializer(histories, many=True)
+        # Filter alerts that fall within any of the radar's geofences
+        matching_histories = []
+        for history in all_histories:
+            # Check if alert location is within any of the radar's geofences
+            for geofence in radar.alert_geofences.all():
+                if geofence.boundary and is_point_in_polygon(
+                    float(history.latitude),
+                    float(history.longitude),
+                    geofence.boundary
+                ):
+                    matching_histories.append(history)
+                    break  # Alert matches, no need to check other geofences
+        
+        serializer = AlertHistoryListSerializer(matching_histories, many=True)
         
         return success_response(
             data=serializer.data,
