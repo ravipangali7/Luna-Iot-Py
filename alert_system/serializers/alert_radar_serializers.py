@@ -9,6 +9,7 @@ from core.models import Institute
 
 class AlertRadarSerializer(serializers.ModelSerializer):
     """Serializer for alert radar model"""
+    institute = serializers.SerializerMethodField()
     institute_name = serializers.CharField(source='institute.name', read_only=True)
     alert_geofences = serializers.SerializerMethodField()
     alert_geofences_names = serializers.SerializerMethodField()
@@ -22,12 +23,21 @@ class AlertRadarSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'geofences_count']
     
+    def get_institute(self, obj):
+        """Get institute with logo"""
+        return {
+            'id': obj.institute.id,
+            'name': obj.institute.name,
+            'logo': obj.institute.logo.url if obj.institute.logo else None
+        }
+    
     def get_alert_geofences(self, obj):
-        """Get alert geofences with basic info"""
+        """Get alert geofences with boundary data"""
         return [
             {
                 'id': geofence.id,
-                'title': geofence.title
+                'title': geofence.title,
+                'boundary': geofence.boundary
             }
             for geofence in obj.alert_geofences.all()
         ]
