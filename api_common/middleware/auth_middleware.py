@@ -35,6 +35,14 @@ class AuthMiddleware(MiddlewareMixin):
         if request.path.startswith('/api/fleet/share-track/token/'):
             return None
         
+        # Skip authentication for public radar token routes
+        if request.path.startswith('/api/alert-system/alert-radar/token/'):
+            return None
+        
+        # Skip authentication for public alert history by radar routes  
+        if request.path.startswith('/api/alert-system/alert-history/by-radar/'):
+            return None
+        
         # Skip authentication for media files
         if request.path.startswith('/media/'):
             return None
