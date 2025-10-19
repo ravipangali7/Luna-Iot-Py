@@ -129,29 +129,21 @@ def get_alert_histories_by_institute(request, institute_id):
 @require_auth
 @api_response
 def get_alert_histories_by_radar(request, radar_id):
-    """Get alert histories by radar (filtered by radar's geofences)"""
+    """Get alert histories by radar (filtered by radar's institute)"""
     try:
-        # Get the radar and its associated geofences
+        # Get the radar and its institute
         try:
             from alert_system.models import AlertRadar
-            radar = AlertRadar.objects.prefetch_related('alert_geofences').get(id=radar_id)
+            radar = AlertRadar.objects.select_related('institute').get(id=radar_id)
         except AlertRadar.DoesNotExist:
             raise NotFoundError("Radar not found")
         
-        # Get geofence IDs associated with this radar
-        geofence_ids = radar.alert_geofences.values_list('id', flat=True)
-        
-        if not geofence_ids:
-            # If radar has no geofences, return empty list
-            return success_response(
-                data=[],
-                message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Alert histories retrieved successfully')
-            )
-        
-        # Filter alert histories by geofences associated with this radar
+        # Filter alert histories by the radar's institute and source
+        # Since AlertHistory doesn't have a direct geofence relationship,
+        # we filter by institute and source='geofence'
         histories = AlertHistory.objects.select_related('alert_type', 'institute').filter(
-            source='geofence',
-            geofence_id__in=geofence_ids
+            institute_id=radar.institute_id,
+            source='geofence'
         ).order_by('-datetime')
         
         serializer = AlertHistoryListSerializer(histories, many=True)
