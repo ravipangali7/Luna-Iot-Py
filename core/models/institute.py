@@ -9,8 +9,8 @@ class Institute(models.Model):
     description = models.TextField(blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
-    latitude = models.DecimalField(max_digits=10, decimal_places=8, blank=True, null=True, help_text="Latitude coordinate")
-    longitude = models.DecimalField(max_digits=11, decimal_places=8, blank=True, null=True, help_text="Longitude coordinate")
+    latitude = models.DecimalField(max_digits=12, decimal_places=8, blank=True, null=True, help_text="Latitude coordinate")
+    longitude = models.DecimalField(max_digits=13, decimal_places=8, blank=True, null=True, help_text="Longitude coordinate")
     logo = models.ImageField(upload_to='institutes/logos/', blank=True, null=True, help_text="Institute logo image")
     institute_services = models.ManyToManyField(
         InstituteService, 

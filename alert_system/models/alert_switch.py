@@ -13,8 +13,8 @@ class AlertSwitch(models.Model):
         related_name='alert_switches',
         help_text="Device associated with this switch"
     )
-    latitude = models.DecimalField(max_digits=10, decimal_places=8, help_text="Latitude coordinate")
-    longitude = models.DecimalField(max_digits=11, decimal_places=8, help_text="Longitude coordinate")
+    latitude = models.DecimalField(max_digits=12, decimal_places=8, help_text="Latitude coordinate")
+    longitude = models.DecimalField(max_digits=13, decimal_places=8, help_text="Longitude coordinate")
     trigger = models.IntegerField(help_text="Trigger radius in meters")
     primary_phone = models.CharField(max_length=20, help_text="Primary contact phone number")
     secondary_phone = models.CharField(max_length=20, blank=True, null=True, help_text="Secondary contact phone number")

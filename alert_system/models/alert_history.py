@@ -16,8 +16,8 @@ class AlertHistory(models.Model):
         related_name='alert_histories',
         help_text="Type of alert"
     )
-    latitude = models.DecimalField(max_digits=10, decimal_places=8, help_text="Latitude coordinate")
-    longitude = models.DecimalField(max_digits=11, decimal_places=8, help_text="Longitude coordinate")
+    latitude = models.DecimalField(max_digits=12, decimal_places=8, help_text="Latitude coordinate")
+    longitude = models.DecimalField(max_digits=13, decimal_places=8, help_text="Longitude coordinate")
     datetime = models.DateTimeField(help_text="Date and time of the alert")
     image = models.ImageField(upload_to='alert_history/', blank=True, null=True, help_text="Alert image")
     remarks = models.TextField(blank=True, null=True, help_text="Additional remarks")
