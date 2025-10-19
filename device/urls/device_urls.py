@@ -20,5 +20,8 @@ urlpatterns = [
     path('relay-on', device_views.send_relay_on, name='send_relay_on'),
     path('relay-off', device_views.send_relay_off, name='send_relay_off'),
     path('light', device_views.get_light_devices, name='get_light_devices'),
+    path('gps/paginated', device_views.get_gps_devices_paginated, name='get_gps_devices_paginated'),
+    path('buzzer/paginated', device_views.get_buzzer_devices_paginated, name='get_buzzer_devices_paginated'),
+    path('sos/paginated', device_views.get_sos_devices_paginated, name='get_sos_devices_paginated'),
     path('<str:imei>', device_views.get_device_by_imei, name='get_device_by_imei'),
 ]
