@@ -162,7 +162,8 @@ def send_alert_notification_via_nodejs(alert_history):
             "datetime": alert_history.datetime.isoformat(),
             "status": alert_history.status,
             "remarks": alert_history.remarks,
-            "source": alert_history.source
+            "source": alert_history.source,
+            "image": alert_history.image
         }
         
         # Prepare payload for Node.js API
