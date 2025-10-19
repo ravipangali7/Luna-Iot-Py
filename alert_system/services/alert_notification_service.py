@@ -163,7 +163,7 @@ def send_alert_notification_via_nodejs(alert_history):
             "status": alert_history.status,
             "remarks": alert_history.remarks,
             "source": alert_history.source,
-            "image": alert_history.image
+            "image": alert_history.image.name if alert_history.image else None
         }
         
         # Prepare payload for Node.js API
