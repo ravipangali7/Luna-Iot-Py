@@ -2,7 +2,8 @@
 Alert History Views
 Handles alert history management endpoints
 """
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from django.core.paginator import Paginator
 from django.db.models import Q
 from alert_system.models import AlertHistory
@@ -126,7 +127,7 @@ def get_alert_histories_by_institute(request, institute_id):
 
 
 @api_view(['GET'])
-@require_auth
+@permission_classes([AllowAny])
 @api_response
 def get_alert_histories_by_radar(request, radar_id):
     """Get alert histories by radar (filtered by alerts within radar's geofences)"""
