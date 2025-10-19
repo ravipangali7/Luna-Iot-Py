@@ -21,35 +21,55 @@ def is_point_in_polygon(lat, lng, boundary):
     Args:
         lat: Point latitude
         lng: Point longitude
-        boundary: List of coordinate strings like ["lat,lng", "lat,lng", ...]
+        boundary: GeoJSON boundary object or list of coordinates
     
     Returns:
         bool: True if point is inside polygon
     """
     try:
-        if not boundary or len(boundary) < 3:
+        if not boundary:
             return False
+        
+        # Handle GeoJSON format
+        if isinstance(boundary, dict):
+            if boundary.get('type') == 'Polygon':
+                # Extract coordinates from GeoJSON Polygon: coordinates[0] = exterior ring
+                coordinates = boundary.get('coordinates', [[]])[0]
+            elif boundary.get('type') == 'MultiPolygon':
+                # Extract first polygon's exterior ring from MultiPolygon
+                coordinates = boundary.get('coordinates', [[[]]])[0][0]
+            else:
+                logger.error(f"Unknown GeoJSON type: {boundary.get('type')}")
+                return False
             
-        # Convert boundary strings to coordinate pairs
-        polygon = []
-        for coord_str in boundary:
-            if isinstance(coord_str, str) and ',' in coord_str:
-                parts = coord_str.split(',')
-                if len(parts) == 2:
-                    point_lat = float(parts[0].strip())
-                    point_lng = float(parts[1].strip())
-                    polygon.append({'lat': point_lat, 'lng': point_lng})
-            elif isinstance(coord_str, list) and len(coord_str) == 2:
-                # Handle nested format [lat, lng]
-                polygon.append({'lat': float(coord_str[0]), 'lng': float(coord_str[1])})
+            # GeoJSON coordinates are [lng, lat], convert to polygon format
+            polygon = []
+            for coord in coordinates:
+                if isinstance(coord, list) and len(coord) >= 2:
+                    polygon.append({'lat': float(coord[1]), 'lng': float(coord[0])})
+        
+        # Handle legacy formats (string or array)
+        else:
+            polygon = []
+            coord_list = boundary if isinstance(boundary, list) else []
+            
+            for coord_str in coord_list:
+                if isinstance(coord_str, str) and ',' in coord_str:
+                    # Format: "lat,lng"
+                    parts = coord_str.split(',')
+                    if len(parts) == 2:
+                        polygon.append({'lat': float(parts[0].strip()), 'lng': float(parts[1].strip())})
+                elif isinstance(coord_str, list) and len(coord_str) == 2:
+                    # Format: [lat, lng]
+                    polygon.append({'lat': float(coord_str[0]), 'lng': float(coord_str[1])})
         
         if len(polygon) < 3:
             return False
-            
+        
+        # Ray casting algorithm
         inside = False
         x, y = lng, lat
         
-        # Ray casting algorithm
         for i in range(len(polygon)):
             j = (i - 1) % len(polygon)
             xi, yi = polygon[i]['lng'], polygon[i]['lat']
@@ -57,9 +77,9 @@ def is_point_in_polygon(lat, lng, boundary):
             
             if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
                 inside = not inside
-                
-        return inside
         
+        return inside
+    
     except Exception as e:
         logger.error(f"Error in point-in-polygon check: {e}")
         return False
