@@ -221,7 +221,7 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
                     
                     # Schedule relay OFF command after buzzer's delay
                     from alert_system.tasks import schedule_relay_off_command
-                    schedule_relay_off_command.delay(
+                    schedule_relay_off_command(
                         buzzer.device.phone,
                         buzzer.delay,
                         alert_history.id,
