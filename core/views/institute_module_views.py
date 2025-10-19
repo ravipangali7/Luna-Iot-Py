@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.models import InstituteModule, Institute, User
+from core.models import InstituteModule, Institute, User, Module
 from core.serializers import (
     InstituteModuleSerializer, 
     InstituteModuleCreateSerializer, 
@@ -246,6 +246,49 @@ def update_institute_module_users(request, module_id):
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_alert_system_institutes(request):
+    """
+    Get institutes where the current user has access to the alert-system module
+    """
+    try:
+        # Get the alert-system module
+        try:
+            alert_system_module = Module.objects.get(slug='alert-system')
+        except Module.DoesNotExist:
+            return success_response(
+                data=[],
+                message="Alert system module not found"
+            )
+        
+        # Get institute modules where user has access to alert-system module
+        user_institute_modules = InstituteModule.objects.filter(
+            module=alert_system_module,
+            users=request.user
+        ).select_related('institute')
+        
+        # Format response data
+        institutes_data = []
+        for institute_module in user_institute_modules:
+            institutes_data.append({
+                'institute_id': institute_module.institute.id,
+                'institute_name': institute_module.institute.name,
+                'has_alert_system_access': True
+            })
+        
+        return success_response(
+            data=institutes_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Alert system institutes retrieved successfully')
         )
     except Exception as e:
         return error_response(

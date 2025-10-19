@@ -33,5 +33,6 @@ urlpatterns = [
     path('modules/<int:module_id>/update/', institute_module_views.update_institute_module, name='update_institute_module'),
     path('modules/<int:module_id>/delete/', institute_module_views.delete_institute_module, name='delete_institute_module'),
     path('modules/<int:module_id>/users/', institute_module_views.update_institute_module_users, name='update_institute_module_users'),
+    path('modules/alert-system-institutes/', institute_module_views.get_alert_system_institutes, name='get_alert_system_institutes'),
     path('<int:institute_id>/modules/', institute_module_views.get_institute_modules_by_institute, name='get_institute_modules_by_institute'),
 ]
