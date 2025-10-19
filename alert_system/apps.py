@@ -4,3 +4,7 @@ from django.apps import AppConfig
 class AlertSystemConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'alert_system'
+    
+    def ready(self):
+        """Import signals when the app is ready"""
+        import alert_system.signals
