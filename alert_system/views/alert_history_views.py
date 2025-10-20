@@ -220,7 +220,7 @@ def get_alert_history_statistics(request):
 
 
 @api_view(['POST'])
-@require_auth
+@permission_classes([AllowAny])
 @api_response
 def create_alert_history(request):
     """Create new alert history"""
