@@ -27,6 +27,14 @@ class DeviceType(models.TextChoices):
     BUZZER = 'buzzer', 'Buzzer'
     SOS = 'sos', 'SOS'
 
+class AlarmType(models.TextChoices):
+    NORMAL = 'normal', 'Normal'
+    SOS = 'sos', 'SOS'
+    POWER_CUT = 'power_cut', 'Power Cut'
+    SHOCK = 'shock', 'Shock'
+    FENCE_IN = 'fence_in', 'Fence In'
+    FENCE_OUT = 'fence_out', 'Fence Out'
+
 class AlertSource(models.TextChoices):
     APP = 'app', 'App'
     SWITCH = 'switch', 'Switch'

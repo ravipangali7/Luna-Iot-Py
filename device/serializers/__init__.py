@@ -8,6 +8,9 @@ from .location_serializers import *
 from .status_serializers import *
 from .user_device_serializers import *
 from .subscription_plan_serializers import *
+from .buzzer_status_serializers import *
+from .sos_status_serializers import *
+from .alarm_data_serializers import *
 
 __all__ = [
     # Device serializers
@@ -37,4 +40,26 @@ __all__ = [
     'SubscriptionPlanSerializer',
     'SubscriptionPlanListSerializer',
     'SubscriptionPlanPermissionSerializer',
+    
+    # Buzzer Status serializers
+    'BuzzerStatusSerializer',
+    'BuzzerStatusCreateSerializer',
+    'BuzzerStatusListSerializer',
+    'BuzzerStatusFilterSerializer',
+    'LatestBuzzerStatusSerializer',
+    
+    # SOS Status serializers
+    'SosStatusSerializer',
+    'SosStatusCreateSerializer',
+    'SosStatusListSerializer',
+    'SosStatusFilterSerializer',
+    'LatestSosStatusSerializer',
+    
+    # Alarm Data serializers
+    'AlarmDataSerializer',
+    'AlarmDataCreateSerializer',
+    'AlarmDataListSerializer',
+    'AlarmDataFilterSerializer',
+    'AlarmDataStatsSerializer',
+    'LatestAlarmDataSerializer',
 ]
