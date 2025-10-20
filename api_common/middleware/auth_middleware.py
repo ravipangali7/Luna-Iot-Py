@@ -43,6 +43,10 @@ class AuthMiddleware(MiddlewareMixin):
         if request.path.startswith('/api/alert-system/alert-history/by-radar/'):
             return None
         
+        # Skip authentication for alert history create endpoint (called by Node)
+        if request.path.startswith('/api/alert-system/alert-history/create/') and request.method == 'POST':
+            return None
+        
         # Skip authentication for media files
         if request.path.startswith('/media/'):
             return None
