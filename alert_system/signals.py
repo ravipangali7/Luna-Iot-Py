@@ -52,7 +52,7 @@ def send_alert_notification(sender, instance, created, **kwargs):
     """
     try:
         # Handle new alert creation
-        if created and instance.source in ['app', 'geofence']:
+        if created and instance.source in ['app', 'geofence', 'switch']:
             logger.info(f"New alert created: {instance.id} from source: {instance.source}")
             
             # Send notification via Node.js (existing functionality)
