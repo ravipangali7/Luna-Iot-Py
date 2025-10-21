@@ -37,6 +37,7 @@ class AlarmType(models.TextChoices):
 
 class AlertSource(models.TextChoices):
     APP = 'app', 'App'
+    GEOFENCE = 'geofence', 'Geofence'
     SWITCH = 'switch', 'Switch'
 
 class AlertStatus(models.TextChoices):

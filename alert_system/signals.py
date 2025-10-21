@@ -50,9 +50,11 @@ def send_alert_notification(sender, instance, created, **kwargs):
         created: Boolean indicating if this is a new instance
         **kwargs: Additional keyword arguments
     """
+    print(f"🚨 SIGNAL: ID={instance.id}, created={created}, source={instance.source}")
     try:
         # Handle new alert creation
         if created and instance.source in ['app', 'geofence', 'switch']:
+            print(f"✅ Processing alert {instance.id} - source matches")
             logger.info(f"New alert created: {instance.id} from source: {instance.source}")
             
             # Send notification via Node.js (existing functionality)
