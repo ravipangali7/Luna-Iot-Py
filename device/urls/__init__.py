@@ -15,4 +15,7 @@ urlpatterns = [
     
     # Subscription plan routes
     path('subscription-plan/', include('device.urls.subscription_plan_urls')),
+    
+    # Alert device routes
+    path('', include('device.urls.alert_device_urls')),
 ]
