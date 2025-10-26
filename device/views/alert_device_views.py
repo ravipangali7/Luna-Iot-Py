@@ -107,6 +107,7 @@ def get_alert_devices(request):
             }
             
             devices_data.append(device_data)
+            print(f"✅ Buzzer Device {device_id}: Institute = {alert_buzzer.institute.name}, Logo = {alert_buzzer.institute.logo.url if alert_buzzer.institute.logo else 'NULL'}")
         
         # Process alert switches (sos devices)
         for alert_switch in alert_switches:
@@ -164,6 +165,7 @@ def get_alert_devices(request):
             }
             
             devices_data.append(device_data)
+            print(f"✅ SOS Device {device_id}: Institute = {alert_switch.institute.name}, Logo = {alert_switch.institute.logo.url if alert_switch.institute.logo else 'NULL'}")
         
         serializer = AlertDeviceStatusSerializer(devices_data, many=True)
         
