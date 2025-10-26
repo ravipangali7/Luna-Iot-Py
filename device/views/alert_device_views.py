@@ -99,6 +99,11 @@ def get_alert_devices(request):
                 'last_data_at': last_data_at,
                 'isInactive': is_inactive,
                 'status_table': 'buzzer',
+                'institute': {
+                    'id': alert_buzzer.institute.id,
+                    'name': alert_buzzer.institute.name,
+                    'logo': request.build_absolute_uri(alert_buzzer.institute.logo.url) if alert_buzzer.institute.logo else None,
+                }
             }
             
             devices_data.append(device_data)
@@ -151,6 +156,11 @@ def get_alert_devices(request):
                 'last_data_at': last_data_at,
                 'isInactive': is_inactive,
                 'status_table': 'sos',
+                'institute': {
+                    'id': alert_switch.institute.id,
+                    'name': alert_switch.institute.name,
+                    'logo': request.build_absolute_uri(alert_switch.institute.logo.url) if alert_switch.institute.logo else None,
+                }
             }
             
             devices_data.append(device_data)
