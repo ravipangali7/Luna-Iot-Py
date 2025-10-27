@@ -1609,7 +1609,8 @@ def get_vehicles_paginated(request):
                 'latestRecharge': latest_recharge,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
-                'todayKm': today_km
+                'todayKm': today_km,
+                'ownershipType': 'Own' if current_user_uv and current_user_uv.isMain else 'Shared' if current_user_uv else 'Customer'
             }
             vehicles_data.append(vehicle_data)
         
@@ -1749,6 +1750,12 @@ def search_vehicles(request):
                     'relay': getattr(uv, 'relay', False)
                 })
             
+            # Get current user's userVehicle relationship
+            try:
+                current_user_uv = vehicle.userVehicles.filter(user=user).first()
+            except Exception:
+                current_user_uv = None
+            
             # Get main customer (user with isMain=True)
             main_customer = None
             for uv in vehicle.userVehicles.all():
@@ -1860,7 +1867,8 @@ def search_vehicles(request):
                 'latestRecharge': latest_recharge,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
-                'todayKm': today_km
+                'todayKm': today_km,
+                'ownershipType': 'Own' if current_user_uv and current_user_uv.isMain else 'Shared' if current_user_uv else 'Customer'
             }
             vehicles_data.append(vehicle_data)
         
