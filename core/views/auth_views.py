@@ -644,6 +644,49 @@ def reset_password(request):
 
 @api_view(['POST'])
 @api_response
+def verify_password(request):
+    """
+    Verify user password before sensitive operations
+    """
+    try:
+        user = request.user
+        
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        import json
+        data = json.loads(request.body) if request.body else {}
+        password = data.get('password')
+        
+        if not password:
+            return error_response(
+                message='Password is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Verify password using Django's built-in checker
+        if not check_password(password, user.password):
+            return error_response(
+                message='Incorrect password',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
+        return success_response(
+            message='Password verified successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@api_response
 def delete_account(request):
     """
     Delete user account (deactivate account)
