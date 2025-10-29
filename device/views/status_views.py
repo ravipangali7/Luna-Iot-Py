@@ -11,6 +11,8 @@ from rest_framework import status
 from datetime import datetime
 
 from device.models.status import Status
+from device.models.buzzer_status import BuzzerStatus
+from device.models.sos_status import SosStatus
 from device.models.device import Device
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
@@ -46,26 +48,55 @@ def create_status(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if any vehicle with this IMEI is active
-        from fleet.models import Vehicle
-        active_vehicles = Vehicle.objects.filter(imei=data['imei'], is_active=True)
-        if not active_vehicles.exists():
-            return error_response(
-                message='No active vehicle found with IMEI: ' + data['imei'],
-                status_code=HTTP_STATUS['BAD_REQUEST']
-            )
+        # Get device type for routing
+        device_type = (device.type or 'gps').lower()
         
-        # Create status record
-        status_obj = Status.objects.create(
-            device=device,
-            imei=data['imei'],
-            battery=data['battery'],
-            signal=data['signal'],
-            ignition=data['ignition'],
-            charging=data['charging'],
-            relay=data['relay'],
-            createdAt=data['created_at']
-        )
+        # Check if any vehicle with this IMEI is active (only for GPS devices)
+        # Buzzer and SOS devices may not have associated vehicles
+        if device_type == 'gps':
+            from fleet.models import Vehicle
+            active_vehicles = Vehicle.objects.filter(imei=data['imei'], is_active=True)
+            if not active_vehicles.exists():
+                return error_response(
+                    message='No active vehicle found with IMEI: ' + data['imei'],
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        
+        # Route to appropriate status table based on device type
+        if device_type == 'sos':
+            status_obj = SosStatus.objects.create(
+                device=device,
+                imei=data['imei'],
+                battery=data['battery'],
+                signal=data['signal'],
+                ignition=data['ignition'],
+                charging=data['charging'],
+                relay=data['relay'],
+                createdAt=data['created_at']
+            )
+        elif device_type == 'buzzer':
+            status_obj = BuzzerStatus.objects.create(
+                device=device,
+                imei=data['imei'],
+                battery=data['battery'],
+                signal=data['signal'],
+                ignition=data['ignition'],
+                charging=data['charging'],
+                relay=data['relay'],
+                createdAt=data['created_at']
+            )
+        else:
+            # Default to GPS status
+            status_obj = Status.objects.create(
+                device=device,
+                imei=data['imei'],
+                battery=data['battery'],
+                signal=data['signal'],
+                ignition=data['ignition'],
+                charging=data['charging'],
+                relay=data['relay'],
+                createdAt=data['created_at']
+            )
         
         status_data = {
             'id': status_obj.id,

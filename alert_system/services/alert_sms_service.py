@@ -169,7 +169,7 @@ def send_alert_sms_to_contacts(alert_history: AlertHistory, contacts: List[Alert
         
         # Format SMS message
         alert_type_name = alert_history.alert_type.name if alert_history.alert_type else "Unknown"
-        message = f"{alert_history.name}, need your help for {alert_type_name}. https://www.app.mylunago.com Contact on {alert_history.primary_phone}."
+        message = f"{alert_history.name}, need your help for {alert_type_name}. https://www.mylunago.com Contact on {alert_history.primary_phone}."
         
         sent_count = 0
         failed_count = 0
