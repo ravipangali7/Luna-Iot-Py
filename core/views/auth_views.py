@@ -25,6 +25,8 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.validation_decorators import validate_fields
 from api_common.utils.sms_service import sms_service
 from api_common.exceptions.auth_exceptions import InvalidCredentialsError, AccountInactiveError
+from django.core.files.storage import default_storage
+from api_common.constants.validation_constants import FILE_UPLOAD_LIMITS
 
 
 @csrf_exempt
@@ -82,11 +84,18 @@ def get_current_user(request):
         from django.contrib.auth.models import Permission
         all_available_permissions = list(Permission.objects.values('id', 'name', 'content_type__app_label', 'content_type__model'))
         
+        # Get profile picture URL
+        profile_picture_url = None
+        if user.profile_picture:
+            from django.conf import settings
+            profile_picture_url = f"{settings.MEDIA_URL}{user.profile_picture.name}"
+        
         return success_response(
             data={
                 'id': user.id,
                 'name': user.name,
                 'phone': user.phone,
+                'profilePicture': profile_picture_url,
                 'status': 'ACTIVE' if user.is_active else 'INACTIVE',
                 'roles': roles_data,  # All user roles with their permissions
                 'permissions': list(all_permissions),  # All permissions (role + direct)
@@ -883,5 +892,124 @@ def remove_biometric_token(request):
     except Exception as e:
         return error_response(
             message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+@api_response
+def update_profile(request):
+    """
+    Update user profile including name, phone, and profile picture
+    Supports multipart form data for image upload
+    """
+    try:
+        user = request.user
+        
+        # Check if user exists
+        if not user or not hasattr(user, 'id'):
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Update name if provided
+        if 'name' in request.POST:
+            user.name = request.POST.get('name').strip() if request.POST.get('name') else None
+        
+        # Update phone if provided (with validation)
+        if 'phone' in request.POST:
+            new_phone = request.POST.get('phone', '').strip()
+            if new_phone:
+                # Check if phone is already taken by another user
+                if User.objects.filter(phone=new_phone).exclude(id=user.id).exists():
+                    return error_response(
+                        message='Phone number is already in use',
+                        status_code=HTTP_STATUS['BAD_REQUEST']
+                    )
+                user.phone = new_phone
+        
+        # Handle profile picture upload
+        if 'profile_picture' in request.FILES:
+            image_file = request.FILES['profile_picture']
+            
+            # Validate file size
+            if image_file.size > FILE_UPLOAD_LIMITS['MAX_FILE_SIZE']:
+                return error_response(
+                    message=f'Image file size exceeds {FILE_UPLOAD_LIMITS["MAX_FILE_SIZE"] // (1024 * 1024)}MB limit',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+            
+            # Validate file type
+            if image_file.content_type not in FILE_UPLOAD_LIMITS['ALLOWED_IMAGE_TYPES']:
+                return error_response(
+                    message='Invalid image file type. Allowed types: jpeg, jpg, png, gif, webp',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+            
+            # Delete old profile picture if exists
+            if user.profile_picture:
+                try:
+                    if default_storage.exists(user.profile_picture.name):
+                        default_storage.delete(user.profile_picture.name)
+                except Exception as image_error:
+                    print(f'Error deleting old profile picture: {image_error}')
+            
+            # Set new profile picture
+            user.profile_picture = image_file
+        
+        user.save()
+        
+        # Get updated user roles with permissions
+        user_groups = user.groups.all()
+        roles_data = []
+        all_permissions = set()
+        
+        for group in user_groups:
+            group_permissions = list(group.permissions.values_list('name', flat=True))
+            all_permissions.update(group_permissions)
+            
+            roles_data.append({
+                'id': group.id,
+                'name': group.name,
+                'permissions': group_permissions
+            })
+        
+        # Get direct user permissions
+        django_direct_permissions = list(user.user_permissions.values_list('name', flat=True))
+        all_permissions.update(django_direct_permissions)
+        
+        custom_direct_permissions = list(user.userpermission_set.values_list('permission__name', flat=True))
+        all_permissions.update(custom_direct_permissions)
+        
+        direct_permissions = list(set(django_direct_permissions + custom_direct_permissions))
+        
+        # Get profile picture URL
+        profile_picture_url = None
+        if user.profile_picture:
+            from django.conf import settings
+            profile_picture_url = f"{settings.MEDIA_URL}{user.profile_picture.name}"
+        
+        return success_response(
+            data={
+                'id': user.id,
+                'name': user.name,
+                'phone': user.phone,
+                'profilePicture': profile_picture_url,
+                'status': 'ACTIVE' if user.is_active else 'INACTIVE',
+                'roles': roles_data,
+                'permissions': list(all_permissions),
+                'directPermissions': direct_permissions,
+                'createdAt': user.created_at.isoformat(),
+                'updatedAt': user.updated_at.isoformat()
+            },
+            message='Profile updated successfully'
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return error_response(
+            message=f"Internal server error: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )

@@ -23,6 +23,7 @@ urlpatterns = [
     # Protected routes (authentication required)
     path('logout', auth_views.logout, name='logout'),
     path('me', auth_views.get_current_user, name='get_current_user'),
+    path('update-profile', auth_views.update_profile, name='update_profile'),
     path('verify-password', auth_views.verify_password, name='verify_password'),
     path('delete-account', auth_views.delete_account, name='delete_account'),
     path('biometric-token', auth_views.update_biometric_token, name='update_biometric_token'),

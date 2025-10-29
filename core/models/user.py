@@ -9,6 +9,7 @@ class User(AbstractUser):
     phone = models.CharField(max_length=100, unique=True)
     email = models.EmailField(max_length=100, blank=True, null=True)
     name = models.CharField(max_length=100, blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='uploads/avatars/', blank=True, null=True)
     fcm_token = models.CharField(max_length=500, null=True, blank=True, db_column='fcm_token')
     token = models.CharField(max_length=500, null=True, blank=True)
     biometric_token = models.CharField(max_length=500, null=True, blank=True, db_column='biometric_token')
