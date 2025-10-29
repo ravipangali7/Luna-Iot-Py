@@ -914,11 +914,12 @@ def update_profile(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Parse form fields from multipart request
-        # Django doesn't populate request.POST for PUT multipart requests automatically
-        # We need to manually extract form fields from the multipart data
+        # Parse form fields and files from multipart request
+        # Django doesn't populate request.POST or request.FILES for PUT multipart requests automatically
+        # We need to manually extract both form fields and files from the multipart data
         name = None
         phone = None
+        image_file = None
         
         # Check Content-Type
         content_type = request.META.get('CONTENT_TYPE', '')
@@ -930,27 +931,28 @@ def update_profile(request):
                 name = request.POST.get('name')
                 phone = request.POST.get('phone')
             
-            # If POST is empty, manually parse multipart form fields
-            # Django parses FILES, but we need to get the form fields
-            if (name is None or phone is None):
+            # Try to get file from request.FILES first (in case Django parsed it)
+            if 'profile_picture' in request.FILES:
+                image_file = request.FILES['profile_picture']
+            
+            # If POST/FILES are empty, manually parse multipart data in one pass
+            if (name is None or phone is None) or (image_file is None and hasattr(request, 'FILES') and not request.FILES):
                 try:
                     # Django may have cached the body in _body
-                    # Try to get raw body for parsing
+                    # Try to get raw body for parsing (only read once)
                     raw_body = None
                     if hasattr(request, '_body') and request._body:
                         raw_body = request._body
                     elif hasattr(request, 'body'):
-                        # Try to read body - might be consumed but worth trying
                         try:
                             raw_body = request.body
                         except:
                             pass
                     
                     if raw_body:
-                        # Parse multipart manually
-                        from email.parser import BytesParser
-                        from email import message_from_bytes
                         import re
+                        from io import BytesIO
+                        from django.core.files.uploadedfile import InMemoryUploadedFile
                         
                         # Extract boundary from Content-Type
                         boundary_match = re.search(r'boundary=(.+)', content_type)
@@ -960,6 +962,7 @@ def update_profile(request):
                             # Split by boundary
                             parts = raw_body.split(b'--' + boundary.encode())
                             
+                            # Parse all parts in one loop (form fields and files)
                             for part in parts:
                                 if b'name=' in part:
                                     # Extract field name
@@ -967,16 +970,60 @@ def update_profile(request):
                                     if name_match:
                                         field_name = name_match.group(1).decode('utf-8')
                                         
-                                        # Extract field value (between headers and next boundary)
-                                        if b'\r\n\r\n' in part:
-                                            value_part = part.split(b'\r\n\r\n', 1)[1]
-                                            # Remove trailing boundary markers
-                                            value_part = value_part.split(b'\r\n--')[0].strip()
-                                            
-                                            if field_name == 'name':
-                                                name = value_part.decode('utf-8', errors='ignore')
-                                            elif field_name == 'phone':
-                                                phone = value_part.decode('utf-8', errors='ignore')
+                                        # Check if this is a file field or form field
+                                        if b'filename=' in part:
+                                            # This is a file field
+                                            if field_name == 'profile_picture' and image_file is None:
+                                                # Extract filename
+                                                filename_match = re.search(rb'filename="([^"]+)"', part)
+                                                filename = filename_match.group(1).decode('utf-8', errors='ignore') if filename_match else 'profile_picture.jpg'
+                                                
+                                                # Extract content-type
+                                                content_type_match = re.search(rb'Content-Type:\s*([^\r\n]+)', part)
+                                                file_content_type = content_type_match.group(1).decode('utf-8', errors='ignore').strip() if content_type_match else 'image/jpeg'
+                                                
+                                                # Extract file content (after headers)
+                                                if b'\r\n\r\n' in part:
+                                                    file_content = part.split(b'\r\n\r\n', 1)[1]
+                                                    # Remove trailing boundary markers
+                                                    file_content = file_content.split(b'\r\n--')[0].rstrip(b'\r\n')
+                                                    
+                                                    # Validate file size
+                                                    if len(file_content) > FILE_UPLOAD_LIMITS['MAX_FILE_SIZE']:
+                                                        return error_response(
+                                                            message=f'Image file size exceeds {FILE_UPLOAD_LIMITS["MAX_FILE_SIZE"] // (1024 * 1024)}MB limit',
+                                                            status_code=HTTP_STATUS['BAD_REQUEST']
+                                                        )
+                                                    
+                                                    # Validate file type
+                                                    if file_content_type not in FILE_UPLOAD_LIMITS['ALLOWED_IMAGE_TYPES']:
+                                                        return error_response(
+                                                            message='Invalid image file type. Allowed types: jpeg, jpg, png, gif, webp',
+                                                            status_code=HTTP_STATUS['BAD_REQUEST']
+                                                        )
+                                                    
+                                                    # Create InMemoryUploadedFile
+                                                    file_obj = BytesIO(file_content)
+                                                    image_file = InMemoryUploadedFile(
+                                                        file_obj,
+                                                        'profile_picture',
+                                                        filename,
+                                                        file_content_type,
+                                                        len(file_content),
+                                                        'utf-8'
+                                                    )
+                                        else:
+                                            # This is a form field
+                                            # Extract field value (between headers and next boundary)
+                                            if b'\r\n\r\n' in part:
+                                                value_part = part.split(b'\r\n\r\n', 1)[1]
+                                                # Remove trailing boundary markers
+                                                value_part = value_part.split(b'\r\n--')[0].strip()
+                                                
+                                                if field_name == 'name' and name is None:
+                                                    name = value_part.decode('utf-8', errors='ignore')
+                                                elif field_name == 'phone' and phone is None:
+                                                    phone = value_part.decode('utf-8', errors='ignore')
                 except Exception as parse_error:
                     print(f'Error manually parsing multipart: {parse_error}')
                     import traceback
@@ -993,7 +1040,7 @@ def update_profile(request):
                 pass
         
         # Debug logging
-        print(f'DEBUG update_profile: name={name}, phone={phone}, content_type={content_type}, has_FILES={bool(request.FILES)}, POST_empty={not (request.POST and request.POST)}')
+        print(f'DEBUG update_profile: name={name}, phone={phone}, image_file={image_file is not None}, content_type={content_type}, has_FILES={bool(request.FILES)}, POST_empty={not (request.POST and request.POST)}')
         
         # Update name if provided
         if name is not None:
@@ -1012,23 +1059,7 @@ def update_profile(request):
                 user.phone = new_phone
         
         # Handle profile picture upload
-        if 'profile_picture' in request.FILES:
-            image_file = request.FILES['profile_picture']
-            
-            # Validate file size
-            if image_file.size > FILE_UPLOAD_LIMITS['MAX_FILE_SIZE']:
-                return error_response(
-                    message=f'Image file size exceeds {FILE_UPLOAD_LIMITS["MAX_FILE_SIZE"] // (1024 * 1024)}MB limit',
-                    status_code=HTTP_STATUS['BAD_REQUEST']
-                )
-            
-            # Validate file type
-            if image_file.content_type not in FILE_UPLOAD_LIMITS['ALLOWED_IMAGE_TYPES']:
-                return error_response(
-                    message='Invalid image file type. Allowed types: jpeg, jpg, png, gif, webp',
-                    status_code=HTTP_STATUS['BAD_REQUEST']
-                )
-            
+        if image_file:
             # Delete old profile picture if exists
             if user.profile_picture:
                 try:
@@ -1039,6 +1070,8 @@ def update_profile(request):
             
             # Set new profile picture
             user.profile_picture = image_file
+            
+            print(f'DEBUG: Profile picture uploaded - filename={image_file.name}, size={image_file.size}, content_type={image_file.content_type}')
         
         user.save()
         
