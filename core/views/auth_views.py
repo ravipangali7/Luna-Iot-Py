@@ -902,7 +902,7 @@ def remove_biometric_token(request):
 def update_profile(request):
     """
     Update user profile including name, phone, and profile picture
-    Supports multipart form data for image upload
+    Supports both JSON (when no file) and multipart form data (when file is present)
     """
     try:
         user = request.user
@@ -914,13 +914,94 @@ def update_profile(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Parse form fields from multipart request
+        # Django doesn't populate request.POST for PUT multipart requests automatically
+        # We need to manually extract form fields from the multipart data
+        name = None
+        phone = None
+        
+        # Check Content-Type
+        content_type = request.META.get('CONTENT_TYPE', '')
+        is_multipart = 'multipart/form-data' in content_type
+        
+        if is_multipart:
+            # For multipart PUT requests, try request.POST first (might be populated in some Django versions)
+            if request.POST:
+                name = request.POST.get('name')
+                phone = request.POST.get('phone')
+            
+            # If POST is empty, manually parse multipart form fields
+            # Django parses FILES, but we need to get the form fields
+            if (name is None or phone is None):
+                try:
+                    # Django may have cached the body in _body
+                    # Try to get raw body for parsing
+                    raw_body = None
+                    if hasattr(request, '_body') and request._body:
+                        raw_body = request._body
+                    elif hasattr(request, 'body'):
+                        # Try to read body - might be consumed but worth trying
+                        try:
+                            raw_body = request.body
+                        except:
+                            pass
+                    
+                    if raw_body:
+                        # Parse multipart manually
+                        from email.parser import BytesParser
+                        from email import message_from_bytes
+                        import re
+                        
+                        # Extract boundary from Content-Type
+                        boundary_match = re.search(r'boundary=(.+)', content_type)
+                        if boundary_match:
+                            boundary = boundary_match.group(1).strip().strip('"\'')
+                            
+                            # Split by boundary
+                            parts = raw_body.split(b'--' + boundary.encode())
+                            
+                            for part in parts:
+                                if b'name=' in part:
+                                    # Extract field name
+                                    name_match = re.search(rb'name="([^"]+)"', part)
+                                    if name_match:
+                                        field_name = name_match.group(1).decode('utf-8')
+                                        
+                                        # Extract field value (between headers and next boundary)
+                                        if b'\r\n\r\n' in part:
+                                            value_part = part.split(b'\r\n\r\n', 1)[1]
+                                            # Remove trailing boundary markers
+                                            value_part = value_part.split(b'\r\n--')[0].strip()
+                                            
+                                            if field_name == 'name':
+                                                name = value_part.decode('utf-8', errors='ignore')
+                                            elif field_name == 'phone':
+                                                phone = value_part.decode('utf-8', errors='ignore')
+                except Exception as parse_error:
+                    print(f'Error manually parsing multipart: {parse_error}')
+                    import traceback
+                    traceback.print_exc()
+        else:
+            # JSON request
+            import json
+            try:
+                if request.body:
+                    data = json.loads(request.body)
+                    name = data.get('name')
+                    phone = data.get('phone')
+            except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+                pass
+        
+        # Debug logging
+        print(f'DEBUG update_profile: name={name}, phone={phone}, content_type={content_type}, has_FILES={bool(request.FILES)}, POST_empty={not (request.POST and request.POST)}')
+        
         # Update name if provided
-        if 'name' in request.POST:
-            user.name = request.POST.get('name').strip() if request.POST.get('name') else None
+        if name is not None:
+            user.name = name.strip() if name else None
         
         # Update phone if provided (with validation)
-        if 'phone' in request.POST:
-            new_phone = request.POST.get('phone', '').strip()
+        if phone is not None:
+            new_phone = phone.strip()
             if new_phone:
                 # Check if phone is already taken by another user
                 if User.objects.filter(phone=new_phone).exclude(id=user.id).exists():
