@@ -26,6 +26,8 @@ urlpatterns = [
     
     # Shared module URLs
     path('api/shared/', include('shared.urls')),
+    # Public short links (root-level)
+    path('', include('shared.urls.short_link_urls')),
     
     # Device module URLs
     path('api/device/', include('device.urls')),

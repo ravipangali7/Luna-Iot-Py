@@ -3,11 +3,15 @@ Alert SMS Service
 Handles SMS notifications for alert creation and updates, including buzzer relay control
 """
 import logging
+import secrets
+import string
 from typing import List, Dict, Any
 from django.db.models import Q
 from api_common.utils.sms_service import sms_service
 from alert_system.models import AlertHistory, AlertContact, AlertBuzzer, AlertGeofence
 from alert_system.services.alert_notification_service import is_point_in_polygon
+from django.utils import timezone
+from shared.models import ShortLink
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +22,23 @@ def _build_directions_link(lat: float, lon: float) -> str:
     return base.format(lat=lat, lon=lon)
 
 
-def _shorten_with_tinyurl(url: str) -> str:
-    """Shorten a URL using TinyURL API. Falls back to original on error."""
-    try:
-        from urllib.parse import quote
-        from urllib.request import urlopen
+_ALPHABET = string.ascii_letters + string.digits
 
-        with urlopen("https://tinyurl.com/api-create.php?url=" + quote(url, safe=""), timeout=5) as resp:
-            short = resp.read().decode("utf-8").strip()
-            return short if short.startswith("http") else url
-    except Exception:
-        return url
+
+def _generate_code(length: int = 7) -> str:
+    return ''.join(secrets.choice(_ALPHABET) for _ in range(length))
+
+
+def _create_internal_short_link(full_url: str, base: str = "https://mylunago.com", ttl_hours: int = 168) -> str:
+    expire_at = timezone.now() + timezone.timedelta(hours=ttl_hours)
+    for _ in range(5):
+        code = _generate_code()
+        try:
+            ShortLink.objects.create(code=code, url=full_url, expire_at=expire_at)
+            return f"{base}/g/{code}"
+        except Exception:
+            continue
+    return full_url
 
 
 def get_switch_device_phone(alert_history: AlertHistory) -> str:
@@ -200,15 +210,12 @@ def send_alert_sms_to_contacts(alert_history: AlertHistory, contacts: List[Alert
 
         maps_link = None
         if lat is not None and lon is not None:
-            try:
-                maps_link = _shorten_with_tinyurl(_build_directions_link(lat, lon))
-            except Exception:
-                maps_link = _build_directions_link(lat, lon)
+            full_maps = _build_directions_link(lat, lon)
+            maps_link = _create_internal_short_link(full_maps, base="https://mylunago.com")
 
         parts = [f"{alert_history.name}, need your help for {alert_type_name}."]
         if maps_link:
             parts.append(maps_link)
-        parts.append("https://www.mylunago.com")
         parts.append(f"Contact on {alert_history.primary_phone}.")
         message = " ".join(parts)
         
