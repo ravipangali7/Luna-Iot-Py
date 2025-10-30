@@ -169,7 +169,30 @@ def send_alert_sms_to_contacts(alert_history: AlertHistory, contacts: List[Alert
         
         # Format SMS message
         alert_type_name = alert_history.alert_type.name if alert_history.alert_type else "Unknown"
-        message = f"{alert_history.name}, need your help for {alert_type_name}. https://www.mylunago.com Contact on {alert_history.primary_phone}."
+        # Try to build Google Maps pin and directions links using provided latitude/longitude
+        message = None
+        try:
+            lat = alert_history.latitude
+            lng = alert_history.longitude
+            if lat is not None and lng is not None and str(lat) != "" and str(lng) != "":
+                lat_f = float(lat)
+                lng_f = float(lng)
+                pin_url = f"https://maps.google.com/?q={lat_f},{lng_f}"
+                dir_url = f"https://www.google.com/maps/dir/?api=1&destination={lat_f},{lng_f}"
+                message = (
+                    f"{alert_history.name}, need your help for {alert_type_name}. "
+                    f"{pin_url} | Directions: {dir_url} "
+                    f"Contact on {alert_history.primary_phone}."
+                )
+        except Exception:
+            # Fall through to default message below on any error parsing lat/lng
+            message = None
+
+        if not message:
+            message = (
+                f"{alert_history.name}, need your help for {alert_type_name}. "
+                f"https://www.mylunago.com Contact on {alert_history.primary_phone}."
+            )
         
         sent_count = 0
         failed_count = 0
