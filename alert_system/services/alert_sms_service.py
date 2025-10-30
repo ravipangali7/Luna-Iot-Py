@@ -211,7 +211,7 @@ def send_alert_sms_to_contacts(alert_history: AlertHistory, contacts: List[Alert
         maps_link = None
         if lat is not None and lon is not None:
             full_maps = _build_directions_link(lat, lon)
-            maps_link = _create_internal_short_link(full_maps, base="https://mylunago.com")
+            maps_link = _create_internal_short_link(full_maps, base="mylunago.com")
 
         parts = [f"{alert_history.name}, need your help for {alert_type_name}."]
         if maps_link:
