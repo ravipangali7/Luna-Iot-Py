@@ -3,7 +3,8 @@ from shared.views.short_link_api import resolve_short_link
 
 
 urlpatterns = [
-    path("api/shared/short-links/<str:code>", resolve_short_link, name="shared.short_link.resolve"),
+    # This module is included under project prefix 'api/shared/', so keep only 'short-links/...'
+    path("short-links/<str:code>", resolve_short_link, name="shared.short_link.resolve"),
 ]
 
 
