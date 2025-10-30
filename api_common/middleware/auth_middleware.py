@@ -50,6 +50,10 @@ class AuthMiddleware(MiddlewareMixin):
         # Skip authentication for media files
         if request.path.startswith('/media/'):
             return None
+
+        # Skip authentication for public short-link resolver endpoint
+        if request.path.startswith('/api/shared/short-links/'):
+            return None
             
         # Skip authentication for health blood donation endpoints
         if request.path.startswith('/api/health/blood-donation'):
