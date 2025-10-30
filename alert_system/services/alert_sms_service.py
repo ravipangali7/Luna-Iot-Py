@@ -12,6 +12,25 @@ from alert_system.services.alert_notification_service import is_point_in_polygon
 logger = logging.getLogger(__name__)
 
 
+def _build_directions_link(lat: float, lon: float) -> str:
+    """Return Google Maps directions URL to destination lat/lon."""
+    base = "https://www.google.com/maps/dir/?api=1&destination={lat},{lon}"
+    return base.format(lat=lat, lon=lon)
+
+
+def _shorten_with_tinyurl(url: str) -> str:
+    """Shorten a URL using TinyURL API. Falls back to original on error."""
+    try:
+        from urllib.parse import quote
+        from urllib.request import urlopen
+
+        with urlopen("https://tinyurl.com/api-create.php?url=" + quote(url, safe=""), timeout=5) as resp:
+            short = resp.read().decode("utf-8").strip()
+            return short if short.startswith("http") else url
+    except Exception:
+        return url
+
+
 def get_switch_device_phone(alert_history: AlertHistory) -> str:
     """
     Get the device phone number for the alert switch that triggered this alert.
@@ -167,32 +186,31 @@ def send_alert_sms_to_contacts(alert_history: AlertHistory, contacts: List[Alert
             logger.info(f"No contacts to notify for alert {alert_history.id}")
             return {'success': True, 'message': 'No contacts to notify', 'sent_count': 0}
         
-        # Format SMS message
+        # Format SMS message with Google Maps directions link (shortened)
         alert_type_name = alert_history.alert_type.name if alert_history.alert_type else "Unknown"
-        # Try to build Google Maps pin and directions links using provided latitude/longitude
-        message = None
-        try:
-            lat = alert_history.latitude
-            lng = alert_history.longitude
-            if lat is not None and lng is not None and str(lat) != "" and str(lng) != "":
-                lat_f = float(lat)
-                lng_f = float(lng)
-                pin_url = f"https://maps.google.com/?q={lat_f},{lng_f}"
-                dir_url = f"https://www.google.com/maps/dir/?api=1&destination={lat_f},{lng_f}"
-                message = (
-                    f"{alert_history.name}, need your help for {alert_type_name}. "
-                    f"{pin_url} | Directions: {dir_url} "
-                    f"Contact on {alert_history.primary_phone}."
-                )
-        except Exception:
-            # Fall through to default message below on any error parsing lat/lng
-            message = None
 
-        if not message:
-            message = (
-                f"{alert_history.name}, need your help for {alert_type_name}. "
-                f"https://www.mylunago.com Contact on {alert_history.primary_phone}."
-            )
+        lat = None
+        lon = None
+        try:
+            lat = float(alert_history.latitude) if alert_history.latitude is not None else None
+            lon = float(alert_history.longitude) if alert_history.longitude is not None else None
+        except (TypeError, ValueError):
+            lat = None
+            lon = None
+
+        maps_link = None
+        if lat is not None and lon is not None:
+            try:
+                maps_link = _shorten_with_tinyurl(_build_directions_link(lat, lon))
+            except Exception:
+                maps_link = _build_directions_link(lat, lon)
+
+        parts = [f"{alert_history.name}, need your help for {alert_type_name}."]
+        if maps_link:
+            parts.append(maps_link)
+        parts.append("https://www.mylunago.com")
+        parts.append(f"Contact on {alert_history.primary_phone}.")
+        message = " ".join(parts)
         
         sent_count = 0
         failed_count = 0
