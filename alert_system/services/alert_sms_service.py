@@ -71,6 +71,36 @@ def get_switch_device_phone(alert_history: AlertHistory) -> str:
         return None
 
 
+def get_alert_switch(alert_history: AlertHistory):
+    """
+    Get the AlertSwitch instance that triggered this alert.
+    
+    Args:
+        alert_history: AlertHistory instance with source='switch'
+        
+    Returns:
+        AlertSwitch instance or None
+    """
+    try:
+        from alert_system.models import AlertSwitch
+        
+        # Find the switch for this alert's institute and phone numbers
+        switch = AlertSwitch.objects.filter(
+            institute=alert_history.institute,
+            primary_phone=alert_history.primary_phone
+        ).select_related('device').first()
+        
+        if switch:
+            return switch
+        
+        logger.warning(f"Could not find switch for alert {alert_history.id}")
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error getting alert switch for alert {alert_history.id}: {e}")
+        return None
+
+
 def find_matching_alert_contacts(alert_history: AlertHistory) -> List[AlertContact]:
     """
     Find alert contacts that should receive SMS notifications for this alert.
@@ -309,18 +339,19 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
                     
                     # If source is 'switch', also send relay to switch device
                     if alert_history.source == 'switch':
-                        switch_device_phone = get_switch_device_phone(alert_history)
+                        switch = get_alert_switch(alert_history)
                         
-                        if switch_device_phone:
+                        if switch and switch.device and switch.device.phone:
+                            switch_device_phone = switch.device.phone
                             switch_relay_result = sms_service.send_relay_on_command(switch_device_phone)
                             
                             if switch_relay_result['success']:
                                 logger.info(f"Relay ON sent to switch device ({switch_device_phone})")
                                 
-                                # Schedule relay OFF for switch device (same delay as buzzer)
+                                # Schedule relay OFF for switch device using switch.trigger as delay
                                 schedule_relay_off_command(
                                     switch_device_phone,
-                                    buzzer.delay,
+                                    switch.trigger,
                                     alert_history.id,
                                     buzzer.id
                                 )
