@@ -762,8 +762,10 @@ def send_relay_on(request):
     try:
         data = request.data
         phone = data.get('phone')
+        print(f"[DEBUG SMS] send_relay_on() - Request received, phone: {phone}")
         
         if not phone:
+            print(f"[DEBUG SMS] send_relay_on() - Validation failed: Phone number is required")
             return error_response(
                 message='Phone number is required',
                 status_code=HTTP_STATUS['BAD_REQUEST']
@@ -771,11 +773,14 @@ def send_relay_on(request):
         
         # Relay ON command message
         relay_on_message = 'RELAY,1#'
+        print(f"[DEBUG SMS] send_relay_on() - Preparing to send RELAY ON to {phone}, message: {relay_on_message}")
         
         # Send SMS using SMS service
         sms_result = sms_service.send_relay_on_command(phone)
+        print(f"[DEBUG SMS] send_relay_on() - SMS result: success={sms_result.get('success')}, message={sms_result.get('message')}")
         
         if sms_result['success']:
+            print(f"[DEBUG SMS] send_relay_on() - Successfully sent RELAY ON to {phone}")
             return success_response(
                 data={
                     'phone': phone,
@@ -785,12 +790,14 @@ def send_relay_on(request):
                 message='Relay ON command sent successfully'
             )
         else:
+            print(f"[DEBUG SMS] send_relay_on() - Failed to send RELAY ON to {phone}: {sms_result['message']}")
             return error_response(
                 message=f'Failed to send relay ON command: {sms_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             
     except Exception as e:
+        print(f"[DEBUG SMS] send_relay_on() - Exception occurred: {str(e)}")
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
@@ -808,8 +815,10 @@ def send_relay_off(request):
     try:
         data = request.data
         phone = data.get('phone')
+        print(f"[DEBUG SMS] send_relay_off() - Request received, phone: {phone}")
         
         if not phone:
+            print(f"[DEBUG SMS] send_relay_off() - Validation failed: Phone number is required")
             return error_response(
                 message='Phone number is required',
                 status_code=HTTP_STATUS['BAD_REQUEST']
@@ -817,11 +826,14 @@ def send_relay_off(request):
         
         # Relay OFF command message
         relay_off_message = 'RELAY,0#'
+        print(f"[DEBUG SMS] send_relay_off() - Preparing to send RELAY OFF to {phone}, message: {relay_off_message}")
         
         # Send SMS using SMS service
         sms_result = sms_service.send_relay_off_command(phone)
+        print(f"[DEBUG SMS] send_relay_off() - SMS result: success={sms_result.get('success')}, message={sms_result.get('message')}")
         
         if sms_result['success']:
+            print(f"[DEBUG SMS] send_relay_off() - Successfully sent RELAY OFF to {phone}")
             return success_response(
                 data={
                     'phone': phone,
@@ -831,12 +843,14 @@ def send_relay_off(request):
                 message='Relay OFF command sent successfully'
             )
         else:
+            print(f"[DEBUG SMS] send_relay_off() - Failed to send RELAY OFF to {phone}: {sms_result['message']}")
             return error_response(
                 message=f'Failed to send relay OFF command: {sms_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             
     except Exception as e:
+        print(f"[DEBUG SMS] send_relay_off() - Exception occurred: {str(e)}")
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']

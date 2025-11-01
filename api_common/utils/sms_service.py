@@ -29,6 +29,7 @@ class SMSService:
         Returns:
             Dict[str, Any]: Result containing success status and message
         """
+        print(f"[DEBUG SMS] send_sms() - Phone: {phone_number}, Message: {message}")
         try:
             # Prepare parameters
             params = {
@@ -43,34 +44,43 @@ class SMSService:
             
             # Build URL with proper encoding
             url = f"{self.config['API_URL']}?{urlencode(params)}"
+            print(f"[DEBUG SMS] send_sms() - API URL: {self.config['API_URL']}")
+            print(f"[DEBUG SMS] send_sms() - Parameters: {dict((k, v if k != 'key' else '***') for k, v in params.items())}")
             
             # Send request
+            print(f"[DEBUG SMS] send_sms() - Sending request to SMS API...")
             response = requests.get(url, timeout=30)
             
             # Check if SMS was sent successfully
+            print(f"[DEBUG SMS] send_sms() - Response status code: {response.status_code}")
             if response.status_code == 200:
                 response_data = response.text.strip()
+                print(f"[DEBUG SMS] send_sms() - Response data: {response_data}")
                 
                 # The API returns "SMS-SHOOT-ID/..." when successful
                 if 'SMS-SHOOT-ID' in response_data:
+                    print(f"[DEBUG SMS] send_sms() - SMS sent successfully to {phone_number}")
                     return {
                         'success': True, 
                         'message': 'SMS sent successfully',
                         'response': response_data
                     }
                 elif 'ERR:' in response_data:
+                    print(f"[DEBUG SMS] send_sms() - SMS service error for {phone_number}: {response_data}")
                     return {
                         'success': False, 
                         'message': f'SMS service error: {response_data}',
                         'response': response_data
                     }
                 else:
+                    print(f"[DEBUG SMS] send_sms() - Unexpected response for {phone_number}: {response_data}")
                     return {
                         'success': False, 
                         'message': f'Unexpected response from SMS service: {response_data}',
                         'response': response_data
                     }
             else:
+                print(f"[DEBUG SMS] send_sms() - Failed with status code {response.status_code} for {phone_number}")
                 return {
                     'success': False, 
                     'message': f'SMS API returned status code: {response.status_code}',
@@ -78,16 +88,19 @@ class SMSService:
                 }
                 
         except requests.exceptions.Timeout:
+            print(f"[DEBUG SMS] send_sms() - Timeout error for {phone_number}")
             return {
                 'success': False, 
                 'message': 'SMS service timeout - request took too long'
             }
         except requests.exceptions.ConnectionError:
+            print(f"[DEBUG SMS] send_sms() - Connection error for {phone_number}")
             return {
                 'success': False, 
                 'message': 'SMS service connection error - unable to reach API'
             }
         except Exception as e:
+            print(f"[DEBUG SMS] send_sms() - Exception for {phone_number}: {str(e)}")
             return {
                 'success': False, 
                 'message': f'SMS service error: {str(e)}'
@@ -159,8 +172,12 @@ class SMSService:
         Returns:
             Dict[str, Any]: Result containing success status and message
         """
+        print(f"[DEBUG SMS] send_relay_on_command() - Sending RELAY ON to {phone_number}")
         message = "RELAY,1#"
-        return self.send_sms(phone_number, message)
+        print(f"[DEBUG SMS] send_relay_on_command() - Command message: {message}")
+        result = self.send_sms(phone_number, message)
+        print(f"[DEBUG SMS] send_relay_on_command() - Result: success={result.get('success')}, message={result.get('message')}")
+        return result
     
     def send_relay_off_command(self, phone_number: str) -> Dict[str, Any]:
         """
@@ -172,8 +189,12 @@ class SMSService:
         Returns:
             Dict[str, Any]: Result containing success status and message
         """
+        print(f"[DEBUG SMS] send_relay_off_command() - Sending RELAY OFF to {phone_number}")
         message = "RELAY,0#"
-        return self.send_sms(phone_number, message)
+        print(f"[DEBUG SMS] send_relay_off_command() - Command message: {message}")
+        result = self.send_sms(phone_number, message)
+        print(f"[DEBUG SMS] send_relay_off_command() - Result: success={result.get('success')}, message={result.get('message')}")
+        return result
 
 
 # Create singleton instance
