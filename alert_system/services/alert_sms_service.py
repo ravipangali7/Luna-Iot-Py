@@ -281,10 +281,8 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
         Dict with success status and details
     """
     try:
-        print(f"[DEBUG SMS] send_buzzer_relay_commands() - Alert ID: {alert_history.id}, Buzzers count: {len(buzzers) if buzzers else 0}")
         if not buzzers:
             logger.info(f"No buzzers to activate for alert {alert_history.id}")
-            print(f"[DEBUG SMS] send_buzzer_relay_commands() - No buzzers to activate for alert {alert_history.id}")
             return {'success': True, 'message': 'No buzzers to activate', 'activated_count': 0}
         
         activated_count = 0
@@ -293,60 +291,45 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
         
         for buzzer in buzzers:
             try:
-                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Processing buzzer ID: {buzzer.id}, Title: {buzzer.title}, Phone: {buzzer.device.phone}, Delay: {buzzer.delay}s")
                 # Send relay ON command to buzzer
                 relay_on_result = sms_service.send_relay_on_command(buzzer.device.phone)
-                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Buzzer {buzzer.id} relay ON result: success={relay_on_result.get('success')}, message={relay_on_result.get('message')}")
                 
                 if relay_on_result['success']:
                     activated_count += 1
                     logger.info(f"Relay ON sent to buzzer {buzzer.title} ({buzzer.device.phone})")
-                    print(f"[DEBUG SMS] send_buzzer_relay_commands() - Successfully sent relay ON to buzzer {buzzer.title} ({buzzer.device.phone})")
                     
                     # Schedule relay OFF for buzzer
                     from alert_system.tasks import schedule_relay_off_command
-                    print(f"[DEBUG SMS] send_buzzer_relay_commands() - Scheduling relay OFF for buzzer {buzzer.id} after {buzzer.delay}s delay")
                     schedule_relay_off_command(
                         buzzer.device.phone,
                         buzzer.delay,
                         alert_history.id,
                         buzzer.id
                     )
-                    print(f"[DEBUG SMS] send_buzzer_relay_commands() - Scheduled relay OFF command for buzzer {buzzer.id}")
                     
                     # If source is 'switch', also send relay to switch device
                     if alert_history.source == 'switch':
-                        print(f"[DEBUG SMS] send_buzzer_relay_commands() - Alert source is 'switch', checking for switch device")
                         switch_device_phone = get_switch_device_phone(alert_history)
                         
                         if switch_device_phone:
-                            print(f"[DEBUG SMS] send_buzzer_relay_commands() - Sending relay ON to switch device: {switch_device_phone}")
                             switch_relay_result = sms_service.send_relay_on_command(switch_device_phone)
-                            print(f"[DEBUG SMS] send_buzzer_relay_commands() - Switch device relay ON result: success={switch_relay_result.get('success')}, message={switch_relay_result.get('message')}")
                             
                             if switch_relay_result['success']:
                                 logger.info(f"Relay ON sent to switch device ({switch_device_phone})")
-                                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Successfully sent relay ON to switch device ({switch_device_phone})")
                                 
                                 # Schedule relay OFF for switch device (same delay as buzzer)
-                                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Scheduling relay OFF for switch device after {buzzer.delay}s delay")
                                 schedule_relay_off_command(
                                     switch_device_phone,
                                     buzzer.delay,
                                     alert_history.id,
                                     buzzer.id
                                 )
-                                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Scheduled relay OFF command for switch device")
                             else:
                                 logger.warning(f"Failed to send relay ON to switch device ({switch_device_phone})")
-                                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Failed to send relay ON to switch device ({switch_device_phone})")
-                        else:
-                            print(f"[DEBUG SMS] send_buzzer_relay_commands() - No switch device phone found for alert {alert_history.id}")
                     
                 else:
                     failed_count += 1
                     logger.warning(f"Failed to send relay ON to buzzer {buzzer.title}")
-                    print(f"[DEBUG SMS] send_buzzer_relay_commands() - Failed to send relay ON to buzzer {buzzer.title}")
                 
                 results.append({
                     'buzzer_id': buzzer.id,
@@ -360,9 +343,7 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
             except Exception as e:
                 failed_count += 1
                 logger.error(f"Error activating buzzer {buzzer.title}: {e}")
-                print(f"[DEBUG SMS] send_buzzer_relay_commands() - Exception activating buzzer {buzzer.title}: {str(e)}")
         
-        print(f"[DEBUG SMS] send_buzzer_relay_commands() - Completed: {activated_count} activated, {failed_count} failed for alert {alert_history.id}")
         return {
             'success': True,
             'message': f'Buzzer activation completed: {activated_count} activated, {failed_count} failed',
@@ -373,7 +354,6 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
         
     except Exception as e:
         logger.error(f"Error activating buzzers for alert {alert_history.id}: {e}")
-        print(f"[DEBUG SMS] send_buzzer_relay_commands() - Exception for alert {alert_history.id}: {str(e)}")
         return {'success': False, 'message': str(e)}
 
 
