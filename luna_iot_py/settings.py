@@ -223,6 +223,8 @@ SMS_CAMPAIGN_ID = '9148'
 SMS_ROUTE_ID = '130'
 SMS_SENDER_ID = 'SMSBit'
 
+NODEJS_API_BASE_URL="https://www.system.mylunago.com"
+
 # Logging Configuration
 LOGGING = {
     'version': 1,

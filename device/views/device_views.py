@@ -782,7 +782,7 @@ def send_tcp_relay_command(phone: str, command: str) -> Dict[str, Any]:
             return {'success': False, 'error': 'Device not found'}
         
         # Get Node.js API URL
-        nodejs_base_url = getattr(settings, 'NODEJS_API_BASE_URL', 'http://localhost:6060')
+        nodejs_base_url = getattr(settings, 'NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
         nodejs_url = f"{nodejs_base_url}/api/tcp/send-command"
         
         # Prepare payload
