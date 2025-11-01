@@ -12,6 +12,9 @@ from rest_framework import status
 
 from device.models.device import Device
 from device.models.user_device import UserDevice
+from device.models.status import Status
+from device.models.buzzer_status import BuzzerStatus
+from device.models.sos_status import SosStatus
 from core.models.user import User
 from api_common.utils.response_utils import success_response, error_response
 from api_common.utils.validation_utils import validate_imei
@@ -947,6 +950,33 @@ def get_devices_paginated(request):
                     'userVehicles': user_vehicles_data
                 })
             
+            # Get latest status based on device type
+            latest_status = None
+            device_type = (device.type or 'gps').lower()
+            try:
+                if device_type == 'sos':
+                    latest_status_obj = SosStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                elif device_type == 'buzzer':
+                    latest_status_obj = BuzzerStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                else:
+                    # Default to GPS status
+                    latest_status_obj = Status.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                
+                if latest_status_obj:
+                    latest_status = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': latest_status_obj.battery,
+                        'signal': latest_status_obj.signal,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat(),
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                    }
+            except Exception as e:
+                latest_status = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -955,6 +985,7 @@ def get_devices_paginated(request):
                 'protocol': device.protocol,
                 'iccid': device.iccid,
                 'model': device.model,
+                'type': device.type,
                 'status': 'active',  # Default status
                 'subscription_plan': {
                     'id': device.subscription_plan.id,
@@ -963,6 +994,7 @@ def get_devices_paginated(request):
                 } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
+                'latestStatus': latest_status,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1141,6 +1173,33 @@ def search_devices(request):
                     'userVehicles': user_vehicles_data
                 })
             
+            # Get latest status based on device type
+            latest_status = None
+            device_type = (device.type or 'gps').lower()
+            try:
+                if device_type == 'sos':
+                    latest_status_obj = SosStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                elif device_type == 'buzzer':
+                    latest_status_obj = BuzzerStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                else:
+                    # Default to GPS status
+                    latest_status_obj = Status.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                
+                if latest_status_obj:
+                    latest_status = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': latest_status_obj.battery,
+                        'signal': latest_status_obj.signal,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat(),
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                    }
+            except Exception as e:
+                latest_status = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1149,6 +1208,7 @@ def search_devices(request):
                 'protocol': device.protocol,
                 'iccid': device.iccid,
                 'model': device.model,
+                'type': device.type,
                 'status': 'active',  # Default status
                 'subscription_plan': {
                     'id': device.subscription_plan.id,
@@ -1157,6 +1217,7 @@ def search_devices(request):
                 } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
+                'latestStatus': latest_status,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1366,6 +1427,25 @@ def get_gps_devices_paginated(request):
                     'userVehicles': user_vehicles_data
                 })
             
+            # Get latest status for GPS device (Status table)
+            latest_status = None
+            try:
+                latest_status_obj = Status.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                if latest_status_obj:
+                    latest_status = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': latest_status_obj.battery,
+                        'signal': latest_status_obj.signal,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat(),
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                    }
+            except Exception as e:
+                latest_status = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1383,6 +1463,7 @@ def get_gps_devices_paginated(request):
                 } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
+                'latestStatus': latest_status,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1543,6 +1624,25 @@ def get_buzzer_devices_paginated(request):
                     'userVehicles': user_vehicles_data
                 })
             
+            # Get latest status for Buzzer device (BuzzerStatus table)
+            latest_status = None
+            try:
+                latest_status_obj = BuzzerStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                if latest_status_obj:
+                    latest_status = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': latest_status_obj.battery,
+                        'signal': latest_status_obj.signal,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat(),
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                    }
+            except Exception as e:
+                latest_status = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1560,6 +1660,7 @@ def get_buzzer_devices_paginated(request):
                 } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
+                'latestStatus': latest_status,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1720,6 +1821,25 @@ def get_sos_devices_paginated(request):
                     'userVehicles': user_vehicles_data
                 })
             
+            # Get latest status for SOS device (SosStatus table)
+            latest_status = None
+            try:
+                latest_status_obj = SosStatus.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
+                if latest_status_obj:
+                    latest_status = {
+                        'id': latest_status_obj.id,
+                        'imei': latest_status_obj.imei,
+                        'battery': latest_status_obj.battery,
+                        'signal': latest_status_obj.signal,
+                        'ignition': latest_status_obj.ignition,
+                        'charging': latest_status_obj.charging,
+                        'relay': latest_status_obj.relay,
+                        'createdAt': latest_status_obj.createdAt.isoformat(),
+                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                    }
+            except Exception as e:
+                latest_status = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1737,6 +1857,7 @@ def get_sos_devices_paginated(request):
                 } if device.subscription_plan else None,
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
+                'latestStatus': latest_status,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
