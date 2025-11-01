@@ -23,12 +23,6 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_dealer_or_admin
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 from api_common.utils.sms_service import sms_service
-import requests
-import logging
-from django.conf import settings
-from typing import Dict, Any
-
-logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -757,125 +751,46 @@ def send_reset(request):
         )
 
 
-def send_tcp_relay_command(phone: str, command: str) -> Dict[str, Any]:
-    """
-    Send relay command via TCP (Node.js API)
-    This replaces SMS commands with direct TCP connection
-    
-    Args:
-        phone: Device phone number
-        command: 'ON' or 'OFF'
-    
-    Returns:
-        Dict with success status and result/error
-    """
-    try:
-        logger.info(f'[RELAY TCP] Starting relay command via TCP - Phone: {phone}, Command: {command}')
-        
-        # Get device by phone to get IMEI
-        try:
-            device = Device.objects.get(phone=phone)
-            imei = device.imei
-            logger.info(f'[RELAY TCP] Device found - Phone: {phone}, IMEI: {imei}')
-        except Device.DoesNotExist:
-            logger.error(f'[RELAY TCP] Device not found for phone: {phone}')
-            return {'success': False, 'error': 'Device not found'}
-        
-        # Get Node.js API URL
-        nodejs_base_url = getattr(settings, 'NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
-        nodejs_url = f"{nodejs_base_url}/api/tcp/send-command"
-        
-        # Prepare payload
-        payload = {
-            'imei': imei,
-            'commandType': 'RELAY',
-            'params': {'command': command}
-        }
-        
-        logger.info(f'[RELAY TCP] Calling Node.js TCP API - URL: {nodejs_url}, Payload: {payload}')
-        
-        # Call Node.js TCP API
-        try:
-            response = requests.post(nodejs_url, json=payload, timeout=10)
-            response.raise_for_status()
-            result = response.json()
-            
-            logger.info(f'[RELAY TCP] Node.js API response - Success: {result.get("success")}, Queued: {result.get("queued", False)}, Message: {result.get("message")}')
-            
-            return result
-        except requests.exceptions.Timeout:
-            logger.error(f'[RELAY TCP] Node.js API timeout for device {imei}')
-            return {'success': False, 'error': 'TCP API timeout - request took too long'}
-        except requests.exceptions.ConnectionError:
-            logger.error(f'[RELAY TCP] Node.js API connection error for device {imei}')
-            return {'success': False, 'error': 'TCP API connection error - unable to reach Node.js server'}
-        except requests.exceptions.RequestException as e:
-            logger.error(f'[RELAY TCP] Node.js API request error for device {imei}: {str(e)}')
-            return {'success': False, 'error': f'TCP API request error: {str(e)}'}
-        except Exception as e:
-            logger.error(f'[RELAY TCP] Unexpected error calling Node.js API for device {imei}: {str(e)}')
-            return {'success': False, 'error': f'Unexpected error: {str(e)}'}
-            
-    except Exception as e:
-        logger.error(f'[RELAY TCP] Unexpected error in send_tcp_relay_command: {str(e)}')
-        return {'success': False, 'error': str(e)}
-
-
 @api_view(['POST'])
 @require_auth
 @api_response
 def send_relay_on(request):
     """
-    Send relay ON command via TCP (Node.js API)
-    SMS service kept available as fallback but not used
+    Send relay ON command via SMS
     Matches Node.js DeviceController.sendRelayOn
     """
     try:
         data = request.data
         phone = data.get('phone')
         
-        logger.info(f'[RELAY ON] Received request - Phone: {phone}, User: {request.user.phone if request.user else "Anonymous"}')
-        
         if not phone:
-            logger.warning('[RELAY ON] Phone number not provided in request')
             return error_response(
                 message='Phone number is required',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Send relay command via TCP (Node.js API)
-        tcp_result = send_tcp_relay_command(phone, 'ON')
+        # Relay ON command message
+        relay_on_message = 'RELAY,1#'
         
-        if tcp_result.get('success'):
-            queued = tcp_result.get('queued', False)
-            logger.info(f'[RELAY ON] Command successful - Phone: {phone}, Queued: {queued}')
-            
+        # Send SMS using SMS service
+        sms_result = sms_service.send_relay_on_command(phone)
+        
+        if sms_result['success']:
             return success_response(
                 data={
                     'phone': phone,
-                    'command': 'ON',
-                    'queued': queued,
+                    'message': relay_on_message,
                     'sent': True
                 },
-                message='Relay ON command sent successfully' if not queued else 'Relay ON command queued - will be sent when device connects'
+                message='Relay ON command sent successfully'
             )
         else:
-            error_msg = tcp_result.get('error', 'Unknown error')
-            logger.error(f'[RELAY ON] Command failed - Phone: {phone}, Error: {error_msg}')
-            
-            # SMS fallback option (commented out, can be enabled if needed)
-            # relay_on_message = 'RELAY,1#'
-            # sms_result = sms_service.send_relay_on_command(phone)
-            # if sms_result['success']:
-            #     return success_response(...)
-            
             return error_response(
-                message=f'Failed to send relay ON command: {error_msg}',
+                message=f'Failed to send relay ON command: {sms_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             
     except Exception as e:
-        logger.error(f'[RELAY ON] Unexpected error: {str(e)}', exc_info=True)
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
@@ -887,56 +802,41 @@ def send_relay_on(request):
 @api_response
 def send_relay_off(request):
     """
-    Send relay OFF command via TCP (Node.js API)
-    SMS service kept available as fallback but not used
+    Send relay OFF command via SMS
     Matches Node.js DeviceController.sendRelayOff
     """
     try:
         data = request.data
         phone = data.get('phone')
         
-        logger.info(f'[RELAY OFF] Received request - Phone: {phone}, User: {request.user.phone if request.user else "Anonymous"}')
-        
         if not phone:
-            logger.warning('[RELAY OFF] Phone number not provided in request')
             return error_response(
                 message='Phone number is required',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Send relay command via TCP (Node.js API)
-        tcp_result = send_tcp_relay_command(phone, 'OFF')
+        # Relay OFF command message
+        relay_off_message = 'RELAY,0#'
         
-        if tcp_result.get('success'):
-            queued = tcp_result.get('queued', False)
-            logger.info(f'[RELAY OFF] Command successful - Phone: {phone}, Queued: {queued}')
-            
+        # Send SMS using SMS service
+        sms_result = sms_service.send_relay_off_command(phone)
+        
+        if sms_result['success']:
             return success_response(
                 data={
                     'phone': phone,
-                    'command': 'OFF',
-                    'queued': queued,
+                    'message': relay_off_message,
                     'sent': True
                 },
-                message='Relay OFF command sent successfully' if not queued else 'Relay OFF command queued - will be sent when device connects'
+                message='Relay OFF command sent successfully'
             )
         else:
-            error_msg = tcp_result.get('error', 'Unknown error')
-            logger.error(f'[RELAY OFF] Command failed - Phone: {phone}, Error: {error_msg}')
-            
-            # SMS fallback option (commented out, can be enabled if needed)
-            # relay_off_message = 'RELAY,0#'
-            # sms_result = sms_service.send_relay_off_command(phone)
-            # if sms_result['success']:
-            #     return success_response(...)
-            
             return error_response(
-                message=f'Failed to send relay OFF command: {error_msg}',
+                message=f'Failed to send relay OFF command: {sms_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             
     except Exception as e:
-        logger.error(f'[RELAY OFF] Unexpected error: {str(e)}', exc_info=True)
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
