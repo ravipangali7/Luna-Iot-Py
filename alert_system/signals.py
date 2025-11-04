@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from .models import AlertHistory
 from .services.alert_notification_service import send_alert_notification_via_nodejs
 from .services.alert_sms_service import process_alert_sms_notifications, send_alert_acceptance_sms
+from .services.alert_alpalika_service import send_alert_to_alpalika
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,20 @@ def send_alert_notification(sender, instance, created, **kwargs):
                 logger.info(f"SMS notifications processed successfully for alert {instance.id}")
             else:
                 logger.warning(f"Failed to process SMS notifications for alert {instance.id}: {sms_result['message']}")
+            
+            # Send alert to Alpalika API if institute name matches
+            try:
+                if instance.institute.name == "ललितपुर महानगरपालिका":
+                    logger.info(f"Institute name matches Alpalika, sending alert {instance.id} to Alpalika API")
+                    alpalika_result = send_alert_to_alpalika(instance)
+                    
+                    if alpalika_result:
+                        logger.info(f"Alert {instance.id} sent successfully to Alpalika API")
+                    else:
+                        logger.warning(f"Failed to send alert {instance.id} to Alpalika API")
+            except Exception as e:
+                # Don't break alert processing if Alpalika API fails
+                logger.error(f"Error sending alert {instance.id} to Alpalika API: {e}")
                 
         # Handle status or remarks updates
         elif not created and hasattr(instance, '_old_status') and hasattr(instance, '_old_remarks'):
