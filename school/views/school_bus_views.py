@@ -11,11 +11,65 @@ from school.serializers import (
     SchoolBusCreateSerializer,
     SchoolBusListSerializer
 )
+from fleet.models import Vehicle
+from shared_utils.constants import VehicleType
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_school_bus_vehicles(request):
+    """Get school bus vehicles with role-based access control"""
+    try:
+        user = request.user
+        
+        # Filter vehicles where vehicleType = 'SchoolBus'
+        base_query = Vehicle.objects.filter(
+            vehicleType=VehicleType.SCHOOL_BUS,
+            is_active=True
+        ).select_related('device').prefetch_related('userVehicles__user')
+        
+        # Get vehicles based on user role
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin: Return all school bus vehicles
+            vehicles = base_query.all()
+        else:
+            # Other roles: Return only vehicles where user has access
+            vehicles = base_query.filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            ).distinct()
+        
+        # Order by name for consistency
+        vehicles = vehicles.order_by('name')
+        
+        # Return minimal vehicle data suitable for dropdowns
+        vehicles_data = []
+        for vehicle in vehicles:
+            vehicles_data.append({
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'is_active': vehicle.is_active
+            })
+        
+        return success_response(
+            data=vehicles_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'School bus vehicles retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
 
 
 @api_view(['GET'])
