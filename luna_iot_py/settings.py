@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'device',
     'fleet',
     'alert_system',
+    'school',
     'health',
     'finance',
     

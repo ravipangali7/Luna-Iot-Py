@@ -44,6 +44,9 @@ urlpatterns = [
     # Alert System module URLs
     path('api/alert-system/', include('alert_system.urls')),
     
+    # School module URLs
+    path('api/school/', include('school.urls')),
+    
     # Admin URLs
     path('admin/', admin.site.urls),
 ]
