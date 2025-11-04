@@ -260,6 +260,8 @@ def update_institute_module_users(request, module_id):
 def get_alert_system_institutes(request):
     """
     Get institutes where the current user has access to the alert-system module
+    For Super Admin: returns all institutes with alert-system module enabled
+    For other users: returns only institutes where user has access
     """
     try:
         # Get the alert-system module
@@ -271,24 +273,103 @@ def get_alert_system_institutes(request):
                 message="Alert system module not found"
             )
         
-        # Get institute modules where user has access to alert-system module
-        user_institute_modules = InstituteModule.objects.filter(
-            module=alert_system_module,
-            users=request.user
-        ).select_related('institute')
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
         
-        # Format response data
-        institutes_data = []
-        for institute_module in user_institute_modules:
-            institutes_data.append({
-                'institute_id': institute_module.institute.id,
-                'institute_name': institute_module.institute.name,
-                'has_alert_system_access': True
-            })
+        if is_admin:
+            # Super Admin: Get all institutes with alert-system module enabled
+            all_institute_modules = InstituteModule.objects.filter(
+                module=alert_system_module
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in all_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_alert_system_access': True
+                })
+        else:
+            # Regular users: Get only institutes where user has access to alert-system module
+            user_institute_modules = InstituteModule.objects.filter(
+                module=alert_system_module,
+                users=request.user
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in user_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_alert_system_access': True
+                })
         
         return success_response(
             data=institutes_data,
             message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Alert system institutes retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_school_institutes(request):
+    """
+    Get institutes where the current user has access to the school module
+    For Super Admin: returns all institutes with school module enabled
+    For other users: returns only institutes where user has access
+    """
+    try:
+        # Get the school module
+        try:
+            school_module = Module.objects.get(slug='school')
+        except Module.DoesNotExist:
+            return success_response(
+                data=[],
+                message="School module not found"
+            )
+        
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
+        
+        if is_admin:
+            # Super Admin: Get all institutes with school module enabled
+            all_institute_modules = InstituteModule.objects.filter(
+                module=school_module
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in all_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_school_access': True
+                })
+        else:
+            # Regular users: Get only institutes where user has access to school module
+            user_institute_modules = InstituteModule.objects.filter(
+                module=school_module,
+                users=request.user
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in user_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_school_access': True
+                })
+        
+        return success_response(
+            data=institutes_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'School institutes retrieved successfully')
         )
     except Exception as e:
         return error_response(
