@@ -11,10 +11,15 @@ from django.db.models import Count, Q
 from datetime import datetime
 import requests
 import json
+import math
 
 from core.models.user import User
 from core.models.my_setting import MySetting
 from device.models.device import Device
+from device.models.location import Location
+from device.models.status import Status
+from device.models.buzzer_status import BuzzerStatus
+from device.models.sos_status import SosStatus
 from fleet.models.vehicle import Vehicle
 from django.contrib.auth.models import Group
 from api_common.utils.response_utils import success_response, error_response
@@ -82,6 +87,72 @@ def get_sms_balance():
         return 0
 
 
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate distance between two points using Haversine formula
+    Returns distance in kilometers
+    """
+    R = 6371  # Earth's radius in kilometers
+    
+    lat1_rad = math.radians(float(lat1))
+    lon1_rad = math.radians(float(lon1))
+    lat2_rad = math.radians(float(lat2))
+    lon2_rad = math.radians(float(lon2))
+    
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.asin(math.sqrt(a))
+    
+    return R * c
+
+
+def calculate_today_km():
+    """
+    Calculate total kilometers traveled today from all location data
+    """
+    try:
+        today = datetime.now().date()
+        start_of_day = datetime.combine(today, datetime.min.time())
+        end_of_day = datetime.combine(today, datetime.max.time())
+        
+        # Get all today's location data ordered by time and imei
+        locations = Location.objects.filter(
+            createdAt__gte=start_of_day,
+            createdAt__lte=end_of_day
+        ).order_by('imei', 'createdAt')
+        
+        if len(locations) < 2:
+            return 0.0
+        
+        total_distance = 0.0
+        current_imei = None
+        prev_loc = None
+        
+        for loc in locations:
+            # If this is a new IMEI, reset previous location
+            if current_imei != loc.imei:
+                current_imei = loc.imei
+                prev_loc = loc
+                continue
+            
+            # Calculate distance between consecutive locations for same IMEI
+            if prev_loc:
+                distance = calculate_distance(
+                    float(prev_loc.latitude), float(prev_loc.longitude),
+                    float(loc.latitude), float(loc.longitude)
+                )
+                total_distance += distance
+            
+            prev_loc = loc
+        
+        return round(total_distance, 2)
+    except Exception as e:
+        print(f"Error calculating today's km: {e}")
+        return 0.0
+
+
 @api_view(['GET'])
 @require_auth
 @api_response
@@ -138,6 +209,22 @@ def get_dashboard_stats(request):
         # Get MyPay balance from MySetting
         mypay_balance = MySetting.get_balance()
         
+        # Today's statistics
+        today = datetime.now().date()
+        today_added_vehicles = Vehicle.objects.filter(createdAt__date=today).count()
+        today_transaction = 0  # Hardcoded as requested
+        
+        # Total hits today - count from all status tables
+        total_hits_today = (
+            Location.objects.filter(createdAt__date=today).count() +
+            Status.objects.filter(createdAt__date=today).count() +
+            BuzzerStatus.objects.filter(createdAt__date=today).count() +
+            SosStatus.objects.filter(createdAt__date=today).count()
+        )
+        
+        # Calculate today's total kilometers
+        today_km = calculate_today_km()
+        
         # Prepare response data
         stats_data = {
             'totalUsers': total_users,
@@ -150,6 +237,10 @@ def get_dashboard_stats(request):
             'totalSms': sms_balance,  # Real SMS balance from API
             'totalBalance': mypay_balance,  # MyPay balance from mobile topup
             'serverBalance': 0,  # Placeholder - would need server balance service
+            'todayAddedVehicles': today_added_vehicles,
+            'todayTransaction': today_transaction,
+            'totalHitsToday': total_hits_today,
+            'todayKm': today_km,
         }
         
         return success_response(
