@@ -15,7 +15,7 @@ class GeofenceVehicleSerializer(serializers.ModelSerializer):
     geofence_type = serializers.CharField(source='geofence.type', read_only=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_imei = serializers.CharField(source='vehicle.imei', read_only=True)
-    vehicle_no = serializers.CharField(source='vehicle.vehicle_no', read_only=True)
+    vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
     
     class Meta:
         model = GeofenceVehicle
@@ -87,7 +87,7 @@ class GeofenceVehicleListSerializer(serializers.ModelSerializer):
     geofence_type = serializers.CharField(source='geofence.type', read_only=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_imei = serializers.CharField(source='vehicle.imei', read_only=True)
-    vehicle_no = serializers.CharField(source='vehicle.vehicle_no', read_only=True)
+    vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
     
     class Meta:
         model = GeofenceVehicle

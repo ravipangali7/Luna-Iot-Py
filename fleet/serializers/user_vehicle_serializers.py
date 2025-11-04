@@ -14,7 +14,7 @@ class UserVehicleSerializer(serializers.ModelSerializer):
     user_phone = serializers.CharField(source='user.phone', read_only=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_imei = serializers.CharField(source='vehicle.imei', read_only=True)
-    vehicle_no = serializers.CharField(source='vehicle.vehicle_no', read_only=True)
+    vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
     
     class Meta:
         model = UserVehicle
@@ -123,7 +123,7 @@ class UserVehicleListSerializer(serializers.ModelSerializer):
     user_phone = serializers.CharField(source='user.phone', read_only=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_imei = serializers.CharField(source='vehicle.imei', read_only=True)
-    vehicle_no = serializers.CharField(source='vehicle.vehicle_no', read_only=True)
+    vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
     
     class Meta:
         model = UserVehicle

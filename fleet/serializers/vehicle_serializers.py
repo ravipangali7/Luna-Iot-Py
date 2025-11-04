@@ -17,11 +17,11 @@ class VehicleSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'id', 'imei', 'device_imei', 'device_model', 'name', 
-            'vehicle_no', 'vehicle_type', 'odometer', 'mileage', 
-            'minimum_fuel', 'speed_limit', 'expire_date', 'is_active',
-            'created_at', 'updated_at'
+            'vehicleNo', 'vehicleType', 'odometer', 'mileage', 
+            'minimumFuel', 'speedLimit', 'expireDate', 'is_active',
+            'createdAt', 'updatedAt'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'createdAt', 'updatedAt']
 
 
 class VehicleCreateSerializer(serializers.ModelSerializer):
@@ -34,8 +34,8 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
         fields = [
-            'imei', 'name', 'vehicle_no', 'vehicle_type', 
-            'odometer', 'mileage', 'minimum_fuel', 'speed_limit', 'expire_date', 'is_active'
+            'imei', 'name', 'vehicleNo', 'vehicleType', 
+            'odometer', 'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active'
         ]
     
     def validate_imei(self, value):
@@ -60,7 +60,7 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Vehicle name cannot be empty")
         return value.strip()
     
-    def validate_vehicle_no(self, value):
+    def validate_vehicleNo(self, value):
         """Validate vehicle number"""
         if not value or not value.strip():
             raise serializers.ValidationError("Vehicle number cannot be empty")
@@ -78,13 +78,13 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Mileage cannot be negative")
         return value
     
-    def validate_minimum_fuel(self, value):
+    def validate_minimumFuel(self, value):
         """Validate minimum fuel level"""
         if value < 0:
             raise serializers.ValidationError("Minimum fuel level cannot be negative")
         return value
     
-    def validate_speed_limit(self, value):
+    def validate_speedLimit(self, value):
         """Validate speed limit"""
         if value < 0 or value > 200:
             raise serializers.ValidationError("Speed limit must be between 0 and 200 km/h")
@@ -105,8 +105,8 @@ class VehicleUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
         fields = [
-            'name', 'vehicle_no', 'vehicle_type', 'odometer', 
-            'mileage', 'minimum_fuel', 'speed_limit', 'expire_date', 'is_active'
+            'name', 'vehicleNo', 'vehicleType', 'odometer', 
+            'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active'
         ]
     
     def validate_name(self, value):
@@ -115,7 +115,7 @@ class VehicleUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Vehicle name cannot be empty")
         return value.strip()
     
-    def validate_vehicle_no(self, value):
+    def validate_vehicleNo(self, value):
         """Validate vehicle number"""
         if not value or not value.strip():
             raise serializers.ValidationError("Vehicle number cannot be empty")
@@ -133,13 +133,13 @@ class VehicleUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Mileage cannot be negative")
         return value
     
-    def validate_minimum_fuel(self, value):
+    def validate_minimumFuel(self, value):
         """Validate minimum fuel level"""
         if value < 0:
             raise serializers.ValidationError("Minimum fuel level cannot be negative")
         return value
     
-    def validate_speed_limit(self, value):
+    def validate_speedLimit(self, value):
         """Validate speed limit"""
         if value < 0 or value > 200:
             raise serializers.ValidationError("Speed limit must be between 0 and 200 km/h")
@@ -155,9 +155,9 @@ class VehicleListSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'id', 'imei', 'device_imei', 'device_model', 
-            'name', 'vehicle_no', 'vehicle_type', 'is_active', 'created_at'
+            'name', 'vehicleNo', 'vehicleType', 'is_active', 'createdAt'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'createdAt']
 
 
 class VehicleFilterSerializer(serializers.Serializer):
