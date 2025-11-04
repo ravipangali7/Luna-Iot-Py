@@ -2,6 +2,7 @@
 School SMS Views
 Handles school SMS management endpoints
 """
+import logging
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -16,6 +17,9 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError
+from api_common.utils.sms_service import sms_service
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -124,17 +128,77 @@ def get_school_sms_by_institute(request, institute_id):
 @require_super_admin
 @api_response
 def create_school_sms(request):
-    """Create new school SMS"""
+    """Create new school SMS and send SMS to all phone numbers"""
     try:
         serializer = SchoolSMSCreateSerializer(data=request.data)
         
         if serializer.is_valid():
             school_sms = serializer.save()
+            
+            # Send SMS to all phone numbers
+            phone_numbers = school_sms.phone_numbers if school_sms.phone_numbers else []
+            message = school_sms.message
+            sent_count = 0
+            failed_count = 0
+            sms_results = []
+            
+            if phone_numbers:
+                logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
+                
+                for phone_number in phone_numbers:
+                    try:
+                        # Clean phone number (remove spaces, etc.)
+                        clean_phone = str(phone_number).strip()
+                        if not clean_phone:
+                            continue
+                            
+                        sms_result = sms_service.send_sms(clean_phone, message)
+                        
+                        if sms_result.get('success'):
+                            sent_count += 1
+                            logger.info(f"SMS sent successfully to {clean_phone} for school SMS {school_sms.id}")
+                        else:
+                            failed_count += 1
+                            logger.warning(f"Failed to send SMS to {clean_phone} for school SMS {school_sms.id}: {sms_result.get('message')}")
+                        
+                        sms_results.append({
+                            'phone_number': clean_phone,
+                            'success': sms_result.get('success', False),
+                            'message': sms_result.get('message', 'Unknown error')
+                        })
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"Error sending SMS to {phone_number} for school SMS {school_sms.id}: {str(e)}")
+                        sms_results.append({
+                            'phone_number': str(phone_number),
+                            'success': False,
+                            'message': str(e)
+                        })
+                
+                logger.info(f"SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
+            else:
+                logger.warning(f"No phone numbers provided for school SMS {school_sms.id}")
+            
             response_serializer = SchoolSMSSerializer(school_sms)
+            response_data = response_serializer.data
+            
+            # Add SMS sending results to response
+            response_data['sms_sending_results'] = {
+                'total_recipients': len(phone_numbers),
+                'sent_count': sent_count,
+                'failed_count': failed_count,
+                'results': sms_results
+            }
+            
+            message = SUCCESS_MESSAGES.get('DATA_CREATED', 'School SMS created successfully')
+            if sent_count > 0:
+                message = f"School SMS created and sent to {sent_count} recipient(s)"
+                if failed_count > 0:
+                    message += f", {failed_count} failed"
             
             return success_response(
-                data=response_serializer.data,
-                message=SUCCESS_MESSAGES.get('DATA_CREATED', 'School SMS created successfully'),
+                data=response_data,
+                message=message,
                 status_code=HTTP_STATUS['CREATED']
             )
         else:
@@ -144,6 +208,7 @@ def create_school_sms(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
+        logger.error(f"Error creating school SMS: {str(e)}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
