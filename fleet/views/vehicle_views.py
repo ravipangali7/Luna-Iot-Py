@@ -666,15 +666,42 @@ def update_vehicle(request, imei):
         user = request.user
         data = json.loads(request.body)
         
-        # Get vehicle with access check
+        # Get vehicle with access check (matching get_vehicle_by_imei logic)
         user_group = user.groups.first()
         if user_group and user_group.name == 'Super Admin':
             vehicle = Vehicle.objects.select_related('device').filter(imei=imei).first()
         else:
+            # First check if the specific IMEI exists and user has access to it
             vehicle = Vehicle.objects.filter(
-                imei=imei,
-                userVehicles__user=user
+                imei=imei
+            ).filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
             ).select_related('device').first()
+            
+            # If no direct access found, check school bus relationships
+            if not vehicle and SchoolParent and SchoolBus:
+                try:
+                    # Check if user is a school parent
+                    school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
+                    if school_parents.exists():
+                        # Get vehicle IDs from school buses associated with this parent
+                        school_bus_vehicle_ids = set()
+                        for school_parent in school_parents:
+                            for school_bus in school_parent.school_buses.all():
+                                if school_bus.bus and school_bus.bus.is_active:
+                                    school_bus_vehicle_ids.add(school_bus.bus.id)
+                        
+                        # Check if the requested vehicle is one of the school bus vehicles
+                        if school_bus_vehicle_ids:
+                            vehicle = Vehicle.objects.filter(
+                                imei=imei,
+                                id__in=school_bus_vehicle_ids,
+                                vehicleType=VehicleType.SCHOOL_BUS
+                            ).select_related('device').first()
+                except Exception:
+                    # If there's any error with school models, just continue without school bus access
+                    pass
         
         if not vehicle:
             return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
