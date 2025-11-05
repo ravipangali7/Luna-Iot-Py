@@ -21,13 +21,17 @@ def get_external_app_links(request):
         
         links_data = []
         for link in external_app_links:
+            logo_url = ''
+            if link.logo:
+                logo_url = request.build_absolute_uri(link.logo.url) if link.logo.url else ''
+            
             link_data = {
                 'id': link.id,
                 'name': link.name,
-                'link': link.link,
-                'username': link.username,
-                'password': link.password,
-                'logo': link.logo or '',
+                'link': link.link or '',
+                'username': link.username or '',
+                'password': link.password or '',
+                'logo': logo_url,
                 'createdAt': link.createdAt.isoformat() if link.createdAt else None,
                 'updatedAt': link.updatedAt.isoformat() if link.updatedAt else None
             }
