@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser, GeofenceEvent
+from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser, GeofenceEvent, ExternalAppLink
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -43,4 +43,11 @@ class GeofenceEventAdmin(admin.ModelAdmin):
     list_display = ('vehicle_id', 'geofence_id', 'is_inside', 'last_event_type', 'last_event_at', 'createdAt')
     list_filter = ('is_inside', 'last_event_type', 'last_event_at', 'createdAt')
     search_fields = ('vehicle_id', 'geofence_id')
+    readonly_fields = ('createdAt', 'updatedAt')
+
+@admin.register(ExternalAppLink)
+class ExternalAppLinkAdmin(admin.ModelAdmin):
+    list_display = ('name', 'link', 'username', 'createdAt', 'updatedAt')
+    list_filter = ('createdAt', 'updatedAt')
+    search_fields = ('name', 'link', 'username')
     readonly_fields = ('createdAt', 'updatedAt')
