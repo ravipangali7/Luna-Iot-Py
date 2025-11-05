@@ -1391,37 +1391,78 @@ def get_gps_devices_paginated(request):
             return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
         
         # Batch fetch latest statuses for all devices on current page (fixes N+1 query problem)
+        # Use efficient subquery to get ONLY the latest status per device, not all statuses
         device_imeis = [device.imei for device in page_obj]
         latest_statuses = {}
         if device_imeis:
-            # Efficiently fetch latest status for each device using minimal queries
-            # Get all statuses for these devices, ordered to get latest first per imei
-            # Then use Python to group and get the first (latest) status for each imei
-            all_statuses = Status.objects.filter(
-                imei__in=device_imeis
-            ).order_by('imei', '-createdAt', '-updatedAt')
+            # Use raw SQL with subquery to efficiently get latest status per imei
+            # This approach only fetches the latest status record for each device, not all statuses
+            from django.db import connection
             
-            # Group by imei and get the first (latest) status for each imei
-            # Since we ordered by imei, then by -createdAt, -updatedAt, the first occurrence
-            # of each imei will be the latest status
-            latest_status_objs = {}
-            for status_obj in all_statuses:
-                if status_obj.imei not in latest_status_objs:
-                    latest_status_objs[status_obj.imei] = status_obj
+            # Build the query to get latest status per imei using a subquery
+            # This is much more efficient than fetching all statuses and filtering in Python
+            placeholders = ','.join(['%s'] * len(device_imeis))
+            # Efficient SQL query to get latest status per imei
+            # Uses a LEFT JOIN self-join pattern that's well-optimized in MySQL
+            # This finds the status where no newer status exists for the same imei
+            sql = f"""
+                SELECT s1.*
+                FROM statuses s1
+                LEFT JOIN statuses s2 ON s1.imei = s2.imei 
+                    AND (s2.created_at > s1.created_at 
+                        OR (s2.created_at = s1.created_at AND s2.updated_at > s1.updated_at)
+                        OR (s2.created_at = s1.created_at AND s2.updated_at = s1.updated_at AND s2.id > s1.id))
+                WHERE s1.imei IN ({placeholders})
+                    AND s2.id IS NULL
+            """
             
-            # Build status dictionary
-            for imei, status_obj in latest_status_objs.items():
-                latest_statuses[imei] = {
-                    'id': status_obj.id,
-                    'imei': status_obj.imei,
-                    'battery': status_obj.battery,
-                    'signal': status_obj.signal,
-                    'ignition': status_obj.ignition,
-                    'charging': status_obj.charging,
-                    'relay': status_obj.relay,
-                    'createdAt': status_obj.createdAt.isoformat(),
-                    'updatedAt': status_obj.updatedAt.isoformat() if hasattr(status_obj, 'updatedAt') and status_obj.updatedAt else status_obj.createdAt.isoformat()
-                }
+            with connection.cursor() as cursor:
+                cursor.execute(sql, device_imeis)  # Only needed for the subquery WHERE clause
+                columns = [col[0] for col in cursor.description]
+                rows = cursor.fetchall()
+                
+                # Convert rows to dictionaries and handle duplicates (keep first/latest per imei)
+                seen_imeis = set()
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+                    imei = row_dict['imei']
+                    
+                    # Skip if we've already processed this imei (shouldn't happen with proper query, but safety check)
+                    if imei in seen_imeis:
+                        continue
+                    seen_imeis.add(imei)
+                    
+                    # Parse datetime fields - Django raw queries return datetime objects directly
+                    createdAt = row_dict['created_at']
+                    updatedAt = row_dict.get('updated_at') or createdAt
+                    
+                    # Convert to ISO format strings (Django raw queries return datetime objects)
+                    from datetime import datetime
+                    if isinstance(createdAt, datetime):
+                        createdAt_str = createdAt.isoformat()
+                    elif isinstance(createdAt, str):
+                        createdAt_str = createdAt
+                    else:
+                        createdAt_str = str(createdAt)
+                    
+                    if isinstance(updatedAt, datetime):
+                        updatedAt_str = updatedAt.isoformat()
+                    elif isinstance(updatedAt, str):
+                        updatedAt_str = updatedAt
+                    else:
+                        updatedAt_str = str(updatedAt)
+                    
+                    latest_statuses[imei] = {
+                        'id': row_dict['id'],
+                        'imei': imei,
+                        'battery': row_dict['battery'],
+                        'signal': row_dict['signal'],
+                        'ignition': bool(row_dict['ignition']),
+                        'charging': bool(row_dict['charging']),
+                        'relay': bool(row_dict['relay']),
+                        'createdAt': createdAt_str,
+                        'updatedAt': updatedAt_str
+                    }
         
         devices_data = []
         for device in page_obj:
