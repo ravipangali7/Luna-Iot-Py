@@ -258,12 +258,37 @@ def get_my_school_vehicles(request):
         vehicle_ids = set()
         for school_parent in school_parents:
             for school_bus in school_parent.school_buses.all():
+                # Only include active vehicles that are assigned as school buses
                 if school_bus.bus and school_bus.bus.is_active:
                     vehicle_ids.add(school_bus.bus.id)
         
-        # Get vehicles with complete data
+        # If no vehicles found, return empty result
+        if not vehicle_ids:
+            pagination_info = {
+                'current_page': 1,
+                'total_pages': 0,
+                'total_items': 0,
+                'page_size': page_size,
+                'has_next': False,
+                'has_previous': False,
+                'next_page': None,
+                'previous_page': None
+            }
+            
+            response_data = {
+                'vehicles': [],
+                'pagination': pagination_info
+            }
+            
+            return success_response(
+                response_data,
+                'No school vehicles found for this user'
+            )
+        
+        # Get vehicles with complete data - only vehicles that are in school_buses
         vehicles = Vehicle.objects.filter(
-            id__in=vehicle_ids
+            id__in=vehicle_ids,
+            is_active=True
         ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         # Create paginator
