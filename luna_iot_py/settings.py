@@ -277,3 +277,32 @@ os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 
 # Node.js API Configuration
 NODEJS_API_BASE_URL = os.getenv('NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
+
+# Cache Configuration
+# Use in-memory cache for development (locmem)
+# For production, use Redis by uncommenting and configuring the Redis backend
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
+
+# Redis cache configuration for production (uncomment when Redis is available)
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+#         'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#         }
+#     }
+# }
+
+# Cache timeout settings (in seconds)
+CACHE_TIMEOUT_DASHBOARD_STATS = 300  # 5 minutes
+CACHE_TIMEOUT_SMS_BALANCE = 600  # 10 minutes
+CACHE_TIMEOUT_TODAY_KM = 120  # 2 minutes

@@ -2,12 +2,10 @@
 Dashboard Views
 Handles dashboard statistics endpoints
 """
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.decorators import api_view
 from django.db.models import Count, Q
+from django.core.cache import cache
+from django.conf import settings
 from datetime import datetime
 import requests
 import json
@@ -21,24 +19,31 @@ from device.models.status import Status
 from device.models.buzzer_status import BuzzerStatus
 from device.models.sos_status import SosStatus
 from fleet.models.vehicle import Vehicle
-from django.contrib.auth.models import Group
 from api_common.utils.response_utils import success_response, error_response
-from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
+from api_common.constants.api_constants import HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth
 
 
 def get_sms_balance():
     """
-    Fetch SMS balance from external API
+    Fetch SMS balance from external API with caching
+    Returns cached value if available, otherwise fetches from API
     """
+    cache_key = 'sms_balance'
+    cached_balance = cache.get(cache_key)
+    
+    if cached_balance is not None:
+        return cached_balance
+    
     try:
         api_key = "568383D0C5AA82"
         url = f"https://sms.kaichogroup.com/miscapi/{api_key}/getBalance/true/"
         
         print(f"Fetching SMS balance from: {url}")
         
-        response = requests.get(url, timeout=10)
+        # Use shorter timeout to prevent blocking
+        response = requests.get(url, timeout=5)
         print(f"SMS API Response Status: {response.status_code}")
         
         response.raise_for_status()
@@ -50,6 +55,8 @@ def get_sms_balance():
         # Check if response starts with ERR:
         if response_text.startswith("ERR:"):
             print(f"SMS API Error: {response_text}")
+            # Cache error result for shorter time (1 minute) to avoid repeated failures
+            cache.set(cache_key, 0, 60)
             return 0
         
         # Try to parse as JSON
@@ -58,6 +65,7 @@ def get_sms_balance():
             print(f"SMS API JSON Response: {data}")
         except json.JSONDecodeError:
             print("SMS API response is not valid JSON")
+            cache.set(cache_key, 0, 60)
             return 0
         
         # Handle the correct response format: [{"ROUTE_ID":"xx","ROUTE":"<name>","BALANCE":"<balance>"}]
@@ -75,15 +83,25 @@ def get_sms_balance():
                         continue
             
             print(f"Total SMS Balance: {total_balance}")
+            # Cache the result
+            cache_timeout = getattr(settings, 'CACHE_TIMEOUT_SMS_BALANCE', 600)
+            cache.set(cache_key, total_balance, cache_timeout)
             return total_balance
         else:
             print("Unexpected response format - not a list or empty list")
+            cache.set(cache_key, 0, 60)
             return 0
         
+    except requests.exceptions.Timeout:
+        print("SMS API request timed out, returning 0")
+        # Cache 0 for short time to avoid repeated timeouts
+        cache.set(cache_key, 0, 60)
+        return 0
     except Exception as e:
         print(f"Error fetching SMS balance: {str(e)}")
         import traceback
         traceback.print_exc()
+        # Return 0 on error
         return 0
 
 
@@ -111,26 +129,34 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 def calculate_today_km():
     """
     Calculate total kilometers traveled today from all location data
+    Optimized with caching and memory-efficient iteration
     """
+    cache_key = 'today_km'
+    cached_km = cache.get(cache_key)
+    
+    if cached_km is not None:
+        return cached_km
+    
     try:
         today = datetime.now().date()
         start_of_day = datetime.combine(today, datetime.min.time())
         end_of_day = datetime.combine(today, datetime.max.time())
         
-        # Get all today's location data ordered by time and imei
+        # Use iterator() to avoid loading all data into memory at once
+        # Only select necessary fields for better performance
         locations = Location.objects.filter(
             createdAt__gte=start_of_day,
             createdAt__lte=end_of_day
-        ).order_by('imei', 'createdAt')
-        
-        if len(locations) < 2:
-            return 0.0
+        ).order_by('imei', 'createdAt').only('imei', 'latitude', 'longitude').iterator(chunk_size=1000)
         
         total_distance = 0.0
         current_imei = None
         prev_loc = None
+        location_count = 0
         
         for loc in locations:
+            location_count += 1
+            
             # If this is a new IMEI, reset previous location
             if current_imei != loc.imei:
                 current_imei = loc.imei
@@ -147,7 +173,16 @@ def calculate_today_km():
             
             prev_loc = loc
         
-        return round(total_distance, 2)
+        if location_count < 2:
+            result = 0.0
+        else:
+            result = round(total_distance, 2)
+        
+        # Cache the result
+        cache_timeout = getattr(settings, 'CACHE_TIMEOUT_TODAY_KM', 120)
+        cache.set(cache_key, result, cache_timeout)
+        
+        return result
     except Exception as e:
         print(f"Error calculating today's km: {e}")
         return 0.0
@@ -159,12 +194,31 @@ def calculate_today_km():
 def get_dashboard_stats(request):
     """
     Get dashboard statistics
-    Returns comprehensive stats for the dashboard
+    Returns comprehensive stats for the dashboard with caching
     """
+    # Check cache first
+    cache_key = 'dashboard_stats'
+    cached_stats = cache.get(cache_key)
+    
+    if cached_stats is not None:
+        return success_response(
+            data=cached_stats,
+            message='Dashboard statistics retrieved successfully'
+        )
+    
     try:
-        # User statistics
-        total_users = User.objects.count()
-        active_users = User.objects.filter(is_active=True).count()
+        current_date = datetime.now()
+        today = current_date.date()
+        start_of_day = datetime.combine(today, datetime.min.time())
+        end_of_day = datetime.combine(today, datetime.max.time())
+        
+        # Optimize user statistics - get both counts in one query
+        user_stats = User.objects.aggregate(
+            total_users=Count('id'),
+            active_users=Count('id', filter=Q(is_active=True))
+        )
+        total_users = user_stats['total_users'] or 0
+        active_users = user_stats['active_users'] or 0
         
         # Get user role statistics - more robust approach
         user_role_stats = User.objects.filter(
@@ -175,9 +229,6 @@ def get_dashboard_stats(request):
         
         # Convert to dictionary for easier access
         role_counts = {item['groups__name']: item['count'] for item in user_role_stats if item['groups__name']}
-        
-        # Debug: Print available roles for troubleshooting
-        print(f"Available roles in system: {role_counts}")
         
         # Try different possible role names
         total_dealers = (
@@ -194,35 +245,34 @@ def get_dashboard_stats(request):
         # Device statistics
         total_devices = Device.objects.count()
         
-        # Vehicle statistics
-        total_vehicles = Vehicle.objects.count()
+        # Vehicle statistics - combine queries where possible
+        vehicle_stats = Vehicle.objects.aggregate(
+            total_vehicles=Count('id'),
+            expired_vehicles=Count('id', filter=Q(expireDate__lt=current_date)),
+            today_added_vehicles=Count('id', filter=Q(createdAt__date=today))
+        )
+        total_vehicles = vehicle_stats['total_vehicles'] or 0
+        expired_vehicles = vehicle_stats['expired_vehicles'] or 0
+        today_added_vehicles = vehicle_stats['today_added_vehicles'] or 0
         
-        # Count expired vehicles (vehicles with expireDate in the past)
-        current_date = datetime.now()
-        expired_vehicles = Vehicle.objects.filter(
-            expireDate__lt=current_date
-        ).count()
-        
-        # Fetch SMS balance from external API
+        # Fetch SMS balance from external API (cached)
         sms_balance = get_sms_balance()
         
         # Get MyPay balance from MySetting
         mypay_balance = MySetting.get_balance()
         
-        # Today's statistics
-        today = datetime.now().date()
-        today_added_vehicles = Vehicle.objects.filter(createdAt__date=today).count()
         today_transaction = 0  # Hardcoded as requested
         
-        # Total hits today - count from all status tables
-        total_hits_today = (
-            Location.objects.filter(createdAt__date=today).count() +
-            Status.objects.filter(createdAt__date=today).count() +
-            BuzzerStatus.objects.filter(createdAt__date=today).count() +
-            SosStatus.objects.filter(createdAt__date=today).count()
+        # Total hits today - optimize by using date range instead of date lookup
+        # This is more efficient as it can use indexes better
+        today_hits = (
+            Location.objects.filter(createdAt__gte=start_of_day, createdAt__lte=end_of_day).count() +
+            Status.objects.filter(createdAt__gte=start_of_day, createdAt__lte=end_of_day).count() +
+            BuzzerStatus.objects.filter(createdAt__gte=start_of_day, createdAt__lte=end_of_day).count() +
+            SosStatus.objects.filter(createdAt__gte=start_of_day, createdAt__lte=end_of_day).count()
         )
         
-        # Calculate today's total kilometers
+        # Calculate today's total kilometers (cached)
         today_km = calculate_today_km()
         
         # Prepare response data
@@ -239,9 +289,13 @@ def get_dashboard_stats(request):
             'serverBalance': 0,  # Placeholder - would need server balance service
             'todayAddedVehicles': today_added_vehicles,
             'todayTransaction': today_transaction,
-            'totalHitsToday': total_hits_today,
+            'totalHitsToday': today_hits,
             'todayKm': today_km,
         }
+        
+        # Cache the response
+        cache_timeout = getattr(settings, 'CACHE_TIMEOUT_DASHBOARD_STATS', 300)
+        cache.set(cache_key, stats_data, cache_timeout)
         
         return success_response(
             data=stats_data,
