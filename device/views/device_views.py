@@ -15,6 +15,8 @@ from device.models.user_device import UserDevice
 from device.models.status import Status
 from device.models.buzzer_status import BuzzerStatus
 from device.models.sos_status import SosStatus
+from fleet.models.vehicle import Vehicle
+from fleet.models.user_vehicle import UserVehicle
 from core.models.user import User
 from api_common.utils.response_utils import success_response, error_response
 from api_common.utils.validation_utils import validate_imei
@@ -1307,7 +1309,7 @@ def get_gps_devices_paginated(request):
     Get paginated GPS devices with search functionality
     """
     try:
-        from django.db.models import Q
+        from django.db.models import Q, Prefetch
         from django.core.paginator import Paginator
         
         user = request.user
@@ -1320,11 +1322,27 @@ def get_gps_devices_paginated(request):
         is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
         is_dealer = any(group.name == 'Dealer' for group in user_groups)
         
+        # Optimize prefetch_related with Prefetch objects for nested relationships
+        user_devices_prefetch = Prefetch(
+            'userDevices',
+            queryset=UserDevice.objects.select_related('user').prefetch_related('user__groups')
+        )
+        user_vehicles_prefetch = Prefetch(
+            'userVehicles',
+            queryset=UserVehicle.objects.select_related('user').prefetch_related('user__groups')
+        )
+        vehicles_prefetch = Prefetch(
+            'vehicles',
+            queryset=Vehicle.objects.prefetch_related(user_vehicles_prefetch)
+        )
+        
         # Super Admin: all GPS devices
         if is_super_admin:
-            devices = Device.objects.filter(type='gps').prefetch_related(
-                'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups',
+            devices = Device.objects.filter(type='gps').select_related(
+                'subscription_plan'
+            ).prefetch_related(
+                user_devices_prefetch,
+                vehicles_prefetch,
                 'subscription_plan'
             ).all()
         # Dealer: only assigned GPS devices
@@ -1332,9 +1350,11 @@ def get_gps_devices_paginated(request):
             devices = Device.objects.filter(
                 type='gps',
                 userDevices__user=user
+            ).select_related(
+                'subscription_plan'
             ).prefetch_related(
-                'userDevices__user__groups',
-                'vehicles__userVehicles__user__groups',
+                user_devices_prefetch,
+                vehicles_prefetch,
                 'subscription_plan'
             ).distinct()
         # Customer: no access to devices
@@ -1369,6 +1389,39 @@ def get_gps_devices_paginated(request):
             page_obj = paginator.get_page(page_number)
         except:
             return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Batch fetch latest statuses for all devices on current page (fixes N+1 query problem)
+        device_imeis = [device.imei for device in page_obj]
+        latest_statuses = {}
+        if device_imeis:
+            # Efficiently fetch latest status for each device using minimal queries
+            # Get all statuses for these devices, ordered to get latest first per imei
+            # Then use Python to group and get the first (latest) status for each imei
+            all_statuses = Status.objects.filter(
+                imei__in=device_imeis
+            ).order_by('imei', '-createdAt', '-updatedAt')
+            
+            # Group by imei and get the first (latest) status for each imei
+            # Since we ordered by imei, then by -createdAt, -updatedAt, the first occurrence
+            # of each imei will be the latest status
+            latest_status_objs = {}
+            for status_obj in all_statuses:
+                if status_obj.imei not in latest_status_objs:
+                    latest_status_objs[status_obj.imei] = status_obj
+            
+            # Build status dictionary
+            for imei, status_obj in latest_status_objs.items():
+                latest_statuses[imei] = {
+                    'id': status_obj.id,
+                    'imei': status_obj.imei,
+                    'battery': status_obj.battery,
+                    'signal': status_obj.signal,
+                    'ignition': status_obj.ignition,
+                    'charging': status_obj.charging,
+                    'relay': status_obj.relay,
+                    'createdAt': status_obj.createdAt.isoformat(),
+                    'updatedAt': status_obj.updatedAt.isoformat() if hasattr(status_obj, 'updatedAt') and status_obj.updatedAt else status_obj.createdAt.isoformat()
+                }
         
         devices_data = []
         for device in page_obj:
@@ -1427,24 +1480,8 @@ def get_gps_devices_paginated(request):
                     'userVehicles': user_vehicles_data
                 })
             
-            # Get latest status for GPS device (Status table)
-            latest_status = None
-            try:
-                latest_status_obj = Status.objects.filter(imei=device.imei).order_by('-createdAt', '-updatedAt').first()
-                if latest_status_obj:
-                    latest_status = {
-                        'id': latest_status_obj.id,
-                        'imei': latest_status_obj.imei,
-                        'battery': latest_status_obj.battery,
-                        'signal': latest_status_obj.signal,
-                        'ignition': latest_status_obj.ignition,
-                        'charging': latest_status_obj.charging,
-                        'relay': latest_status_obj.relay,
-                        'createdAt': latest_status_obj.createdAt.isoformat(),
-                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
-                    }
-            except Exception as e:
-                latest_status = None
+            # Get latest status for GPS device from pre-fetched dictionary (avoids N+1 query)
+            latest_status = latest_statuses.get(device.imei)
             
             devices_data.append({
                 'id': device.id,
