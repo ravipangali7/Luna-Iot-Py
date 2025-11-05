@@ -60,6 +60,8 @@ class AuthMiddleware(MiddlewareMixin):
             return None
         
         # Skip authentication for Django admin interface
+        if request.path.startswith('/admin'):
+            return None
         if request.path.startswith('/admin/'):
             return None
         
