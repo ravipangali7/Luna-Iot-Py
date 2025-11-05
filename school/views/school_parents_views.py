@@ -595,3 +595,80 @@ def delete_school_parent(request, parent_id):
             data=str(e)
         )
 
+
+@api_view(['PUT'])
+@require_auth
+@api_response
+def update_my_location(request):
+    """
+    Update logged-in school parent's location (latitude/longitude)
+    """
+    try:
+        user = request.user
+        
+        # Get school parent for this user
+        try:
+            school_parent = SchoolParent.objects.get(parent=user)
+        except SchoolParent.DoesNotExist:
+            return error_response(
+                message='User is not a school parent',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Get latitude and longitude from request
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        
+        # Validate required fields
+        if latitude is None or longitude is None:
+            return error_response(
+                message='Latitude and longitude are required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Validate latitude range (-90 to 90)
+        try:
+            latitude_decimal = float(latitude)
+            if latitude_decimal < -90 or latitude_decimal > 90:
+                return error_response(
+                    message='Latitude must be between -90 and 90',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        except (ValueError, TypeError):
+            return error_response(
+                message='Latitude must be a valid number',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Validate longitude range (-180 to 180)
+        try:
+            longitude_decimal = float(longitude)
+            if longitude_decimal < -180 or longitude_decimal > 180:
+                return error_response(
+                    message='Longitude must be between -180 and 180',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        except (ValueError, TypeError):
+            return error_response(
+                message='Longitude must be a valid number',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Update location
+        school_parent.latitude = latitude_decimal
+        school_parent.longitude = longitude_decimal
+        school_parent.save()
+        
+        # Return updated school parent data
+        serializer = SchoolParentSerializer(school_parent)
+        
+        return success_response(
+            data=serializer.data,
+            message='Location updated successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+

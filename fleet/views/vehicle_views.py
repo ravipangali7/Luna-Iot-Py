@@ -19,8 +19,16 @@ from device.models.location import Location
 from device.models.status import Status
 from core.models import User
 from shared.models.recharge import Recharge
+from shared_utils.constants import VehicleType
 from datetime import datetime, timedelta
 import math
+
+# Import school models for school bus access control
+try:
+    from school.models import SchoolParent, SchoolBus
+except ImportError:
+    SchoolParent = None
+    SchoolBus = None
 
 
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -1424,11 +1432,37 @@ def get_vehicles_paginated(request):
         if user_group and user_group.name == 'Super Admin':
             vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
         else:
-            # Get vehicles where user has access
-            vehicles = Vehicle.objects.filter(
+            # Build query for vehicles where user has access
+            vehicle_filters = Q(
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
-            ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            )
+            
+            # Add school bus access: if vehicle type is SchoolBus and user is a school parent
+            # with relationship: vehicle -> school_bus -> school_parent -> user
+            if SchoolParent and SchoolBus:
+                try:
+                    # Check if user is a school parent
+                    school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
+                    if school_parents.exists():
+                        # Get vehicle IDs from school buses associated with this parent
+                        school_bus_vehicle_ids = set()
+                        for school_parent in school_parents:
+                            for school_bus in school_parent.school_buses.all():
+                                if school_bus.bus and school_bus.bus.is_active:
+                                    school_bus_vehicle_ids.add(school_bus.bus.id)
+                        
+                        # Add school bus vehicles to the filter
+                        if school_bus_vehicle_ids:
+                            vehicle_filters |= Q(
+                                id__in=school_bus_vehicle_ids,
+                                vehicleType=VehicleType.SCHOOL_BUS
+                            )
+                except Exception:
+                    # If there's any error with school models, just continue without school bus access
+                    pass
+            
+            vehicles = Vehicle.objects.filter(vehicle_filters).select_related('device').prefetch_related('userVehicles__user').distinct()
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)

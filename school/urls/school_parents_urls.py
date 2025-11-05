@@ -7,6 +7,7 @@ from school.views import school_parents_views
 urlpatterns = [
     path('', school_parents_views.get_all_school_parents, name='get_all_school_parents'),
     path('my-vehicles/', school_parents_views.get_my_school_vehicles, name='get_my_school_vehicles'),
+    path('my-location/', school_parents_views.update_my_location, name='update_my_location'),
     path('<int:parent_id>/', school_parents_views.get_school_parent_by_id, name='get_school_parent_by_id'),
     path('by-institute/<int:institute_id>/', school_parents_views.get_school_parents_by_institute, name='get_school_parents_by_institute'),
     path('by-bus/<int:bus_id>/', school_parents_views.get_school_parents_by_bus, name='get_school_parents_by_bus'),
