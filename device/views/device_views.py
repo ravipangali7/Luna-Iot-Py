@@ -1390,76 +1390,123 @@ def get_gps_devices_paginated(request):
         except:
             return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
         
-        # Batch fetch latest statuses using SIMPLE optimized individual queries
-        # With proper index on ['imei', 'createdAt'], each query is very fast
-        # This avoids complex joins that MySQL struggles to optimize
+        # Batch fetch latest statuses using SINGLE optimized query (reduces N queries to 1)
+        # Use simple raw SQL with GROUP BY that MySQL optimizes well with indexes
         device_imeis = [device.imei for device in page_obj]
         latest_statuses = {}
         if device_imeis:
-            # Use simple individual queries with .only() to limit fields and .first() for index usage
-            # Each query uses the index on ['imei', 'createdAt'] efficiently
-            # This is faster than complex joins when indexes are properly set up
-            for imei in device_imeis:
-                latest_status_obj = Status.objects.filter(
-                    imei=imei
-                ).order_by('-createdAt', '-updatedAt', '-id').only(
-                    'id', 'imei', 'battery', 'signal', 'ignition', 
-                    'charging', 'relay', 'createdAt', 'updatedAt'
-                ).first()
+            from django.db import connection
+            from datetime import datetime
+            
+            # Use simple query to get latest status per imei based on timestamps
+            # This uses index on ['imei', 'createdAt'] efficiently
+            # Simple approach: get max timestamps, then fetch matching records
+            placeholders = ','.join(['%s'] * len(device_imeis))
+            sql = f"""
+                SELECT s1.*
+                FROM statuses s1
+                INNER JOIN (
+                    SELECT imei, MAX(created_at) as max_created
+                    FROM statuses
+                    WHERE imei IN ({placeholders})
+                    GROUP BY imei
+                ) s2 ON s1.imei = s2.imei AND s1.created_at = s2.max_created
+                ORDER BY s1.imei, s1.updated_at DESC, s1.id DESC
+            """
+            
+            with connection.cursor() as cursor:
+                cursor.execute(sql, device_imeis)
+                columns = [col[0] for col in cursor.description]
+                rows = cursor.fetchall()
                 
-                if latest_status_obj:
+                # Process rows and handle duplicates (keep first/latest per imei)
+                seen_imeis = set()
+                for row in rows:
+                    row_dict = dict(zip(columns, row))
+                    imei = row_dict['imei']
+                    
+                    # Skip if we've already processed this imei (ORDER BY ensures we get latest first)
+                    if imei in seen_imeis:
+                        continue
+                    seen_imeis.add(imei)
+                    
+                    # Handle datetime conversion
+                    createdAt = row_dict['created_at']
+                    updatedAt = row_dict.get('updated_at') or createdAt
+                    
+                    if isinstance(createdAt, datetime):
+                        createdAt_str = createdAt.isoformat()
+                    else:
+                        createdAt_str = str(createdAt)
+                    
+                    if isinstance(updatedAt, datetime):
+                        updatedAt_str = updatedAt.isoformat()
+                    else:
+                        updatedAt_str = str(updatedAt)
+                    
                     latest_statuses[imei] = {
-                        'id': latest_status_obj.id,
-                        'imei': latest_status_obj.imei,
-                        'battery': latest_status_obj.battery,
-                        'signal': latest_status_obj.signal,
-                        'ignition': latest_status_obj.ignition,
-                        'charging': latest_status_obj.charging,
-                        'relay': latest_status_obj.relay,
-                        'createdAt': latest_status_obj.createdAt.isoformat(),
-                        'updatedAt': latest_status_obj.updatedAt.isoformat() if hasattr(latest_status_obj, 'updatedAt') and latest_status_obj.updatedAt else latest_status_obj.createdAt.isoformat()
+                        'id': row_dict['id'],
+                        'imei': imei,
+                        'battery': row_dict['battery'],
+                        'signal': row_dict['signal'],
+                        'ignition': bool(row_dict['ignition']),
+                        'charging': bool(row_dict['charging']),
+                        'relay': bool(row_dict['relay']),
+                        'createdAt': createdAt_str,
+                        'updatedAt': updatedAt_str
                     }
         
         devices_data = []
         for device in page_obj:
-            # Get user devices with user info and roles
+            # Get user devices with user info and roles (using prefetched data)
             user_devices_data = []
+            # Use prefetched userDevices - no additional query
             for user_device in device.userDevices.all():
+                # Access prefetched user and groups (no additional queries)
+                user = user_device.user
+                # Groups are prefetched, so this won't cause additional queries
+                roles = [{'id': group.id, 'name': group.name, 'description': ''} for group in user.groups.all()]
                 user_data = {
-                    'id': user_device.user.id,
-                    'name': user_device.user.name,
-                    'phone': user_device.user.phone,
+                    'id': user.id,
+                    'name': user.name,
+                    'phone': user.phone,
                     'status': 'active',  # Default status
-                    'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_device.user.groups.all()],
+                    'roles': roles,
                     'createdAt': user_device.createdAt.isoformat(),
                     'updatedAt': user_device.createdAt.isoformat()
                 }
                 user_devices_data.append({
                     'id': user_device.id,
-                    'userId': user_device.user.id,
+                    'userId': user.id,
                     'deviceId': device.id,
                     'user': user_data,
                     'createdAt': user_device.createdAt.isoformat(),
                     'updatedAt': user_device.createdAt.isoformat()
                 })
             
-            # Get vehicles with user vehicles
+            # Get vehicles with user vehicles (using prefetched data)
             vehicles_data = []
+            # Use prefetched vehicles - no additional query
             for vehicle in device.vehicles.all():
                 user_vehicles_data = []
+                # Use prefetched userVehicles - no additional query
                 for user_vehicle in vehicle.userVehicles.all():
+                    # Access prefetched user and groups (no additional queries)
+                    user = user_vehicle.user
+                    # Groups are prefetched, so this won't cause additional queries
+                    roles = [{'id': group.id, 'name': group.name, 'description': ''} for group in user.groups.all()]
                     user_data = {
-                        'id': user_vehicle.user.id,
-                        'name': user_vehicle.user.name,
-                        'phone': user_vehicle.user.phone,
+                        'id': user.id,
+                        'name': user.name,
+                        'phone': user.phone,
                         'status': 'active',  # Default status
-                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                        'roles': roles,
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()
                     }
                     user_vehicles_data.append({
                         'id': user_vehicle.id,
-                        'userId': user_vehicle.user.id,
+                        'userId': user.id,
                         'vehicleId': vehicle.id,
                         'isMain': user_vehicle.isMain,
                         'user': user_data,
