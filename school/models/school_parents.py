@@ -18,15 +18,15 @@ class SchoolParent(models.Model):
         help_text="School buses this parent is associated with"
     )
     latitude = models.DecimalField(
-        max_digits=12,
-        decimal_places=8,
+        max_digits=18,
+        decimal_places=15,
         blank=True,
         null=True,
         help_text="Parent location latitude"
     )
     longitude = models.DecimalField(
-        max_digits=13,
-        decimal_places=8,
+        max_digits=19,
+        decimal_places=15,
         blank=True,
         null=True,
         help_text="Parent location longitude"
