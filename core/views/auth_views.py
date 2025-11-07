@@ -49,7 +49,7 @@ def get_current_user(request):
         # Check if user is active
         if not user.is_active:
             return error_response(
-                message='Your account is deactivated. Please contact administration.',
+                message='Your account is deleted. Please contact administration.',
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
@@ -364,7 +364,7 @@ def login(request):
         # Check if user is active
         if not user.is_active:
             return error_response(
-                message='Your account is deactivated. Please contact administration.',
+                message='Your account is deleted. Please contact administration.',
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
@@ -718,7 +718,7 @@ def delete_account(request):
         user.save()
         
         return success_response(
-            message='Account has been deactivated successfully. Please contact administration to reactivate your account.'
+            message='Account has been deleted successfully. Please contact administration to reactivate your account.'
         )
     except Exception as e:
         return error_response(
@@ -759,7 +759,7 @@ def biometric_login(request):
         # Check if user is active
         if not user.is_active:
             return error_response(
-                message='Your account is deactivated. Please contact administration.',
+                message='Your account is deleted. Please contact administration.',
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
