@@ -15,7 +15,8 @@ from school.serializers import (
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
-from api_common.decorators.auth_decorators import require_auth, require_super_admin
+from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_school_module_access
+from school.models import SchoolSMS
 from api_common.exceptions.api_exceptions import NotFoundError
 from api_common.utils.sms_service import sms_service
 
@@ -125,7 +126,7 @@ def get_school_sms_by_institute(request, institute_id):
 
 
 @api_view(['POST'])
-@require_super_admin
+@require_school_module_access()
 @api_response
 def create_school_sms(request):
     """Create new school SMS and send SMS to all phone numbers"""
@@ -216,7 +217,7 @@ def create_school_sms(request):
 
 
 @api_view(['PUT'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolSMS, id_param_name='sms_id')
 @api_response
 def update_school_sms(request, sms_id):
     """Update school SMS"""
@@ -255,7 +256,7 @@ def update_school_sms(request, sms_id):
 
 
 @api_view(['DELETE'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolSMS, id_param_name='sms_id')
 @api_response
 def delete_school_sms(request, sms_id):
     """Delete school SMS"""

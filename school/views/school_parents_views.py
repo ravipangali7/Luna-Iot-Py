@@ -14,7 +14,7 @@ from school.serializers import (
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
-from api_common.decorators.auth_decorators import require_auth, require_super_admin
+from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_school_module_access
 from api_common.exceptions.api_exceptions import NotFoundError
 from fleet.models import Vehicle, UserVehicle
 from device.models import Device
@@ -498,7 +498,7 @@ def get_my_school_vehicles(request):
 
 
 @api_view(['POST'])
-@require_super_admin
+@require_school_module_access()
 @api_response
 def create_school_parent(request):
     """Create new school parent"""
@@ -528,7 +528,7 @@ def create_school_parent(request):
 
 
 @api_view(['PUT'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolParent, id_param_name='parent_id')
 @api_response
 def update_school_parent(request, parent_id):
     """Update school parent"""
@@ -567,7 +567,7 @@ def update_school_parent(request, parent_id):
 
 
 @api_view(['DELETE'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolParent, id_param_name='parent_id')
 @api_response
 def delete_school_parent(request, parent_id):
     """Delete school parent"""

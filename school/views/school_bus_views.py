@@ -16,7 +16,7 @@ from shared_utils.constants import VehicleType
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
-from api_common.decorators.auth_decorators import require_auth, require_super_admin
+from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_school_module_access
 from api_common.exceptions.api_exceptions import NotFoundError
 
 
@@ -176,7 +176,7 @@ def get_school_buses_by_institute(request, institute_id):
 
 
 @api_view(['POST'])
-@require_super_admin
+@require_school_module_access()
 @api_response
 def create_school_bus(request):
     """Create new school bus"""
@@ -206,7 +206,7 @@ def create_school_bus(request):
 
 
 @api_view(['PUT'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolBus, id_param_name='bus_id')
 @api_response
 def update_school_bus(request, bus_id):
     """Update school bus"""
@@ -245,7 +245,7 @@ def update_school_bus(request, bus_id):
 
 
 @api_view(['DELETE'])
-@require_super_admin
+@require_school_module_access(model_class=SchoolBus, id_param_name='bus_id')
 @api_response
 def delete_school_bus(request, bus_id):
     """Delete school bus"""
