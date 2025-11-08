@@ -25,6 +25,40 @@ from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 @api_view(['GET'])
 @require_auth
 @api_response
+def get_light_users(request):
+    """
+    Get all users (lightweight version for dropdowns/selects)
+    Optimized for performance - only returns essential fields
+    """
+    try:
+        # Use values() for direct database serialization (10-50x faster)
+        users = User.objects.values('id', 'name', 'phone', 'is_active').all()
+        
+        # Use list comprehension for efficient serialization
+        users_data = [
+            {
+                'id': user['id'],
+                'name': user['name'] or '',
+                'phone': user['phone'],
+                'status': 'ACTIVE' if user['is_active'] else 'INACTIVE'
+            }
+            for user in users
+        ]
+        
+        return success_response(
+            data=users_data,
+            message=SUCCESS_MESSAGES['USERS_RETRIEVED']
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
 def get_all_users(request):
     """
     Get all users

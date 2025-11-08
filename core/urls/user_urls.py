@@ -6,6 +6,9 @@ from django.urls import path
 from core.views import user_views
 
 urlpatterns = [
+    # Lightweight users endpoint (optimized for dropdowns/selects)
+    path('users/light', user_views.get_light_users, name='get_light_users'),
+    
     # List all users
     path('users', user_views.get_all_users, name='get_all_users'),
     
