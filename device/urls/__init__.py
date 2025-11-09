@@ -16,6 +16,15 @@ urlpatterns = [
     # Subscription plan routes
     path('subscription-plan/', include('device.urls.subscription_plan_urls')),
     
+    # Luna Tag routes
+    path('luna-tag/', include('device.urls.luna_tag_urls')),
+    
+    # User Luna Tag routes
+    path('user-luna-tag/', include('device.urls.user_luna_tag_urls')),
+    
+    # Luna Tag Data routes
+    path('luna-tag-data/', include('device.urls.luna_tag_data_urls')),
+    
     # Alert device routes
     path('', include('device.urls.alert_device_urls')),
 ]
