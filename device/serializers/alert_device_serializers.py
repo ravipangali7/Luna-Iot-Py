@@ -20,6 +20,7 @@ class AlertDeviceStatusSerializer(serializers.Serializer):
     imei = serializers.CharField()
     phone = serializers.CharField()
     type = serializers.CharField()
+    title = serializers.CharField(allow_null=True, required=False)
     battery = serializers.IntegerField()
     signal = serializers.IntegerField()
     ignition = serializers.BooleanField()
