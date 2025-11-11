@@ -10,12 +10,14 @@ class UserLunaTagSerializer(serializers.ModelSerializer):
     """Serializer for UserLunaTag model"""
     # Expose the related publicKey string value for convenience
     publicKey_value = serializers.CharField(source='publicKey.publicKey', read_only=True)
+    # Expose the related is_lost_mode from LunaTag
+    is_lost_mode = serializers.BooleanField(source='publicKey.is_lost_mode', read_only=True)
     
     class Meta:
         model = UserLunaTag
         fields = [
             'id', 'publicKey', 'publicKey_value', 'name', 'image', 
-            'expire_date', 'is_active', 'created_at', 'updated_at'
+            'expire_date', 'is_active', 'is_lost_mode', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
