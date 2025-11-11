@@ -96,7 +96,7 @@ def fetch_tag_data(public_key: str) -> Optional[Dict]:
         # Get first item from data array
         tag_data = data_list[0]
         
-        # Parse coordinate (format: "latitude,longitude")
+        # Parse coordinate (format: "longitude,latitude" - API returns them swapped)
         coordinate = tag_data.get('coordinate', '')
         latitude = None
         longitude = None
@@ -105,8 +105,9 @@ def fetch_tag_data(public_key: str) -> Optional[Dict]:
             try:
                 coords = coordinate.split(',')
                 if len(coords) >= 2:
-                    latitude = float(coords[0].strip())
-                    longitude = float(coords[1].strip())
+                    # API returns "longitude,latitude" so we need to swap them
+                    longitude = float(coords[0].strip())
+                    latitude = float(coords[1].strip())
             except (ValueError, IndexError) as e:
                 logger.warning(f"Error parsing coordinate '{coordinate}': {e}")
         
