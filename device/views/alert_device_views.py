@@ -17,35 +17,44 @@ from device.serializers.alert_device_serializers import AlertDeviceStatusSeriali
 @api_view(['GET'])
 def get_alert_devices(request):
     """
-    Get devices with type 'buzzer' or 'sos' from institutes where user has alert-system module access
+    Get devices with type 'buzzer' or 'sos' from institutes where user has alert-system module access.
+    Super Admin users see all devices, others see only devices from their assigned institutes.
     """
     try:
         user = request.user
         
-        # Get user's institute modules where module is alert-system
-        institute_modules = InstituteModule.objects.filter(
-            users=user,
-            module__slug='alert-system'
-        ).select_related('institute', 'module')
+        # Check if user is Super Admin
+        is_super_admin = user.groups.filter(name='Super Admin').exists()
         
-        # Extract institute IDs
-        institute_ids = [im.institute_id for im in institute_modules]
-        
-        if not institute_ids:
-            return Response({
-                'success': True,
-                'message': 'No alert system modules assigned',
-                'data': []
-            }, status=status.HTTP_200_OK)
-        
-        # Get all alert buzzers and switches from user's institutes
-        alert_buzzers = AlertBuzzer.objects.filter(
-            institute_id__in=institute_ids
-        ).select_related('device')
-        
-        alert_switches = AlertSwitch.objects.filter(
-            institute_id__in=institute_ids
-        ).select_related('device')
+        if is_super_admin:
+            # Super Admin: Get all alert buzzers and switches
+            alert_buzzers = AlertBuzzer.objects.select_related('device', 'institute').all()
+            alert_switches = AlertSwitch.objects.select_related('device', 'institute').all()
+        else:
+            # Non-admin: Get user's institute modules where module is alert-system
+            institute_modules = InstituteModule.objects.filter(
+                users=user,
+                module__slug='alert-system'
+            ).select_related('institute', 'module')
+            
+            # Extract institute IDs
+            institute_ids = [im.institute_id for im in institute_modules]
+            
+            if not institute_ids:
+                return Response({
+                    'success': True,
+                    'message': 'No alert system modules assigned',
+                    'data': []
+                }, status=status.HTTP_200_OK)
+            
+            # Get all alert buzzers and switches from user's institutes
+            alert_buzzers = AlertBuzzer.objects.filter(
+                institute_id__in=institute_ids
+            ).select_related('device', 'institute')
+            
+            alert_switches = AlertSwitch.objects.filter(
+                institute_id__in=institute_ids
+            ).select_related('device', 'institute')
         
         # Collect unique devices from alert entities
         devices_data = []
@@ -91,6 +100,7 @@ def get_alert_devices(request):
                 'imei': device.imei,
                 'phone': device.phone,
                 'type': DeviceType.BUZZER,
+                'title': alert_buzzer.title,
                 'battery': latest_status['battery'] if latest_status else 0,
                 'signal': latest_status['signal'] if latest_status else 0,
                 'ignition': latest_status['ignition'] if latest_status else False,
@@ -149,6 +159,7 @@ def get_alert_devices(request):
                 'imei': device.imei,
                 'phone': device.phone,
                 'type': DeviceType.SOS,
+                'title': alert_switch.title,
                 'battery': latest_status['battery'] if latest_status else 0,
                 'signal': latest_status['signal'] if latest_status else 0,
                 'ignition': latest_status['ignition'] if latest_status else False,
