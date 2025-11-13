@@ -1829,7 +1829,7 @@ def get_buzzer_devices_paginated(request):
                         institute_data = {
                             'id': institute.id,
                             'name': institute.name,
-                            'logo': institute.logo.url if institute.logo else None
+                            'logo': request.build_absolute_uri(institute.logo.url) if institute.logo else None
                         }
                 except Exception:
                     institute_data = None
@@ -2044,7 +2044,7 @@ def get_sos_devices_paginated(request):
                         institute_data = {
                             'id': institute.id,
                             'name': institute.name,
-                            'logo': institute.logo.url if institute.logo else None
+                            'logo': request.build_absolute_uri(institute.logo.url) if institute.logo else None
                         }
                 except Exception:
                     institute_data = None
