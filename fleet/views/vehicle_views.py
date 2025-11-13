@@ -501,6 +501,38 @@ def get_vehicle_by_imei(request, imei):
                 }
             })
         
+        # Get main customer (user with isMain=True)
+        main_customer = None
+        for uv in vehicle.userVehicles.all():
+            if uv.isMain:
+                main_customer = {
+                    'id': uv.id,
+                    'userId': uv.user.id,
+                    'vehicleId': uv.vehicle.id,
+                    'isMain': uv.isMain,
+                    'user': {
+                        'id': uv.user.id,
+                        'name': uv.user.name,
+                        'phone': uv.user.phone,
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                        'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
+                        'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                    },
+                    'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
+                    'allAccess': uv.allAccess,
+                    'liveTracking': uv.liveTracking,
+                    'history': uv.history,
+                    'report': uv.report,
+                    'vehicleProfile': uv.vehicleProfile,
+                    'events': uv.events,
+                    'geofence': uv.geofence,
+                    'edit': uv.edit,
+                    'shareTracking': uv.shareTracking,
+                    'notification': uv.notification,
+                    'relay': getattr(uv, 'relay', False)
+                }
+                break
         
         vehicle_data = {
             'id': vehicle.id,
@@ -541,6 +573,7 @@ def get_vehicle_by_imei(request, imei):
                 } if user_vehicle else {}
             } if user_vehicle else None,
             'users': users_with_access,
+            'mainCustomer': main_customer,
             'todayKm': today_km,
             'latestStatus': latest_status,
             'latestLocation': latest_location
@@ -718,6 +751,9 @@ def update_vehicle(request, imei):
             if Vehicle.objects.filter(imei=data['imei']).exclude(id=vehicle.id).exists():
                 return error_response('Vehicle with this IMEI already exists', HTTP_STATUS['BAD_REQUEST'])
         
+        # Check if user is super admin
+        is_super_admin = user_group and user_group.name == 'Super Admin'
+        
         # Update vehicle
         with transaction.atomic():
             if 'imei' in data:
@@ -756,6 +792,38 @@ def update_vehicle(request, imei):
                 vehicle.is_active = data['is_active']
             
             vehicle.save()
+            
+            # Handle main user change (only for super admin)
+            if 'mainUserId' in data and is_super_admin:
+                new_main_user_id = data['mainUserId']
+                try:
+                    # Verify user exists
+                    try:
+                        new_main_user = User.objects.get(id=new_main_user_id)
+                    except User.DoesNotExist:
+                        return error_response('User not found', HTTP_STATUS['NOT_FOUND'])
+                    
+                    # Get current main user
+                    current_main_uv = UserVehicle.objects.filter(vehicle=vehicle, isMain=True).first()
+                    if current_main_uv:
+                        current_main_uv.isMain = False
+                        current_main_uv.save()
+                    
+                    # Set new main user
+                    # First check if UserVehicle relationship exists
+                    try:
+                        new_main_uv = UserVehicle.objects.get(vehicle=vehicle, user_id=new_main_user_id)
+                        new_main_uv.isMain = True
+                        new_main_uv.save()
+                    except UserVehicle.DoesNotExist:
+                        # Create new UserVehicle relationship if it doesn't exist
+                        new_main_uv = UserVehicle.objects.create(
+                            vehicle=vehicle,
+                            user_id=new_main_user_id,
+                            isMain=True
+                        )
+                except Exception as e:
+                    return error_response(f'Failed to update main user: {str(e)}', HTTP_STATUS['BAD_REQUEST'])
         
         vehicle_data = {
             'id': vehicle.id,
