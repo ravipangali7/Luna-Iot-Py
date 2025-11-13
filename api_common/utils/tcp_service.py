@@ -71,11 +71,33 @@ class TCPService:
                         'message': response_data.get('message', 'Failed to send relay command'),
                         'response': response_data
                     }
+            elif response.status_code == 404:
+                # Device not connected
+                try:
+                    response_data = response.json()
+                    return {
+                        'success': False,
+                        'message': response_data.get('message', 'Device not connected via TCP'),
+                        'response': response_data
+                    }
+                except:
+                    return {
+                        'success': False,
+                        'message': 'Device not connected via TCP',
+                        'response': response.text
+                    }
             else:
+                # Try to parse error message from response
+                try:
+                    response_data = response.json()
+                    error_message = response_data.get('message', f'TCP service returned status code: {response.status_code}')
+                except:
+                    error_message = f'TCP service returned status code: {response.status_code}'
+                
                 return {
                     'success': False,
-                    'message': f'TCP service returned status code: {response.status_code}',
-                    'response': response.text
+                    'message': error_message,
+                    'response': response.text if hasattr(response, 'text') else str(response)
                 }
                 
         except requests.exceptions.Timeout:

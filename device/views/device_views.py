@@ -820,10 +820,17 @@ def send_relay_on(request):
                 message='Relay ON command sent successfully'
             )
         else:
-            logger.error(f"Failed to send relay ON command for IMEI {imei}: {tcp_result.get('message')}")
+            error_message = tcp_result.get('message', 'Unknown error')
+            logger.error(f"Failed to send relay ON command for IMEI {imei}: {error_message}")
+            
+            # Check if device is not connected - return 404 instead of 500
+            is_device_not_connected = 'not connected' in error_message.lower() or 'Device not connected' in error_message
+            
+            status_code = HTTP_STATUS['NOT_FOUND'] if is_device_not_connected else HTTP_STATUS['INTERNAL_ERROR']
+            
             return error_response(
-                message=f'Failed to send relay ON command: {tcp_result.get("message", "Unknown error")}',
-                status_code=HTTP_STATUS['INTERNAL_ERROR']
+                message=error_message,
+                status_code=status_code
             )
             
     except Exception as e:
@@ -842,32 +849,54 @@ def send_relay_off(request):
     Send relay OFF command via TCP
     Matches Node.js DeviceController.sendRelayOff
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         data = request.data
         imei = data.get('imei')
         phone = data.get('phone')  # Keep for backward compatibility
+        
+        logger.info(f"Relay OFF request received - IMEI: {imei}, Phone: {phone}, Data: {data}")
         
         # If phone is provided, get device by phone to get imei
         if phone and not imei:
             try:
                 device = Device.objects.get(phone=phone)
                 imei = device.imei
+                if not imei:
+                    logger.error(f"Device found by phone {phone} but has no IMEI")
+                    return error_response(
+                        message='Device found but has no IMEI configured',
+                        status_code=HTTP_STATUS['BAD_REQUEST']
+                    )
+                logger.info(f"Device found by phone {phone}, IMEI: {imei}")
             except Device.DoesNotExist:
+                logger.warning(f"Device not found with phone number: {phone}")
                 return error_response(
                     message='Device not found with provided phone number',
                     status_code=HTTP_STATUS['NOT_FOUND']
                 )
+            except Device.MultipleObjectsReturned:
+                logger.error(f"Multiple devices found with phone number: {phone}")
+                return error_response(
+                    message='Multiple devices found with provided phone number. Please use IMEI instead.',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
         
         if not imei:
+            logger.error("No IMEI provided in request")
             return error_response(
                 message='IMEI is required (or provide phone number to lookup device)',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
         # Send relay OFF command via TCP
+        logger.info(f"Sending relay OFF command via TCP for IMEI: {imei}")
         tcp_result = tcp_service.send_relay_off_command(imei)
         
         if tcp_result['success']:
+            logger.info(f"Relay OFF command sent successfully for IMEI: {imei}")
             return success_response(
                 data={
                     'imei': imei,
@@ -878,14 +907,23 @@ def send_relay_off(request):
                 message='Relay OFF command sent successfully'
             )
         else:
+            error_message = tcp_result.get('message', 'Unknown error')
+            logger.error(f"Failed to send relay OFF command for IMEI {imei}: {error_message}")
+            
+            # Check if device is not connected - return 404 instead of 500
+            is_device_not_connected = 'not connected' in error_message.lower() or 'Device not connected' in error_message
+            
+            status_code = HTTP_STATUS['NOT_FOUND'] if is_device_not_connected else HTTP_STATUS['INTERNAL_ERROR']
+            
             return error_response(
-                message=f'Failed to send relay OFF command: {tcp_result["message"]}',
-                status_code=HTTP_STATUS['INTERNAL_ERROR']
+                message=error_message,
+                status_code=status_code
             )
             
     except Exception as e:
+        logger.exception(f"Unexpected error in send_relay_off: {str(e)}")
         return error_response(
-            message=str(e),
+            message=f'Internal server error: {str(e)}',
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
