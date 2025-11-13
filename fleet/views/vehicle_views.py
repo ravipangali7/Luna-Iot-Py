@@ -845,23 +845,39 @@ def assign_vehicle_access_to_user(request):
         except User.DoesNotExist:
             return error_response('User not found', HTTP_STATUS['NOT_FOUND'])
         
-        # Check if user has permission to assign access
-        user_group = user.groups.first()
-        if not user_group or user_group.name != 'Super Admin':
-            try:
-                main_user_vehicle = UserVehicle.objects.get(
-                    vehicle__imei=imei,
-                    user=user,
-                    isMain=True
-                )
-            except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can assign access', HTTP_STATUS['FORBIDDEN'])
-        
-        # Check if vehicle exists
+        # Check if vehicle exists first
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check if user has permission to assign access
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        
+        # Super Admin: all access
+        if not is_super_admin:
+            # Check if user has access to this vehicle (via UserVehicle or Device access)
+            # For assigning access, user must have edit permission or be main user
+            try:
+                user_vehicle = UserVehicle.objects.get(
+                    vehicle=vehicle,
+                    user=user
+                )
+                # Allow if user is main user or has edit permission
+                if not user_vehicle.isMain and not user_vehicle.edit:
+                    return error_response('Access denied. You do not have permission to assign access to this vehicle', HTTP_STATUS['FORBIDDEN'])
+            except UserVehicle.DoesNotExist:
+                # Check device access for dealers
+                if vehicle.device:
+                    has_device_access = UserDevice.objects.filter(
+                        device=vehicle.device,
+                        user=user
+                    ).exists()
+                    if not has_device_access:
+                        return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
+                else:
+                    return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Check if access is already assigned
         if UserVehicle.objects.filter(vehicle=vehicle, user=target_user).exists():
@@ -966,16 +982,28 @@ def get_vehicle_access_assignments_light(request, imei):
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
         
         # Check if user has access to this vehicle
-        user_group = user.groups.first()
-        if not user_group or user_group.name != 'Super Admin':
-            try:
-                main_user_vehicle = UserVehicle.objects.get(
-                    vehicle=vehicle,
-                    user=user,
-                    isMain=True
-                )
-            except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can view access', HTTP_STATUS['FORBIDDEN'])
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        
+        # Super Admin: all access
+        if not is_super_admin:
+            # Check if user has access to this vehicle (via UserVehicle or Device access)
+            has_vehicle_access = UserVehicle.objects.filter(
+                vehicle=vehicle,
+                user=user
+            ).exists()
+            
+            # Also check device access for dealers
+            has_device_access = False
+            if vehicle.device:
+                from device.models import UserDevice
+                has_device_access = UserDevice.objects.filter(
+                    device=vehicle.device,
+                    user=user
+                ).exists()
+            
+            if not has_vehicle_access and not has_device_access:
+                return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Get only essential vehicle data
         vehicle_data = {
@@ -1116,23 +1144,39 @@ def update_vehicle_access(request):
         user_id = data['userId']
         permissions = data['permissions']
         
-        # Check if user has permission to update access
-        user_group = user.groups.first()
-        if not user_group or user_group.name != 'Super Admin':
-            try:
-                main_user_vehicle = UserVehicle.objects.get(
-                    vehicle__imei=imei,
-                    user=user,
-                    isMain=True
-                )
-            except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can update access', HTTP_STATUS['FORBIDDEN'])
-        
-        # Check if vehicle exists
+        # Check if vehicle exists first
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check if user has permission to update access
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        
+        # Super Admin: all access
+        if not is_super_admin:
+            # Check if user has access to this vehicle (via UserVehicle or Device access)
+            # For updating access, user must have edit permission or be main user
+            try:
+                user_vehicle = UserVehicle.objects.get(
+                    vehicle=vehicle,
+                    user=user
+                )
+                # Allow if user is main user or has edit permission
+                if not user_vehicle.isMain and not user_vehicle.edit:
+                    return error_response('Access denied. You do not have permission to update access for this vehicle', HTTP_STATUS['FORBIDDEN'])
+            except UserVehicle.DoesNotExist:
+                # Check device access for dealers
+                if vehicle.device:
+                    has_device_access = UserDevice.objects.filter(
+                        device=vehicle.device,
+                        user=user
+                    ).exists()
+                    if not has_device_access:
+                        return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
+                else:
+                    return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Update vehicle access
         try:
@@ -1201,23 +1245,39 @@ def remove_vehicle_access(request):
         imei = data['imei']
         user_id = data['userId']
         
-        # Check if user has permission to remove access
-        user_group = user.groups.first()
-        if not user_group or user_group.name != 'Super Admin':
-            try:
-                main_user_vehicle = UserVehicle.objects.get(
-                    vehicle__imei=imei,
-                    user=user,
-                    isMain=True
-                )
-            except UserVehicle.DoesNotExist:
-                return error_response('Access denied. Only main user or Super Admin can remove access', HTTP_STATUS['FORBIDDEN'])
-        
-        # Check if vehicle exists
+        # Check if vehicle exists first
         try:
             vehicle = Vehicle.objects.get(imei=imei)
         except Vehicle.DoesNotExist:
             return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check if user has permission to remove access
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        
+        # Super Admin: all access
+        if not is_super_admin:
+            # Check if user has access to this vehicle (via UserVehicle or Device access)
+            # For removing access, user must have edit permission or be main user
+            try:
+                user_vehicle = UserVehicle.objects.get(
+                    vehicle=vehicle,
+                    user=user
+                )
+                # Allow if user is main user or has edit permission
+                if not user_vehicle.isMain and not user_vehicle.edit:
+                    return error_response('Access denied. You do not have permission to remove access from this vehicle', HTTP_STATUS['FORBIDDEN'])
+            except UserVehicle.DoesNotExist:
+                # Check device access for dealers
+                if vehicle.device:
+                    has_device_access = UserDevice.objects.filter(
+                        device=vehicle.device,
+                        user=user
+                    ).exists()
+                    if not has_device_access:
+                        return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
+                else:
+                    return error_response('Access denied. You do not have access to this vehicle', HTTP_STATUS['FORBIDDEN'])
         
         # Remove vehicle access
         try:
