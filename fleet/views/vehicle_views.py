@@ -1025,7 +1025,8 @@ def get_vehicles_for_access_assignment(request):
                 'imei': vehicle.imei,
                 'name': vehicle.name,
                 'vehicleNo': vehicle.vehicleNo,
-                'vehicleType': vehicle.vehicleType
+                'vehicleType': vehicle.vehicleType,
+                'is_relay': vehicle.is_relay
             })
         
         return success_response(vehicles_data, 'Vehicles for access assignment retrieved successfully')
