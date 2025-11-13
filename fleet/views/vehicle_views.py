@@ -360,6 +360,7 @@ def get_all_vehicles_detailed(request):
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
                 'is_active': vehicle.is_active,
+                'is_relay': vehicle.is_relay,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
@@ -1080,6 +1081,7 @@ def get_vehicle_access_assignments_light(request, imei):
             'name': vehicle.name,
             'vehicleNo': vehicle.vehicleNo,
             'vehicleType': vehicle.vehicleType,
+            'is_relay': vehicle.is_relay,
             'device': {
                 'id': vehicle.device.id if vehicle.device else None,
                 'imei': vehicle.device.imei if vehicle.device else None,
@@ -1430,6 +1432,7 @@ def get_vehicles_with_access_paginated(request):
                 'name': vehicle.name,
                 'vehicleNo': vehicle.vehicleNo,
                 'vehicleType': vehicle.vehicleType,
+                'is_relay': vehicle.is_relay,
                 'device': {
                     'id': vehicle.device.id if vehicle.device else None,
                     'imei': vehicle.device.imei if vehicle.device else None,
@@ -1553,6 +1556,7 @@ def search_vehicles_with_access(request):
                 'name': vehicle.name,
                 'vehicleNo': vehicle.vehicleNo,
                 'vehicleType': vehicle.vehicleType,
+                'is_relay': vehicle.is_relay,
                 'device': {
                     'id': vehicle.device.id if vehicle.device else None,
                     'imei': vehicle.device.imei if vehicle.device else None,
@@ -2047,6 +2051,7 @@ def search_vehicles(request):
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
                 'is_active': vehicle.is_active,
+                'is_relay': vehicle.is_relay,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
