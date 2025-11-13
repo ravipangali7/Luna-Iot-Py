@@ -15,6 +15,7 @@ class Vehicle(models.Model):
     speedLimit = models.IntegerField(default=60, db_column='speed_limit')
     expireDate = models.DateTimeField(null=True, blank=True, db_column='expire_date')
     is_active = models.BooleanField(default=True, db_column='is_active')
+    is_relay = models.BooleanField(default=False, db_column='is_relay')
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 

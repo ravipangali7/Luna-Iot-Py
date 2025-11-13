@@ -164,6 +164,7 @@ def get_all_vehicles(request):
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
                 'is_active': vehicle.is_active,
+                'is_relay': vehicle.is_relay,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'userVehicle': {
@@ -177,8 +178,7 @@ def get_all_vehicles(request):
                     'geofence': user_vehicle.geofence if user_vehicle else False,
                     'edit': user_vehicle.edit if user_vehicle else False,
                     'shareTracking': user_vehicle.shareTracking if user_vehicle else False,
-                    'notification': user_vehicle.notification if user_vehicle else False,
-                    'relay': user_vehicle.relay if user_vehicle else False
+                    'notification': user_vehicle.notification if user_vehicle else False
                 } if user_vehicle else None,
                 'todayKm': today_km,
                 'latestStatus': latest_status,
@@ -243,8 +243,7 @@ def get_all_vehicles_detailed(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification,
-                    'relay': getattr(uv, 'relay', False)
+                    'notification': uv.notification
                 })
             
             # Get current user's userVehicle (convenience single object for clients)
@@ -264,8 +263,7 @@ def get_all_vehicles_detailed(request):
                 'geofence': current_user_uv.geofence if current_user_uv else False,
                 'edit': current_user_uv.edit if current_user_uv else False,
                 'shareTracking': current_user_uv.shareTracking if current_user_uv else False,
-                'notification': current_user_uv.notification if current_user_uv else False,
-                'relay': getattr(current_user_uv, 'relay', False) if current_user_uv else False
+                'notification': current_user_uv.notification if current_user_uv else False
             } if current_user_uv else None
 
             # Get main customer (user with isMain=True)
@@ -296,8 +294,7 @@ def get_all_vehicles_detailed(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification,
-                        'relay': getattr(uv, 'relay', False)
+                        'notification': uv.notification
                     }
                     break
             
@@ -529,8 +526,7 @@ def get_vehicle_by_imei(request, imei):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification,
-                    'relay': getattr(uv, 'relay', False)
+                    'notification': uv.notification
                 }
                 break
         
@@ -545,6 +541,7 @@ def get_vehicle_by_imei(request, imei):
             'minimumFuel': float(vehicle.minimumFuel),
             'speedLimit': vehicle.speedLimit,
             'is_active': vehicle.is_active,
+            'is_relay': vehicle.is_relay,
             'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
             'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
             'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
@@ -645,7 +642,8 @@ def create_vehicle(request):
                 minimumFuel=data.get('minimumFuel', 0),
                 speedLimit=data.get('speedLimit', 60),
                 expireDate=expire_date,
-                is_active=data.get('is_active', True)
+                is_active=data.get('is_active', True),
+                is_relay=data.get('is_relay', False)
             )
             
             # Create user-vehicle relationship
@@ -790,6 +788,8 @@ def update_vehicle(request, imei):
                 vehicle.status = data['status']
             if 'is_active' in data:
                 vehicle.is_active = data['is_active']
+            if 'is_relay' in data:
+                vehicle.is_relay = data['is_relay']
             
             vehicle.save()
             
@@ -1109,7 +1109,6 @@ def get_vehicle_access_assignments_light(request, imei):
                 'edit': user_vehicle.edit,
                 'shareTracking': user_vehicle.shareTracking,
                 'notification': user_vehicle.notification,
-                'relay': user_vehicle.relay,
                 'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
                 'user': {
                     'id': user_vehicle.user.id,
@@ -1259,7 +1258,6 @@ def update_vehicle_access(request):
             user_vehicle.edit = permissions.get('edit', False)
             user_vehicle.shareTracking = permissions.get('shareTracking', False)
             user_vehicle.notification = permissions.get('notification', True)
-            user_vehicle.relay = permissions.get('relay', False)
             user_vehicle.save()
         except UserVehicle.DoesNotExist:
             return error_response('Vehicle access assignment not found', HTTP_STATUS['NOT_FOUND'])
@@ -1279,8 +1277,7 @@ def update_vehicle_access(request):
                 'geofence': user_vehicle.geofence,
                 'edit': user_vehicle.edit,
                 'shareTracking': user_vehicle.shareTracking,
-                'notification': user_vehicle.notification,
-                'relay': user_vehicle.relay
+                'notification': user_vehicle.notification
             },
             'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None
         }
@@ -1417,7 +1414,6 @@ def get_vehicles_with_access_paginated(request):
                     'edit': user_vehicle.edit,
                     'shareTracking': user_vehicle.shareTracking,
                     'notification': user_vehicle.notification,
-                    'relay': user_vehicle.relay,
                     'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
                     'user': {
                         'id': user_vehicle.user.id,
@@ -1541,7 +1537,6 @@ def search_vehicles_with_access(request):
                     'edit': user_vehicle.edit,
                     'shareTracking': user_vehicle.shareTracking,
                     'notification': user_vehicle.notification,
-                    'relay': user_vehicle.relay,
                     'createdAt': user_vehicle.createdAt.isoformat() if user_vehicle.createdAt else None,
                     'user': {
                         'id': user_vehicle.user.id,
@@ -1681,8 +1676,7 @@ def get_vehicles_paginated(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification,
-                    'relay': getattr(uv, 'relay', False)
+                    'notification': uv.notification
                 })
             
             # Current user's single userVehicle convenience object
@@ -1702,8 +1696,7 @@ def get_vehicles_paginated(request):
                 'geofence': current_user_uv.geofence if current_user_uv else False,
                 'edit': current_user_uv.edit if current_user_uv else False,
                 'shareTracking': current_user_uv.shareTracking if current_user_uv else False,
-                'notification': current_user_uv.notification if current_user_uv else False,
-                'relay': getattr(current_user_uv, 'relay', False) if current_user_uv else False
+                'notification': current_user_uv.notification if current_user_uv else False
             } if current_user_uv else None
 
             # Get main customer (user with isMain=True)
@@ -1734,8 +1727,7 @@ def get_vehicles_paginated(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification,
-                        'relay': getattr(uv, 'relay', False)
+                        'notification': uv.notification
                     }
                     break
             
@@ -1801,6 +1793,7 @@ def get_vehicles_paginated(request):
                 'speedLimit': vehicle.speedLimit,
                 'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
                 'is_active': vehicle.is_active,
+                'is_relay': vehicle.is_relay,
                 'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
                 'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
                 'device': {
@@ -1951,8 +1944,7 @@ def search_vehicles(request):
                     'geofence': uv.geofence,
                     'edit': uv.edit,
                     'shareTracking': uv.shareTracking,
-                    'notification': uv.notification,
-                    'relay': getattr(uv, 'relay', False)
+                    'notification': uv.notification
                 })
             
             # Get current user's userVehicle relationship
@@ -1989,8 +1981,7 @@ def search_vehicles(request):
                         'geofence': uv.geofence,
                         'edit': uv.edit,
                         'shareTracking': uv.shareTracking,
-                        'notification': uv.notification,
-                        'relay': getattr(uv, 'relay', False)
+                        'notification': uv.notification
                     }
                     break
             

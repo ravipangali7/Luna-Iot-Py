@@ -99,7 +99,6 @@ def get_all_devices(request):
                             'vehicleId': vehicle.id,
                             'isMain': user_vehicle.isMain,
                             'user': user_data,
-                            'relay': getattr(user_vehicle, 'relay', False),
                             'createdAt': user_vehicle.createdAt.isoformat(),
                             'updatedAt': user_vehicle.createdAt.isoformat()
                         })
@@ -334,7 +333,6 @@ def get_device_by_imei(request, imei):
                     'vehicleId': vehicle.id,
                     'isMain': user_vehicle.isMain,
                     'user': user_data,
-                    'relay': getattr(user_vehicle, 'relay', False),
                     'createdAt': user_vehicle.createdAt.isoformat(),
                     'updatedAt': user_vehicle.createdAt.isoformat()
                 })
@@ -1027,7 +1025,6 @@ def get_devices_paginated(request):
                         'vehicleId': vehicle.id,
                         'isMain': user_vehicle.isMain,
                         'user': user_data,
-                        'relay': getattr(user_vehicle, 'relay', False),
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()
                     })
@@ -1599,7 +1596,6 @@ def get_gps_devices_paginated(request):
                         'vehicleId': vehicle.id,
                         'isMain': user_vehicle.isMain,
                         'user': user_data,
-                        'relay': getattr(user_vehicle, 'relay', False),
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()
                     })
@@ -1786,7 +1782,6 @@ def get_buzzer_devices_paginated(request):
                         'vehicleId': vehicle.id,
                         'isMain': user_vehicle.isMain,
                         'user': user_data,
-                        'relay': getattr(user_vehicle, 'relay', False),
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()
                     })
@@ -2001,7 +1996,6 @@ def get_sos_devices_paginated(request):
                         'vehicleId': vehicle.id,
                         'isMain': user_vehicle.isMain,
                         'user': user_data,
-                        'relay': getattr(user_vehicle, 'relay', False),
                         'createdAt': user_vehicle.createdAt.isoformat(),
                         'updatedAt': user_vehicle.createdAt.isoformat()
                     })

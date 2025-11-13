@@ -19,8 +19,6 @@ class UserVehicle(models.Model):
     edit = models.BooleanField(default=False)
     shareTracking = models.BooleanField(default=False, db_column='share_tracking')
     notification = models.BooleanField(default=True)
-    # Engine relay permission for this user on this vehicle
-    relay = models.BooleanField(default=False)
     
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
     
