@@ -312,92 +312,148 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
         Dict with success status and details
     """
     try:
-        if not buzzers:
-            logger.info(f"No buzzers to activate for alert {alert_history.id}")
-            return {'success': True, 'message': 'No buzzers to activate', 'activated_count': 0}
-        
         activated_count = 0
         failed_count = 0
         results = []
+        switch_activated = False
+        switch_result = None
         
-        for buzzer in buzzers:
-            try:
-                # Get device IMEI for TCP command
-                if not buzzer.device or not buzzer.device.imei:
-                    failed_count += 1
-                    logger.warning(f"Buzzer {buzzer.title} has no device or IMEI")
+        # Process buzzers if any exist
+        if buzzers:
+            for buzzer in buzzers:
+                try:
+                    # Get device IMEI for TCP command
+                    if not buzzer.device or not buzzer.device.imei:
+                        failed_count += 1
+                        logger.warning(f"Buzzer {buzzer.title} has no device or IMEI")
+                        results.append({
+                            'buzzer_id': buzzer.id,
+                            'buzzer_title': buzzer.title,
+                            'device_imei': None,
+                            'delay': buzzer.delay,
+                            'success': False,
+                            'message': 'Device IMEI not found'
+                        })
+                        continue
+                    
+                    buzzer_imei = buzzer.device.imei
+                    
+                    # Send relay ON command to buzzer via TCP
+                    relay_on_result = tcp_service.send_relay_on_command(buzzer_imei)
+                    
+                    if relay_on_result['success']:
+                        activated_count += 1
+                        logger.info(f"Relay ON sent to buzzer {buzzer.title} (IMEI: {buzzer_imei})")
+                        
+                        # Schedule relay OFF for buzzer
+                        from alert_system.tasks import schedule_relay_off_command
+                        schedule_relay_off_command(
+                            buzzer_imei,
+                            buzzer.delay,
+                            alert_history.id,
+                            buzzer.id
+                        )
+                    else:
+                        failed_count += 1
+                        logger.warning(f"Failed to send relay ON to buzzer {buzzer.title}")
+                    
                     results.append({
                         'buzzer_id': buzzer.id,
                         'buzzer_title': buzzer.title,
-                        'device_imei': None,
+                        'device_imei': buzzer_imei,
                         'delay': buzzer.delay,
-                        'success': False,
-                        'message': 'Device IMEI not found'
+                        'success': relay_on_result['success'],
+                        'message': relay_on_result['message']
                     })
-                    continue
-                
-                buzzer_imei = buzzer.device.imei
-                
-                # Send relay ON command to buzzer via TCP
-                relay_on_result = tcp_service.send_relay_on_command(buzzer_imei)
-                
-                if relay_on_result['success']:
-                    activated_count += 1
-                    logger.info(f"Relay ON sent to buzzer {buzzer.title} (IMEI: {buzzer_imei})")
                     
-                    # Schedule relay OFF for buzzer
-                    from alert_system.tasks import schedule_relay_off_command
-                    schedule_relay_off_command(
-                        buzzer_imei,
-                        buzzer.delay,
-                        alert_history.id,
-                        buzzer.id
-                    )
-                    
-                    # If source is 'switch', also send relay to switch device
-                    if alert_history.source == 'switch':
-                        switch = get_alert_switch(alert_history)
-                        
-                        if switch and switch.device and switch.device.imei:
-                            switch_device_imei = switch.device.imei
-                            switch_relay_result = tcp_service.send_relay_on_command(switch_device_imei)
-                            
-                            if switch_relay_result['success']:
-                                logger.info(f"Relay ON sent to switch device (IMEI: {switch_device_imei})")
-                                
-                                # Schedule relay OFF for switch device using switch.trigger as delay
-                                schedule_relay_off_command(
-                                    switch_device_imei,
-                                    switch.trigger,
-                                    alert_history.id,
-                                    buzzer.id
-                                )
-                            else:
-                                logger.warning(f"Failed to send relay ON to switch device (IMEI: {switch_device_imei})")
-                    
-                else:
+                except Exception as e:
                     failed_count += 1
-                    logger.warning(f"Failed to send relay ON to buzzer {buzzer.title}")
+                    logger.error(f"Error activating buzzer {buzzer.title}: {e}")
+        else:
+            logger.info(f"No buzzers to activate for alert {alert_history.id}")
+        
+        # Activate switch device if source is 'switch' (independent of buzzers)
+        if alert_history.source == 'switch':
+            try:
+                switch = get_alert_switch(alert_history)
                 
-                results.append({
-                    'buzzer_id': buzzer.id,
-                    'buzzer_title': buzzer.title,
-                    'device_imei': buzzer_imei,
-                    'delay': buzzer.delay,
-                    'success': relay_on_result['success'],
-                    'message': relay_on_result['message']
-                })
-                
+                if switch and switch.device and switch.device.imei:
+                    switch_device_imei = switch.device.imei
+                    switch_relay_result = tcp_service.send_relay_on_command(switch_device_imei)
+                    
+                    if switch_relay_result['success']:
+                        switch_activated = True
+                        logger.info(f"Relay ON sent to switch device (IMEI: {switch_device_imei})")
+                        
+                        # Schedule relay OFF for switch device using switch.trigger as delay
+                        from alert_system.tasks import schedule_relay_off_command
+                        schedule_relay_off_command(
+                            switch_device_imei,
+                            switch.trigger,
+                            alert_history.id,
+                            None  # No buzzer ID for switch device
+                        )
+                        
+                        switch_result = {
+                            'switch_id': switch.id,
+                            'switch_title': switch.title,
+                            'device_imei': switch_device_imei,
+                            'delay': switch.trigger,
+                            'success': True,
+                            'message': 'Switch device activated successfully'
+                        }
+                    else:
+                        logger.warning(f"Failed to send relay ON to switch device (IMEI: {switch_device_imei})")
+                        switch_result = {
+                            'switch_id': switch.id if switch else None,
+                            'switch_title': switch.title if switch else 'Unknown',
+                            'device_imei': switch_device_imei,
+                            'delay': switch.trigger if switch else None,
+                            'success': False,
+                            'message': switch_relay_result.get('message', 'Failed to activate switch device')
+                        }
+                else:
+                    logger.warning(f"Switch device not found or has no IMEI for alert {alert_history.id}")
+                    switch_result = {
+                        'switch_id': switch.id if switch else None,
+                        'switch_title': switch.title if switch else 'Unknown',
+                        'device_imei': None,
+                        'delay': switch.trigger if switch else None,
+                        'success': False,
+                        'message': 'Switch device or IMEI not found'
+                    }
             except Exception as e:
-                failed_count += 1
-                logger.error(f"Error activating buzzer {buzzer.title}: {e}")
+                logger.error(f"Error activating switch device for alert {alert_history.id}: {e}")
+                switch_result = {
+                    'switch_id': None,
+                    'switch_title': 'Unknown',
+                    'device_imei': None,
+                    'delay': None,
+                    'success': False,
+                    'message': str(e)
+                }
+        
+        # Build return message
+        message_parts = []
+        if buzzers:
+            message_parts.append(f'Buzzer activation: {activated_count} activated, {failed_count} failed')
+        else:
+            message_parts.append('No buzzers to activate')
+        
+        if alert_history.source == 'switch':
+            if switch_activated:
+                message_parts.append('Switch device activated')
+            else:
+                message_parts.append('Switch device activation failed or not found')
         
         return {
             'success': True,
-            'message': f'Buzzer activation completed: {activated_count} activated, {failed_count} failed',
+            'message': '. '.join(message_parts),
             'activated_count': activated_count,
             'failed_count': failed_count,
-            'results': results
+            'results': results,
+            'switch_activated': switch_activated,
+            'switch_result': switch_result
         }
         
     except Exception as e:
