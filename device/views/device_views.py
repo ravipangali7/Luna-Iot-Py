@@ -18,6 +18,12 @@ from device.models.sos_status import SosStatus
 from fleet.models.vehicle import Vehicle
 from fleet.models.user_vehicle import UserVehicle
 from core.models.user import User
+# Import alert system models for institute lookup
+try:
+    from alert_system.models import AlertBuzzer, AlertSwitch
+except ImportError:
+    AlertBuzzer = None
+    AlertSwitch = None
 from api_common.utils.response_utils import success_response, error_response
 from api_common.utils.validation_utils import validate_imei
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
@@ -1610,6 +1616,9 @@ def get_gps_devices_paginated(request):
             # Get latest status for GPS device from pre-fetched dictionary (avoids N+1 query)
             latest_status = latest_statuses.get(device.imei)
             
+            # Get institute info (GPS devices may not have institute, so leave as null)
+            institute_data = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1628,6 +1637,7 @@ def get_gps_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1686,7 +1696,8 @@ def get_buzzer_devices_paginated(request):
             devices = Device.objects.filter(type='buzzer').prefetch_related(
                 'userDevices__user__groups',
                 'vehicles__userVehicles__user__groups',
-                'subscription_plan'
+                'subscription_plan',
+                'alert_buzzers__institute'
             ).all()
         # Dealer: only assigned Buzzer devices
         elif is_dealer:
@@ -1696,7 +1707,8 @@ def get_buzzer_devices_paginated(request):
             ).prefetch_related(
                 'userDevices__user__groups',
                 'vehicles__userVehicles__user__groups',
-                'subscription_plan'
+                'subscription_plan',
+                'alert_buzzers__institute'
             ).distinct()
         # Customer: no access to devices
         else:
@@ -1807,6 +1819,21 @@ def get_buzzer_devices_paginated(request):
             except Exception as e:
                 latest_status = None
             
+            # Get institute info from alert_buzzers relationship
+            institute_data = None
+            if AlertBuzzer:
+                try:
+                    alert_buzzer = device.alert_buzzers.first()
+                    if alert_buzzer and alert_buzzer.institute:
+                        institute = alert_buzzer.institute
+                        institute_data = {
+                            'id': institute.id,
+                            'name': institute.name,
+                            'logo': institute.logo.url if institute.logo else None
+                        }
+                except Exception:
+                    institute_data = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1825,6 +1852,7 @@ def get_buzzer_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1883,7 +1911,8 @@ def get_sos_devices_paginated(request):
             devices = Device.objects.filter(type='sos').prefetch_related(
                 'userDevices__user__groups',
                 'vehicles__userVehicles__user__groups',
-                'subscription_plan'
+                'subscription_plan',
+                'alert_switches__institute'
             ).all()
         # Dealer: only assigned SOS devices
         elif is_dealer:
@@ -1893,7 +1922,8 @@ def get_sos_devices_paginated(request):
             ).prefetch_related(
                 'userDevices__user__groups',
                 'vehicles__userVehicles__user__groups',
-                'subscription_plan'
+                'subscription_plan',
+                'alert_switches__institute'
             ).distinct()
         # Customer: no access to devices
         else:
@@ -2004,6 +2034,21 @@ def get_sos_devices_paginated(request):
             except Exception as e:
                 latest_status = None
             
+            # Get institute info from alert_switches relationship
+            institute_data = None
+            if AlertSwitch:
+                try:
+                    alert_switch = device.alert_switches.first()
+                    if alert_switch and alert_switch.institute:
+                        institute = alert_switch.institute
+                        institute_data = {
+                            'id': institute.id,
+                            'name': institute.name,
+                            'logo': institute.logo.url if institute.logo else None
+                        }
+                except Exception:
+                    institute_data = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -2022,6 +2067,7 @@ def get_sos_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
