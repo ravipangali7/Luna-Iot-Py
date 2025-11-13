@@ -5,17 +5,17 @@ Handles delayed operations like buzzer relay OFF commands using threading
 import logging
 import threading
 import time
-from api_common.utils.sms_service import sms_service
+from api_common.utils.tcp_service import tcp_service
 
 logger = logging.getLogger(__name__)
 
 
-def schedule_relay_off_command(device_phone: str, delay_seconds: int, alert_history_id: int, buzzer_id: int):
+def schedule_relay_off_command(device_imei: str, delay_seconds: int, alert_history_id: int, buzzer_id: int):
     """
     Schedule a relay OFF command to be sent after a specified delay using threading.
     
     Args:
-        device_phone: Phone number of the buzzer device
+        device_imei: IMEI of the buzzer device
         delay_seconds: Delay in seconds before sending relay OFF command
         alert_history_id: ID of the alert history for logging
         buzzer_id: ID of the buzzer for logging
@@ -29,16 +29,16 @@ def schedule_relay_off_command(device_phone: str, delay_seconds: int, alert_hist
             # Sleep for the specified delay
             time.sleep(delay_seconds)
             
-            
-            relay_off_result = sms_service.send_relay_off_command(device_phone)
+            # Send relay OFF command via TCP
+            relay_off_result = tcp_service.send_relay_off_command(device_imei)
             
             if relay_off_result['success']:
-                pass
+                logger.info(f"[SUCCESS] Buzzer {buzzer_id} - Relay OFF command sent to device (IMEI: {device_imei}) for alert {alert_history_id}")
             else:
-                print(f"[FAILED] Buzzer {buzzer_id} - Failed to send relay OFF command to {device_phone}: {relay_off_result['message']}")
+                logger.warning(f"[FAILED] Buzzer {buzzer_id} - Failed to send relay OFF command to device (IMEI: {device_imei}): {relay_off_result['message']}")
                 
         except Exception as e:
-            print(f"[ERROR] Buzzer {buzzer_id} - Error in delayed relay OFF command for alert {alert_history_id}: {e}")
+            logger.error(f"[ERROR] Buzzer {buzzer_id} - Error in delayed relay OFF command for alert {alert_history_id}: {e}")
     
     # Start the delayed task in a separate daemon thread
     thread = threading.Thread(target=send_delayed_relay_off)

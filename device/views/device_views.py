@@ -25,6 +25,7 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin, require_dealer_or_admin
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 from api_common.utils.sms_service import sms_service
+from api_common.utils.tcp_service import tcp_service
 
 
 @api_view(['GET'])
@@ -758,37 +759,47 @@ def send_reset(request):
 @api_response
 def send_relay_on(request):
     """
-    Send relay ON command via SMS
+    Send relay ON command via TCP
     Matches Node.js DeviceController.sendRelayOn
     """
     try:
         data = request.data
-        phone = data.get('phone')
+        imei = data.get('imei')
+        phone = data.get('phone')  # Keep for backward compatibility
         
-        if not phone:
+        # If phone is provided, get device by phone to get imei
+        if phone and not imei:
+            try:
+                device = Device.objects.get(phone=phone)
+                imei = device.imei
+            except Device.DoesNotExist:
+                return error_response(
+                    message='Device not found with provided phone number',
+                    status_code=HTTP_STATUS['NOT_FOUND']
+                )
+        
+        if not imei:
             return error_response(
-                message='Phone number is required',
+                message='IMEI is required (or provide phone number to lookup device)',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Relay ON command message
-        relay_on_message = 'RELAY,1#'
+        # Send relay ON command via TCP
+        tcp_result = tcp_service.send_relay_on_command(imei)
         
-        # Send SMS using SMS service
-        sms_result = sms_service.send_relay_on_command(phone)
-        
-        if sms_result['success']:
+        if tcp_result['success']:
             return success_response(
                 data={
-                    'phone': phone,
-                    'message': relay_on_message,
+                    'imei': imei,
+                    'phone': phone if phone else None,
+                    'command': 'on',
                     'sent': True
                 },
                 message='Relay ON command sent successfully'
             )
         else:
             return error_response(
-                message=f'Failed to send relay ON command: {sms_result["message"]}',
+                message=f'Failed to send relay ON command: {tcp_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             
@@ -804,37 +815,47 @@ def send_relay_on(request):
 @api_response
 def send_relay_off(request):
     """
-    Send relay OFF command via SMS
+    Send relay OFF command via TCP
     Matches Node.js DeviceController.sendRelayOff
     """
     try:
         data = request.data
-        phone = data.get('phone')
+        imei = data.get('imei')
+        phone = data.get('phone')  # Keep for backward compatibility
         
-        if not phone:
+        # If phone is provided, get device by phone to get imei
+        if phone and not imei:
+            try:
+                device = Device.objects.get(phone=phone)
+                imei = device.imei
+            except Device.DoesNotExist:
+                return error_response(
+                    message='Device not found with provided phone number',
+                    status_code=HTTP_STATUS['NOT_FOUND']
+                )
+        
+        if not imei:
             return error_response(
-                message='Phone number is required',
+                message='IMEI is required (or provide phone number to lookup device)',
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Relay OFF command message
-        relay_off_message = 'RELAY,0#'
+        # Send relay OFF command via TCP
+        tcp_result = tcp_service.send_relay_off_command(imei)
         
-        # Send SMS using SMS service
-        sms_result = sms_service.send_relay_off_command(phone)
-        
-        if sms_result['success']:
+        if tcp_result['success']:
             return success_response(
                 data={
-                    'phone': phone,
-                    'message': relay_off_message,
+                    'imei': imei,
+                    'phone': phone if phone else None,
+                    'command': 'off',
                     'sent': True
                 },
                 message='Relay OFF command sent successfully'
             )
         else:
             return error_response(
-                message=f'Failed to send relay OFF command: {sms_result["message"]}',
+                message=f'Failed to send relay OFF command: {tcp_result["message"]}',
                 status_code=HTTP_STATUS['INTERNAL_ERROR']
             )
             

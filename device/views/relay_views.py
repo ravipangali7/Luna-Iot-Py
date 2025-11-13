@@ -15,6 +15,7 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+from api_common.utils.tcp_service import tcp_service
 
 
 @api_view(['POST'])
@@ -22,7 +23,7 @@ from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 @api_response
 def turn_on_relay(request):
     """
-    Turn ON relay
+    Turn ON relay via TCP
     Matches Node.js RelayController.turnOnRelay
     """
     try:
@@ -44,34 +45,23 @@ def turn_on_relay(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if device is connected (has phone number)
-        if not device.phone:
-            return error_response(
-                message='Vehicle not connected. Please try again later.',
-                status_code=HTTP_STATUS['BAD_REQUEST']
+        # Send relay ON command via TCP
+        tcp_result = tcp_service.send_relay_on_command(imei)
+        
+        if tcp_result['success']:
+            return success_response(
+                data={
+                    'imei': imei,
+                    'command': 'on',
+                    'status': 'sent'
+                },
+                message=SUCCESS_MESSAGES['RELAY_TURNED_ON_SUCCESSFULLY']
             )
-        
-        # Relay ON command
-        relay_on_message = 'RELAY,1#'
-        
-        # TODO: Send SMS command (implement SMS service)
-        # sms_result = sms_service.sendSMS(device.phone, relay_on_message)
-        
-        # TODO: Wait for device confirmation and update status
-        # This would typically involve:
-        # 1. Sending SMS command
-        # 2. Waiting for device response
-        # 3. Updating device status in database
-        # 4. Returning success/failure based on device confirmation
-        
-        return success_response(
-            data={
-                'imei': imei,
-                'command': relay_on_message,
-                'status': 'sent'
-            },
-            message=SUCCESS_MESSAGES['RELAY_TURNED_ON_SUCCESSFULLY']
-        )
+        else:
+            return error_response(
+                message=f'Failed to send relay ON command: {tcp_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
     except Exception as e:
         return error_response(
             message=str(e),
@@ -84,7 +74,7 @@ def turn_on_relay(request):
 @api_response
 def turn_off_relay(request):
     """
-    Turn OFF relay
+    Turn OFF relay via TCP
     Matches Node.js RelayController.turnOffRelay
     """
     try:
@@ -106,34 +96,23 @@ def turn_off_relay(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if device is connected (has phone number)
-        if not device.phone:
-            return error_response(
-                message='Vehicle not connected. Please try again later.',
-                status_code=HTTP_STATUS['BAD_REQUEST']
+        # Send relay OFF command via TCP
+        tcp_result = tcp_service.send_relay_off_command(imei)
+        
+        if tcp_result['success']:
+            return success_response(
+                data={
+                    'imei': imei,
+                    'command': 'off',
+                    'status': 'sent'
+                },
+                message=SUCCESS_MESSAGES['RELAY_TURNED_OFF_SUCCESSFULLY']
             )
-        
-        # Relay OFF command
-        relay_off_message = 'RELAY,0#'
-        
-        # TODO: Send SMS command (implement SMS service)
-        # sms_result = sms_service.sendSMS(device.phone, relay_off_message)
-        
-        # TODO: Wait for device confirmation and update status
-        # This would typically involve:
-        # 1. Sending SMS command
-        # 2. Waiting for device response
-        # 3. Updating device status in database
-        # 4. Returning success/failure based on device confirmation
-        
-        return success_response(
-            data={
-                'imei': imei,
-                'command': relay_off_message,
-                'status': 'sent'
-            },
-            message=SUCCESS_MESSAGES['RELAY_TURNED_OFF_SUCCESSFULLY']
-        )
+        else:
+            return error_response(
+                message=f'Failed to send relay OFF command: {tcp_result["message"]}',
+                status_code=HTTP_STATUS['INTERNAL_ERROR']
+            )
     except Exception as e:
         return error_response(
             message=str(e),

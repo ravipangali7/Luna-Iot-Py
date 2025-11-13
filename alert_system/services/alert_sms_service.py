@@ -8,6 +8,7 @@ import string
 from typing import List, Dict, Any
 from django.db.models import Q
 from api_common.utils.sms_service import sms_service
+from api_common.utils.tcp_service import tcp_service
 from alert_system.models import AlertHistory, AlertContact, AlertBuzzer, AlertGeofence
 from alert_system.services.alert_notification_service import is_point_in_polygon
 from django.utils import timezone
@@ -321,17 +322,33 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
         
         for buzzer in buzzers:
             try:
-                # Send relay ON command to buzzer
-                relay_on_result = sms_service.send_relay_on_command(buzzer.device.phone)
+                # Get device IMEI for TCP command
+                if not buzzer.device or not buzzer.device.imei:
+                    failed_count += 1
+                    logger.warning(f"Buzzer {buzzer.title} has no device or IMEI")
+                    results.append({
+                        'buzzer_id': buzzer.id,
+                        'buzzer_title': buzzer.title,
+                        'device_imei': None,
+                        'delay': buzzer.delay,
+                        'success': False,
+                        'message': 'Device IMEI not found'
+                    })
+                    continue
+                
+                buzzer_imei = buzzer.device.imei
+                
+                # Send relay ON command to buzzer via TCP
+                relay_on_result = tcp_service.send_relay_on_command(buzzer_imei)
                 
                 if relay_on_result['success']:
                     activated_count += 1
-                    logger.info(f"Relay ON sent to buzzer {buzzer.title} ({buzzer.device.phone})")
+                    logger.info(f"Relay ON sent to buzzer {buzzer.title} (IMEI: {buzzer_imei})")
                     
                     # Schedule relay OFF for buzzer
                     from alert_system.tasks import schedule_relay_off_command
                     schedule_relay_off_command(
-                        buzzer.device.phone,
+                        buzzer_imei,
                         buzzer.delay,
                         alert_history.id,
                         buzzer.id
@@ -341,22 +358,22 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
                     if alert_history.source == 'switch':
                         switch = get_alert_switch(alert_history)
                         
-                        if switch and switch.device and switch.device.phone:
-                            switch_device_phone = switch.device.phone
-                            switch_relay_result = sms_service.send_relay_on_command(switch_device_phone)
+                        if switch and switch.device and switch.device.imei:
+                            switch_device_imei = switch.device.imei
+                            switch_relay_result = tcp_service.send_relay_on_command(switch_device_imei)
                             
                             if switch_relay_result['success']:
-                                logger.info(f"Relay ON sent to switch device ({switch_device_phone})")
+                                logger.info(f"Relay ON sent to switch device (IMEI: {switch_device_imei})")
                                 
                                 # Schedule relay OFF for switch device using switch.trigger as delay
                                 schedule_relay_off_command(
-                                    switch_device_phone,
+                                    switch_device_imei,
                                     switch.trigger,
                                     alert_history.id,
                                     buzzer.id
                                 )
                             else:
-                                logger.warning(f"Failed to send relay ON to switch device ({switch_device_phone})")
+                                logger.warning(f"Failed to send relay ON to switch device (IMEI: {switch_device_imei})")
                     
                 else:
                     failed_count += 1
@@ -365,7 +382,7 @@ def send_buzzer_relay_commands(alert_history: AlertHistory, buzzers: List[AlertB
                 results.append({
                     'buzzer_id': buzzer.id,
                     'buzzer_title': buzzer.title,
-                    'device_phone': buzzer.device.phone,
+                    'device_imei': buzzer_imei,
                     'delay': buzzer.delay,
                     'success': relay_on_result['success'],
                     'message': relay_on_result['message']

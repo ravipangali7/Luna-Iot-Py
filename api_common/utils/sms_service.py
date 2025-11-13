@@ -135,45 +135,52 @@ class SMSService:
         message = "RESET#"
         return self.send_sms(phone_number, message)
     
-    def send_relay_command(self, phone_number: str, relay_state: bool) -> Dict[str, Any]:
-        """
-        Send relay command via SMS
-        
-        Args:
-            phone_number (str): Phone number to send command to
-            relay_state (bool): True for ON, False for OFF
-            
-        Returns:
-            Dict[str, Any]: Result containing success status and message
-        """
-        message = f"RELAY,{1 if relay_state else 0}#"
-        return self.send_sms(phone_number, message)
+    # ============================================================================
+    # RELAY COMMANDS - HIDDEN IN FAVOR OF TCP COMMANDS
+    # These methods are commented out because relay commands now use TCP instead of SMS.
+    # They are kept here for potential future use if needed.
+    # Use tcp_service.send_relay_on_command(imei) and tcp_service.send_relay_off_command(imei) instead.
+    # ============================================================================
     
-    def send_relay_on_command(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Send relay ON command via SMS
-        
-        Args:
-            phone_number (str): Phone number to send command to
-            
-        Returns:
-            Dict[str, Any]: Result containing success status and message
-        """
-        message = "RELAY,1#"
-        return self.send_sms(phone_number, message)
-    
-    def send_relay_off_command(self, phone_number: str) -> Dict[str, Any]:
-        """
-        Send relay OFF command via SMS
-        
-        Args:
-            phone_number (str): Phone number to send command to
-            
-        Returns:
-            Dict[str, Any]: Result containing success status and message
-        """
-        message = "RELAY,0#"
-        return self.send_sms(phone_number, message)
+    # def send_relay_command(self, phone_number: str, relay_state: bool) -> Dict[str, Any]:
+    #     """
+    #     Send relay command via SMS
+    #     
+    #     Args:
+    #         phone_number (str): Phone number to send command to
+    #         relay_state (bool): True for ON, False for OFF
+    #         
+    #     Returns:
+    #         Dict[str, Any]: Result containing success status and message
+    #     """
+    #     message = f"RELAY,{1 if relay_state else 0}#"
+    #     return self.send_sms(phone_number, message)
+    # 
+    # def send_relay_on_command(self, phone_number: str) -> Dict[str, Any]:
+    #     """
+    #     Send relay ON command via SMS
+    #     
+    #     Args:
+    #         phone_number (str): Phone number to send command to
+    #         
+    #     Returns:
+    #         Dict[str, Any]: Result containing success status and message
+    #     """
+    #     message = "RELAY,1#"
+    #     return self.send_sms(phone_number, message)
+    # 
+    # def send_relay_off_command(self, phone_number: str) -> Dict[str, Any]:
+    #     """
+    #     Send relay OFF command via SMS
+    #     
+    #     Args:
+    #         phone_number (str): Phone number to send command to
+    #         
+    #     Returns:
+    #         Dict[str, Any]: Result containing success status and message
+    #     """
+    #     message = "RELAY,0#"
+    #     return self.send_sms(phone_number, message)
 
 
 # Create singleton instance
