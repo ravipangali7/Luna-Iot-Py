@@ -417,9 +417,14 @@ class TingTingService:
         return self._make_request('POST', f'phone-number/{contact_id}/', data=data)
     
     # Testing
-    def test_voice(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def test_voice(self, campaign_id: int, voice_input: int, message: str) -> Dict[str, Any]:
         """Test voice synthesis"""
-        return self._make_request('POST', 'campaign/test-voice/', data=data)
+        # According to TingTing API docs: test-speak/riri/<campaign_id>/
+        data = {
+            "voice_input": voice_input,  # Voice ID
+            "message": message
+        }
+        return self._make_request('POST', f'test-speak/riri/{campaign_id}/', data=data)
     
     def demo_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Make a demo call"""

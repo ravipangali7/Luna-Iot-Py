@@ -701,13 +701,37 @@ def add_voice_assistance(request, campaign_id):
 @api_view(['POST'])
 @require_auth
 @api_response
-def test_voice(request):
+def test_voice(request, campaign_id):
     """Test voice synthesis"""
     try:
         # Use request.data for DRF @api_view decorator (already parsed JSON)
         data = request.data
         
-        result = tingting_service.test_voice(data)
+        voice_input = data.get('voice_input')
+        message = data.get('message')
+        
+        if not voice_input:
+            return error_response(
+                message='Voice input is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        if not message:
+            return error_response(
+                message='Message is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Convert voice_input to integer if needed
+        try:
+            voice_input = int(voice_input)
+        except (ValueError, TypeError):
+            return error_response(
+                message='Invalid voice input format',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        result = tingting_service.test_voice(campaign_id, voice_input, message)
         if result['success']:
             return success_response(
                 data=result['data'],
@@ -724,6 +748,8 @@ def test_voice(request):
             status_code=HTTP_STATUS['BAD_REQUEST']
         )
     except Exception as e:
+        print(f"[Test Voice] Error: {str(e)}")
+        print(f"[Test Voice] Traceback: {traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
