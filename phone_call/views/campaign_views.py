@@ -299,6 +299,7 @@ def get_campaign_details(request, campaign_id):
 def run_campaign(request, campaign_id):
     """Run/execute a campaign immediately"""
     try:
+        print(f"[Campaign Run] Attempting to run campaign {campaign_id}")
         result = tingting_service.run_campaign(campaign_id)
         if result['success']:
             return success_response(
@@ -306,11 +307,21 @@ def run_campaign(request, campaign_id):
                 message=SUCCESS_MESSAGES.get('UPDATED', 'Campaign execution started')
             )
         else:
+            error_msg = result.get('error', 'Failed to run campaign')
+            status_code = result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
+            
+            # Provide more specific error messages for 404
+            if status_code == 404:
+                error_msg = f'Campaign {campaign_id} not found or cannot be run. Please verify the campaign exists and is in a valid state.'
+            
+            print(f"[Campaign Run] Failed to run campaign {campaign_id}: {error_msg}")
             return error_response(
-                message=result.get('error', 'Failed to run campaign'),
-                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
+                message=error_msg,
+                status_code=status_code
             )
     except Exception as e:
+        print(f"[Campaign Run] Error running campaign {campaign_id}: {str(e)}")
+        print(f"[Campaign Run] Traceback: {traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)

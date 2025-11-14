@@ -15,12 +15,13 @@ urlpatterns = [
     # Campaigns
     path('campaign', campaign_views.get_campaigns, name='get_campaigns'),
     path('campaign/create', campaign_views.create_campaign, name='create_campaign'),
-    path('campaign/<int:campaign_id>/', campaign_views.get_campaign, name='get_campaign'),
-    path('campaign/<int:campaign_id>/update', campaign_views.update_campaign, name='update_campaign'),
-    path('campaign/<int:campaign_id>/delete', campaign_views.delete_campaign, name='delete_campaign'),
-    path('campaign/<int:campaign_id>/details/', campaign_views.get_campaign_details, name='get_campaign_details'),
+    # More specific routes first to avoid matching conflicts
     path('campaign/<int:campaign_id>/run/', campaign_views.run_campaign, name='run_campaign'),
     path('campaign/<int:campaign_id>/report/', campaign_views.download_report, name='download_report'),
+    path('campaign/<int:campaign_id>/details/', campaign_views.get_campaign_details, name='get_campaign_details'),
+    path('campaign/<int:campaign_id>/update', campaign_views.update_campaign, name='update_campaign'),
+    path('campaign/<int:campaign_id>/delete', campaign_views.delete_campaign, name='delete_campaign'),
+    path('campaign/<int:campaign_id>/', campaign_views.get_campaign, name='get_campaign'),
     
     # Contacts - order matters: specific routes first
     path('campaign/<int:campaign_id>/contacts/bulk/', campaign_views.add_bulk_contacts, name='add_bulk_contacts'),

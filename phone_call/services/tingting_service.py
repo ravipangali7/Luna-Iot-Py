@@ -205,7 +205,9 @@ class TingTingService:
     
     def run_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """Run/execute a campaign immediately"""
-        return self._make_request('POST', f'campaign/{campaign_id}/run/')
+        # Try different endpoint patterns - TingTing API might use different format
+        # Common patterns: campaign/{id}/run/, campaign/run/{id}/, campaign/{id}/execute/
+        return self._make_request('POST', f'campaign/run/{campaign_id}/')
     
     def download_report(self, campaign_id: int) -> Dict[str, Any]:
         """Download campaign report"""
