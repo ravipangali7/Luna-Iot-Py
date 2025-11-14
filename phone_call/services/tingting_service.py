@@ -574,16 +574,23 @@ class TingTingService:
                 # Keep common Nepali/Unicode punctuation: ।, ।, ,, ., ?, !, etc.
                 normalized_message = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', normalized_message)
                 
-                # Step 8: Final cleanup - ensure no multiple spaces remain (apply one more time)
-                normalized_message = re.sub(r' +', ' ', normalized_message).strip()
-                
-                # Step 9: Clean up spacing around punctuation
+                # Step 8: Clean up spacing around punctuation (before final whitespace normalization)
                 # Remove spaces before punctuation
                 normalized_message = re.sub(r'\s+([।,\.!?])', r'\1', normalized_message)
-                # Ensure single space after punctuation (if not at end)
+                # Ensure single space after punctuation (if not at end and not already followed by space)
                 normalized_message = re.sub(r'([।,\.!?])([^\s।,\.!?])', r'\1 \2', normalized_message)
                 
-                # Final trim
+                # Step 9: Final aggressive whitespace cleanup - MUST be last step
+                # Replace ALL whitespace (including any introduced by punctuation fixes) with single space
+                normalized_message = re.sub(r'\s+', ' ', normalized_message)
+                
+                # Step 10: Final trim
+                normalized_message = normalized_message.strip()
+                
+                # Step 11: One more pass to ensure absolutely no multiple spaces remain
+                # This is a safety check after all transformations
+                while '  ' in normalized_message:
+                    normalized_message = normalized_message.replace('  ', ' ')
                 normalized_message = normalized_message.strip()
                 
                 print(f"[TingTing API] Original message length: {len(original_message)} chars")
