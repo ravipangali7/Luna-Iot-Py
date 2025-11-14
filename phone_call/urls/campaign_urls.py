@@ -16,6 +16,7 @@ urlpatterns = [
     path('campaign', campaign_views.get_campaigns, name='get_campaigns'),
     path('campaign/create', campaign_views.create_campaign, name='create_campaign'),
     # More specific routes first to avoid matching conflicts
+    path('campaign/<int:campaign_id>/instant-launch/', campaign_views.instant_launch_campaign, name='instant_launch_campaign'),
     path('campaign/<int:campaign_id>/run/', campaign_views.run_campaign, name='run_campaign'),
     path('campaign/<int:campaign_id>/report/', campaign_views.download_report, name='download_report'),
     path('campaign/<int:campaign_id>/details/', campaign_views.get_campaign_details, name='get_campaign_details'),

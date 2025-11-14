@@ -148,20 +148,29 @@ def create_campaign(request):
         if 'voice' in data:
             data.pop('voice', None)
         
-        # Validate schedule date is in the future
+        # Validate schedule datetime is in the future
         if 'schedule' in data and data['schedule']:
             from datetime import datetime, timezone
             try:
-                schedule_date = datetime.strptime(data['schedule'], '%Y-%m-%d').date()
-                # Use UTC to avoid timezone issues
-                today = datetime.now(timezone.utc).date()
-                if schedule_date < today:
-                    return error_response(
-                        message='Schedule date cannot be in the past. Please select a future date.',
-                        status_code=HTTP_STATUS['BAD_REQUEST'],
-                        data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
-                    )
-            except ValueError:
+                # Try parsing as datetime first (YYYY-MM-DDTHH:mm or YYYY-MM-DDTHH:mm:ss)
+                schedule_dt = None
+                for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']:
+                    try:
+                        schedule_dt = datetime.strptime(data['schedule'], fmt)
+                        break
+                    except ValueError:
+                        continue
+                
+                if schedule_dt:
+                    # Use UTC to avoid timezone issues
+                    now = datetime.now(timezone.utc)
+                    if schedule_dt.replace(tzinfo=timezone.utc) < now:
+                        return error_response(
+                            message='Schedule date and time cannot be in the past. Please select a future date and time.',
+                            status_code=HTTP_STATUS['BAD_REQUEST'],
+                            data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
+                        )
+            except (ValueError, TypeError):
                 # Invalid date format, let TingTing API handle it
                 pass
         
@@ -206,20 +215,29 @@ def update_campaign(request, campaign_id):
         if 'voice' in data:
             data.pop('voice', None)
         
-        # Validate schedule date is in the future
+        # Validate schedule datetime is in the future
         if 'schedule' in data and data['schedule']:
             from datetime import datetime, timezone
             try:
-                schedule_date = datetime.strptime(data['schedule'], '%Y-%m-%d').date()
-                # Use UTC to avoid timezone issues
-                today = datetime.now(timezone.utc).date()
-                if schedule_date < today:
-                    return error_response(
-                        message='Schedule date cannot be in the past. Please select a future date.',
-                        status_code=HTTP_STATUS['BAD_REQUEST'],
-                        data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
-                    )
-            except ValueError:
+                # Try parsing as datetime first (YYYY-MM-DDTHH:mm or YYYY-MM-DDTHH:mm:ss)
+                schedule_dt = None
+                for fmt in ['%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']:
+                    try:
+                        schedule_dt = datetime.strptime(data['schedule'], fmt)
+                        break
+                    except ValueError:
+                        continue
+                
+                if schedule_dt:
+                    # Use UTC to avoid timezone issues
+                    now = datetime.now(timezone.utc)
+                    if schedule_dt.replace(tzinfo=timezone.utc) < now:
+                        return error_response(
+                            message='Schedule date and time cannot be in the past. Please select a future date and time.',
+                            status_code=HTTP_STATUS['BAD_REQUEST'],
+                            data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
+                        )
+            except (ValueError, TypeError):
                 # Invalid date format, let TingTing API handle it
                 pass
         
@@ -355,6 +373,64 @@ def run_campaign(request, campaign_id):
     except Exception as e:
         print(f"[Campaign Run] Error running campaign {campaign_id}: {str(e)}")
         print(f"[Campaign Run] Traceback: {traceback.format_exc()}")
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def instant_launch_campaign(request, campaign_id):
+    """Launch campaign immediately by clearing schedule and running"""
+    try:
+        print(f"[Instant Launch] Attempting to instant launch campaign {campaign_id}")
+        
+        # First, verify the campaign exists and get its details
+        campaign_result = tingting_service.get_campaign(campaign_id)
+        if not campaign_result['success']:
+            return error_response(
+                message=f'Campaign {campaign_id} not found. Please verify the campaign exists.',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        campaign_data = campaign_result.get('data', {})
+        print(f"[Instant Launch] Campaign details: {campaign_data}")
+        
+        # Check if campaign is in draft mode
+        if campaign_data.get('draft', False):
+            return error_response(
+                message='Cannot launch a draft campaign. Please publish the campaign first.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Check if campaign has contacts
+        if not campaign_data.get('user_phone') or len(campaign_data.get('user_phone', [])) == 0:
+            return error_response(
+                message='Cannot launch a campaign without contacts. Please add contacts to the campaign first.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Use instant launch method which clears schedule and runs immediately
+        result = tingting_service.instant_launch_campaign(campaign_id)
+        if result['success']:
+            return success_response(
+                data=result['data'],
+                message=SUCCESS_MESSAGES.get('UPDATED', 'Campaign launched immediately')
+            )
+        else:
+            error_msg = result.get('error', 'Failed to launch campaign')
+            status_code = result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
+            
+            print(f"[Instant Launch] Failed to launch campaign {campaign_id}: {error_msg}")
+            return error_response(
+                message=error_msg,
+                status_code=status_code
+            )
+    except Exception as e:
+        print(f"[Instant Launch] Error launching campaign {campaign_id}: {str(e)}")
+        print(f"[Instant Launch] Traceback: {traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)

@@ -301,6 +301,37 @@ class TingTingService:
             print(f"[TingTing API] ERROR: Unexpected error calling run-campaign/{campaign_id}/: {str(e)}")
             return {'success': False, 'error': f'Unexpected error: {str(e)}'}
     
+    def instant_launch_campaign(self, campaign_id: int) -> Dict[str, Any]:
+        """Launch campaign immediately by clearing schedule first"""
+        try:
+            # Get current campaign to save schedule
+            campaign_result = self.get_campaign(campaign_id)
+            if not campaign_result['success']:
+                return campaign_result
+            
+            campaign_data = campaign_result.get('data', {})
+            original_schedule = campaign_data.get('schedule')
+            
+            # Clear schedule temporarily to force immediate launch
+            if original_schedule:
+                print(f"[Instant Launch] Clearing schedule for immediate launch: original_schedule={original_schedule}")
+                update_result = self.update_campaign(campaign_id, {'schedule': None})
+                if not update_result['success']:
+                    print(f"[Instant Launch] Warning: Failed to clear schedule: {update_result.get('error')}")
+                    # Continue anyway - try to run
+            
+            # Run campaign (will launch immediately since schedule is cleared)
+            result = self.run_campaign(campaign_id)
+            
+            # Note: We don't restore the schedule because the campaign has already started
+            # The user can reschedule if needed
+            
+            return result
+            
+        except Exception as e:
+            print(f"[Instant Launch] ERROR: Unexpected error in instant launch: {str(e)}")
+            return {'success': False, 'error': f'Unexpected error: {str(e)}'}
+    
     def download_report(self, campaign_id: int) -> Dict[str, Any]:
         """Download campaign report"""
         try:
