@@ -300,6 +300,33 @@ def run_campaign(request, campaign_id):
     """Run/execute a campaign immediately"""
     try:
         print(f"[Campaign Run] Attempting to run campaign {campaign_id}")
+        
+        # First, verify the campaign exists and get its details
+        campaign_result = tingting_service.get_campaign(campaign_id)
+        if not campaign_result['success']:
+            return error_response(
+                message=f'Campaign {campaign_id} not found. Please verify the campaign exists.',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        campaign_data = campaign_result.get('data', {})
+        print(f"[Campaign Run] Campaign details: {campaign_data}")
+        
+        # Check if campaign is in draft mode
+        if campaign_data.get('draft', False):
+            return error_response(
+                message='Cannot run a draft campaign. Please publish the campaign first.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Check if campaign has contacts
+        if not campaign_data.get('user_phone') or len(campaign_data.get('user_phone', [])) == 0:
+            return error_response(
+                message='Cannot run a campaign without contacts. Please add contacts to the campaign first.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Now attempt to run the campaign
         result = tingting_service.run_campaign(campaign_id)
         if result['success']:
             return success_response(
@@ -312,7 +339,7 @@ def run_campaign(request, campaign_id):
             
             # Provide more specific error messages for 404
             if status_code == 404:
-                error_msg = f'Campaign {campaign_id} not found or cannot be run. Please verify the campaign exists and is in a valid state.'
+                error_msg = f'Campaign {campaign_id} cannot be run. The campaign may not exist, may already be running, or may not meet the requirements to be executed. Please verify the campaign status in TingTing dashboard.'
             
             print(f"[Campaign Run] Failed to run campaign {campaign_id}: {error_msg}")
             return error_response(
