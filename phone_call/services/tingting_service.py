@@ -205,9 +205,9 @@ class TingTingService:
     
     def run_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """Run/execute a campaign immediately"""
-        # Following the pattern: campaign/{id}/action/ (same as update, delete, etc.)
-        # Try with empty data first, some APIs require empty POST body
-        return self._make_request('POST', f'campaign/{campaign_id}/run/', data={})
+        # According to TingTing API docs: run-campaign/{campaign_id}/
+        # If schedule time is not given, campaign launches immediately
+        return self._make_request('POST', f'run-campaign/{campaign_id}/', data={})
     
     def download_report(self, campaign_id: int) -> Dict[str, Any]:
         """Download campaign report"""
