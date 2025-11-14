@@ -3,6 +3,8 @@ Phone Call Campaign Views
 Handles all campaign management endpoints
 """
 import json
+import logging
+import traceback
 from rest_framework.decorators import api_view
 from django.http import HttpResponse
 from phone_call.services.tingting_service import tingting_service
@@ -10,6 +12,8 @@ from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth
+
+logger = logging.getLogger(__name__)
 
 
 # Voice Models
@@ -120,9 +124,27 @@ def get_campaign(request, campaign_id):
 def create_campaign(request):
     """Create a new campaign"""
     try:
-        # Use request.data for DRF @api_view decorator (already parsed JSON)
-        data = request.data
+        # Handle request data - try request.data first (DRF), fallback to request.body
+        if hasattr(request, 'data') and request.data is not None:
+            data = dict(request.data) if not isinstance(request.data, dict) else request.data
+        elif request.body:
+            try:
+                data = json.loads(request.body.decode('utf-8'))
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                logger.error(f"Failed to parse request body: {str(e)}")
+                return error_response(
+                    message='Invalid JSON in request body',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        else:
+            data = {}
         
+        # Convert user_phone to list if it's a single value
+        if 'user_phone' in data:
+            if not isinstance(data['user_phone'], list):
+                data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
+        
+        logger.info(f"Creating campaign with data: {data}")
         result = tingting_service.create_campaign(data)
         if result['success']:
             return success_response(
@@ -130,16 +152,13 @@ def create_campaign(request):
                 message=SUCCESS_MESSAGES.get('CREATED', 'Campaign created successfully')
             )
         else:
+            logger.error(f"TingTing API error: {result.get('error')}")
             return error_response(
                 message=result.get('error', 'Failed to create campaign'),
                 status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
             )
-    except json.JSONDecodeError:
-        return error_response(
-            message='Invalid JSON in request body',
-            status_code=HTTP_STATUS['BAD_REQUEST']
-        )
     except Exception as e:
+        logger.error(f"Error creating campaign: {str(e)}\n{traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
