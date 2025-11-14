@@ -419,12 +419,127 @@ class TingTingService:
     # Testing
     def test_voice(self, campaign_id: int, voice_input: int, message: str) -> Dict[str, Any]:
         """Test voice synthesis"""
-        # According to TingTing API docs: test-speak/riri/<campaign_id>/
+        # Try multiple endpoint formats as the API documentation might be unclear
         data = {
             "voice_input": voice_input,  # Voice ID
             "message": message
         }
-        return self._make_request('POST', f'test-speak/riri/{campaign_id}/', data=data)
+        
+        # List of possible endpoint formats to try
+        endpoint_formats = [
+            f'campaign/test-speak/riri/{campaign_id}/',  # Try with campaign prefix
+            f'test-speak/riri/{campaign_id}/',  # Original format from docs
+            f'campaign/{campaign_id}/test-voice/',  # Alternative format
+            f'test-voice/{campaign_id}/',  # Simple format
+        ]
+        
+        last_error = None
+        for endpoint in endpoint_formats:
+            try:
+                url = f"{self.base_url}/{endpoint.lstrip('/')}"
+                
+                # Prepare headers
+                request_headers = self.headers.copy()
+                
+                # Log request details (mask sensitive data)
+                log_headers = request_headers.copy()
+                if 'Authorization' in log_headers:
+                    auth_header = log_headers['Authorization']
+                    if 'Bearer' in auth_header:
+                        token = auth_header.split('Bearer ')[1]
+                        masked_token = token[:10] + '...' + token[-5:] if len(token) > 15 else '***'
+                        log_headers['Authorization'] = f'Bearer {masked_token}'
+                
+                print(f"[TingTing API] Test Voice - Trying endpoint: {endpoint}")
+                print(f"[TingTing API] Request: POST {url}")
+                print(f"[TingTing API] Headers: {log_headers}")
+                print(f"[TingTing API] Request Body (JSON): {data}")
+                
+                # Make POST request
+                response = requests.post(url, headers=request_headers, json=data, timeout=30)
+                
+                print(f"[TingTing API] Response Status: {response.status_code}")
+                
+                # Check if successful
+                if response.status_code in [200, 201]:
+                    try:
+                        response_data = response.json()
+                        print(f"[TingTing API] Response Body: {response_data}")
+                        
+                        # Handle different response formats
+                        # The API might return:
+                        # 1. Direct string URL: "https://..."
+                        # 2. JSON object with url/audio_url field: {"url": "https://..."}
+                        # 3. JSON object with message and url: {"message": "...", "url": "https://..."}
+                        audio_url = None
+                        if isinstance(response_data, str):
+                            audio_url = response_data
+                        elif isinstance(response_data, dict):
+                            audio_url = response_data.get('url') or response_data.get('audio_url') or response_data.get('audio') or response_data.get('file_url')
+                            # If no URL found, return the whole response
+                            if not audio_url:
+                                audio_url = response_data
+                        
+                        return {
+                            'success': True,
+                            'data': audio_url if audio_url else response_data
+                        }
+                    except ValueError:
+                        # Response might be plain text URL
+                        response_text = response.text.strip()
+                        print(f"[TingTing API] Response Body (non-JSON): {response_text[:200]}")
+                        if response_text.startswith('http'):
+                            return {'success': True, 'data': response_text}
+                        return {'success': True, 'data': {'message': 'Voice test completed', 'response': response_text}}
+                
+                # If not successful, try next endpoint unless it's a clear validation error (400)
+                elif response.status_code == 400:
+                    # 400 means bad request - endpoint exists but request is invalid
+                    # Don't try other endpoints, return error
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get('message', error_data.get('error', f'Bad request: {response.status_code}'))
+                        print(f"[TingTing API] ERROR Response: {error_data}")
+                        return {
+                            'success': False,
+                            'error': error_msg,
+                            'status_code': response.status_code
+                        }
+                    except ValueError:
+                        error_text = response.text[:500] if response.text else "Bad request"
+                        print(f"[TingTing API] ERROR Response (non-JSON): {error_text}")
+                        return {
+                            'success': False,
+                            'error': error_text,
+                            'status_code': response.status_code
+                        }
+                else:
+                    # For other errors (500, 404, etc.), try next endpoint
+                    try:
+                        error_data = response.json()
+                        last_error = error_data.get('message', error_data.get('error', f'Status {response.status_code}'))
+                        print(f"[TingTing API] Endpoint {endpoint} failed with status {response.status_code}: {last_error}")
+                    except ValueError:
+                        error_text = response.text[:200] if response.text else f"Status {response.status_code}"
+                        last_error = error_text
+                        print(f"[TingTing API] Endpoint {endpoint} failed with status {response.status_code}: {error_text}")
+                    continue
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"[TingTing API] Request error for endpoint {endpoint}: {str(e)}")
+                last_error = f'Request failed: {str(e)}'
+                continue
+            except Exception as e:
+                print(f"[TingTing API] Unexpected error for endpoint {endpoint}: {str(e)}")
+                last_error = f'Unexpected error: {str(e)}'
+                continue
+        
+        # If all endpoints failed, return the last error
+        return {
+            'success': False,
+            'error': last_error or 'All endpoint formats failed. Please check the API documentation.',
+            'status_code': 500
+        }
     
     def demo_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Make a demo call"""
