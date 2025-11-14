@@ -144,9 +144,20 @@ def create_campaign(request):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        # Convert voice ID to dictionary format if it's an integer
-        if 'voice' in data and isinstance(data['voice'], int):
-            data['voice'] = {'id': data['voice']}
+        # Voice field should be sent as integer ID, not dictionary
+        # Keep voice as integer if it's already an integer, or extract ID if it's an object
+        if 'voice' in data:
+            if isinstance(data['voice'], dict) and 'id' in data['voice']:
+                data['voice'] = data['voice']['id']
+            elif isinstance(data['voice'], str) and data['voice'].strip():
+                # Convert string to integer if it's a valid number
+                try:
+                    data['voice'] = int(data['voice'])
+                except ValueError:
+                    data.pop('voice', None)
+            elif data['voice'] is None or data['voice'] == '':
+                # Remove voice field if it's None or empty
+                data.pop('voice', None)
         
         # Validate schedule date is in the future
         if 'schedule' in data and data['schedule']:
@@ -197,9 +208,25 @@ def update_campaign(request, campaign_id):
         # Use request.data for DRF @api_view decorator (already parsed JSON)
         data = dict(request.data) if not isinstance(request.data, dict) else request.data
         
-        # Convert voice ID to dictionary format if it's an integer
-        if 'voice' in data and isinstance(data['voice'], int):
-            data['voice'] = {'id': data['voice']}
+        # Convert user_phone to list if it's a single value
+        if 'user_phone' in data:
+            if not isinstance(data['user_phone'], list):
+                data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
+        
+        # Voice field should be sent as integer ID, not dictionary
+        # Keep voice as integer if it's already an integer, or extract ID if it's an object
+        if 'voice' in data:
+            if isinstance(data['voice'], dict) and 'id' in data['voice']:
+                data['voice'] = data['voice']['id']
+            elif isinstance(data['voice'], str) and data['voice'].strip():
+                # Convert string to integer if it's a valid number
+                try:
+                    data['voice'] = int(data['voice'])
+                except ValueError:
+                    data.pop('voice', None)
+            elif data['voice'] is None or data['voice'] == '':
+                # Remove voice field if it's None or empty
+                data.pop('voice', None)
         
         # Validate schedule date is in the future
         if 'schedule' in data and data['schedule']:

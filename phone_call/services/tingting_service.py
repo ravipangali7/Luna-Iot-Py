@@ -77,6 +77,8 @@ class TingTingService:
                 else:
                     # Send JSON data (even if empty {}) with Content-Type header
                     response = requests.post(url, headers=request_headers, json=data, timeout=30)
+            elif method.upper() == 'PUT':
+                response = requests.put(url, headers=request_headers, json=data, timeout=30)
             elif method.upper() == 'DELETE':
                 response = requests.delete(url, headers=request_headers, timeout=30)
             elif method.upper() == 'PATCH':
@@ -193,7 +195,8 @@ class TingTingService:
     
     def update_campaign(self, campaign_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing campaign"""
-        return self._make_request('POST', f'campaign/{campaign_id}/', data=data)
+        # Use PUT method for updates (REST convention)
+        return self._make_request('PUT', f'campaign/{campaign_id}/', data=data)
     
     def delete_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """Delete a campaign"""
