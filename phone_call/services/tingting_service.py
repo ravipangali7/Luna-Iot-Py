@@ -417,12 +417,73 @@ class TingTingService:
         """Update contact"""
         return self._make_request('POST', f'phone-number/{contact_id}/', data=data)
     
+    def _normalize_message(self, message: str) -> str:
+        """
+        Aggressively normalize message for TingTing API compatibility.
+        Removes multiple spaces, special characters, and formatting issues.
+        
+        Args:
+            message: Original message string
+            
+        Returns:
+            Normalized message string with all formatting issues fixed
+        """
+        if not isinstance(message, str):
+            message = str(message)
+        
+        # Step 1: Replace newlines and carriage returns with spaces
+        normalized = message.replace('\n', ' ').replace('\r', ' ')
+        
+        # Step 2: Replace problematic special characters
+        # Replace pipe characters with single Nepali period
+        normalized = normalized.replace('|', '।')
+        
+        # Step 3: Remove double punctuation marks
+        normalized = re.sub(r'।+', '।', normalized)  # Consecutive Nepali periods
+        normalized = re.sub(r'\.+', '.', normalized)  # Consecutive regular periods
+        normalized = re.sub(r',+', ',', normalized)  # Consecutive commas
+        
+        # Step 4: Normalize ALL Unicode whitespace characters to single regular space
+        # This catches regular spaces, non-breaking spaces, tabs, and all other Unicode whitespace
+        normalized = re.sub(r'[\s\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]+', ' ', normalized)
+        
+        # Step 5: Apply regex again to ensure no multiple spaces remain
+        normalized = re.sub(r' +', ' ', normalized)
+        
+        # Step 6: Trim whitespace from beginning and end
+        normalized = normalized.strip()
+        
+        # Step 7: Remove any remaining control characters (except common punctuation)
+        normalized = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', normalized)
+        
+        # Step 8: Clean up spacing around punctuation (before final whitespace normalization)
+        # Remove spaces before punctuation
+        normalized = re.sub(r'\s+([।,\.!?])', r'\1', normalized)
+        # Ensure single space after punctuation (if not at end and not already followed by space)
+        normalized = re.sub(r'([।,\.!?])([^\s।,\.!?])', r'\1 \2', normalized)
+        
+        # Step 9: Final aggressive whitespace cleanup - MUST be last step
+        # Replace ALL whitespace (including any introduced by punctuation fixes) with single space
+        normalized = re.sub(r'\s+', ' ', normalized)
+        
+        # Step 10: Final trim
+        normalized = normalized.strip()
+        
+        # Step 11: One more pass to ensure absolutely no multiple spaces remain
+        # This is a safety check after all transformations
+        while '  ' in normalized:
+            normalized = normalized.replace('  ', ' ')
+        normalized = normalized.strip()
+        
+        # Step 12: Final validation - ensure no multiple spaces (using regex one more time)
+        normalized = re.sub(r' +', ' ', normalized).strip()
+        
+        return normalized
+    
     # Testing
     def test_voice(self, campaign_id: int, voice_input: int, message: str) -> Dict[str, Any]:
         """Test voice synthesis"""
-        # Ensure message is properly UTF-8 encoded and handle newlines
-        # The API might expect newlines as literal \n or as spaces
-        # Try with original message first, then with normalized newlines if needed
+        # Store original message for logging
         original_message = message
         
         # Normalize message: ensure it's a string and handle encoding
@@ -435,6 +496,27 @@ class TingTingService:
         except (UnicodeEncodeError, UnicodeDecodeError):
             # If encoding fails, try to fix it
             message = message.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+        
+        # Apply aggressive normalization BEFORE first request
+        # This ensures the message is clean from the start
+        normalized_message = self._normalize_message(message)
+        
+        # Validate normalized message
+        if not normalized_message or not normalized_message.strip():
+            return {
+                'success': False,
+                'error': 'Message is empty after normalization',
+                'status_code': 400
+            }
+        
+        # Check if normalization changed the message
+        if normalized_message != message:
+            print(f"[TingTing API] Message normalized: {len(message)} chars -> {len(normalized_message)} chars")
+            print(f"[TingTing API] Original (first 100): {message[:100]}")
+            print(f"[TingTing API] Normalized (first 100): {normalized_message[:100]}")
+        
+        # Use normalized message for the request
+        message = normalized_message
         
         # Prepare data with proper encoding
         data = {
@@ -538,74 +620,37 @@ class TingTingService:
                     }
             
             elif response.status_code == 500:
-                # Server error - try with aggressively normalized message
-                print(f"[TingTing API] 500 Error - Trying with normalized message (cleaning special characters)")
+                # Server error - message was already normalized, try with even more aggressive normalization
+                print(f"[TingTing API] 500 Error - Message was already normalized, trying with extra aggressive normalization")
                 
-                # Aggressive message normalization - start from original message
-                normalized_message = original_message
+                # Try with even more aggressive normalization from original message
+                # This is a fallback in case the initial normalization wasn't enough
+                extra_normalized_message = self._normalize_message(original_message)
                 
-                # Step 1: Replace newlines and carriage returns with spaces
-                normalized_message = normalized_message.replace('\n', ' ').replace('\r', ' ')
-                
-                # Step 2: Replace problematic special characters
-                # Replace pipe characters with single Nepali period (not double)
-                normalized_message = normalized_message.replace('|', '।')
-                
-                # Step 3: Remove double punctuation marks (like "।।", "..", etc.)
-                # Remove consecutive Nepali periods
-                normalized_message = re.sub(r'।+', '।', normalized_message)
-                # Remove consecutive regular periods
-                normalized_message = re.sub(r'\.+', '.', normalized_message)
-                # Remove consecutive commas
-                normalized_message = re.sub(r',+', ',', normalized_message)
-                
-                # Step 4: Normalize ALL Unicode whitespace characters to single regular space
-                # This catches regular spaces, non-breaking spaces, tabs, and all other Unicode whitespace
-                # First, replace all Unicode whitespace with regular space
-                normalized_message = re.sub(r'[\s\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]+', ' ', normalized_message)
-                
-                # Step 5: Apply regex again to ensure no multiple spaces remain
-                normalized_message = re.sub(r' +', ' ', normalized_message)
-                
-                # Step 6: Trim whitespace from beginning and end
-                normalized_message = normalized_message.strip()
-                
-                # Step 7: Remove any remaining control characters (except common punctuation)
-                # Keep common Nepali/Unicode punctuation: ।, ।, ,, ., ?, !, etc.
-                normalized_message = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', normalized_message)
-                
-                # Step 8: Clean up spacing around punctuation (before final whitespace normalization)
-                # Remove spaces before punctuation
-                normalized_message = re.sub(r'\s+([।,\.!?])', r'\1', normalized_message)
-                # Ensure single space after punctuation (if not at end and not already followed by space)
-                normalized_message = re.sub(r'([।,\.!?])([^\s।,\.!?])', r'\1 \2', normalized_message)
-                
-                # Step 9: Final aggressive whitespace cleanup - MUST be last step
-                # Replace ALL whitespace (including any introduced by punctuation fixes) with single space
-                normalized_message = re.sub(r'\s+', ' ', normalized_message)
-                
-                # Step 10: Final trim
-                normalized_message = normalized_message.strip()
-                
-                # Step 11: One more pass to ensure absolutely no multiple spaces remain
-                # This is a safety check after all transformations
-                while '  ' in normalized_message:
-                    normalized_message = normalized_message.replace('  ', ' ')
-                normalized_message = normalized_message.strip()
+                # Apply normalization one more time to be extra sure
+                extra_normalized_message = self._normalize_message(extra_normalized_message)
                 
                 print(f"[TingTing API] Original message length: {len(original_message)} chars")
-                print(f"[TingTing API] Normalized message length: {len(normalized_message)} chars")
+                print(f"[TingTing API] Extra normalized message length: {len(extra_normalized_message)} chars")
                 print(f"[TingTing API] Original message (first 150 chars): {original_message[:150]}")
-                print(f"[TingTing API] Normalized message (first 150 chars): {normalized_message[:150]}")
-                print(f"[TingTing API] Normalized message (full): {normalized_message}")
+                print(f"[TingTing API] Extra normalized message (first 150 chars): {extra_normalized_message[:150]}")
+                print(f"[TingTing API] Extra normalized message (full): {extra_normalized_message}")
                 
-                # Only retry if the normalized message is different from original and not empty
-                if normalized_message != original_message and normalized_message.strip():
+                # Validate no multiple spaces remain
+                if '  ' in extra_normalized_message:
+                    print(f"[TingTing API] WARNING: Multiple spaces still found in normalized message!")
+                    # Force remove all multiple spaces
+                    while '  ' in extra_normalized_message:
+                        extra_normalized_message = extra_normalized_message.replace('  ', ' ')
+                    extra_normalized_message = extra_normalized_message.strip()
+                
+                # Only retry if the extra normalized message is different and not empty
+                if extra_normalized_message != message and extra_normalized_message.strip():
                     data_normalized = {
                         "voice_input": voice_input,
-                        "message": normalized_message
+                        "message": extra_normalized_message
                     }
-                    print(f"[TingTing API] Retry with normalized message - Request Body: {data_normalized}")
+                    print(f"[TingTing API] Retry with extra normalized message - Request Body: {data_normalized}")
                     
                     try:
                         response_retry = requests.post(
