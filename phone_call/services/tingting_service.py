@@ -541,34 +541,59 @@ class TingTingService:
                 # Server error - try with aggressively normalized message
                 print(f"[TingTing API] 500 Error - Trying with normalized message (cleaning special characters)")
                 
-                # Aggressive message normalization
+                # Aggressive message normalization - start from original message
                 normalized_message = original_message
                 
                 # Step 1: Replace newlines and carriage returns with spaces
                 normalized_message = normalized_message.replace('\n', ' ').replace('\r', ' ')
                 
                 # Step 2: Replace problematic special characters
-                # Replace pipe characters with periods or remove them
+                # Replace pipe characters with single Nepali period (not double)
                 normalized_message = normalized_message.replace('|', '।')
                 
-                # Step 3: Normalize all whitespace (tabs, multiple spaces, etc.)
-                # Replace all whitespace characters (spaces, tabs, etc.) with single space
-                normalized_message = re.sub(r'\s+', ' ', normalized_message)
+                # Step 3: Remove double punctuation marks (like "।।", "..", etc.)
+                # Remove consecutive Nepali periods
+                normalized_message = re.sub(r'।+', '।', normalized_message)
+                # Remove consecutive regular periods
+                normalized_message = re.sub(r'\.+', '.', normalized_message)
+                # Remove consecutive commas
+                normalized_message = re.sub(r',+', ',', normalized_message)
                 
-                # Step 4: Trim whitespace from beginning and end
+                # Step 4: Normalize ALL Unicode whitespace characters to single regular space
+                # This catches regular spaces, non-breaking spaces, tabs, and all other Unicode whitespace
+                # First, replace all Unicode whitespace with regular space
+                normalized_message = re.sub(r'[\s\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]+', ' ', normalized_message)
+                
+                # Step 5: Apply regex again to ensure no multiple spaces remain
+                normalized_message = re.sub(r' +', ' ', normalized_message)
+                
+                # Step 6: Trim whitespace from beginning and end
                 normalized_message = normalized_message.strip()
                 
-                # Step 5: Remove any remaining control characters (except common punctuation)
+                # Step 7: Remove any remaining control characters (except common punctuation)
                 # Keep common Nepali/Unicode punctuation: ।, ।, ,, ., ?, !, etc.
                 normalized_message = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', normalized_message)
                 
+                # Step 8: Final cleanup - ensure no multiple spaces remain (apply one more time)
+                normalized_message = re.sub(r' +', ' ', normalized_message).strip()
+                
+                # Step 9: Clean up spacing around punctuation
+                # Remove spaces before punctuation
+                normalized_message = re.sub(r'\s+([।,\.!?])', r'\1', normalized_message)
+                # Ensure single space after punctuation (if not at end)
+                normalized_message = re.sub(r'([।,\.!?])([^\s।,\.!?])', r'\1 \2', normalized_message)
+                
+                # Final trim
+                normalized_message = normalized_message.strip()
+                
                 print(f"[TingTing API] Original message length: {len(original_message)} chars")
                 print(f"[TingTing API] Normalized message length: {len(normalized_message)} chars")
-                print(f"[TingTing API] Original message (first 100 chars): {original_message[:100]}")
-                print(f"[TingTing API] Normalized message (first 100 chars): {normalized_message[:100]}")
+                print(f"[TingTing API] Original message (first 150 chars): {original_message[:150]}")
+                print(f"[TingTing API] Normalized message (first 150 chars): {normalized_message[:150]}")
+                print(f"[TingTing API] Normalized message (full): {normalized_message}")
                 
-                # Only retry if the normalized message is different and not empty
-                if normalized_message != message and normalized_message.strip():
+                # Only retry if the normalized message is different from original and not empty
+                if normalized_message != original_message and normalized_message.strip():
                     data_normalized = {
                         "voice_input": voice_input,
                         "message": normalized_message
