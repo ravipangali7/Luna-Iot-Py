@@ -222,15 +222,21 @@ def update_campaign(request, campaign_id):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        # Handle voice field - convert to integer if needed, keep in data for update
+        # Handle voice field - convert to dictionary format for update endpoint
+        voice_id = None
         if 'voice' in data and data['voice'] is not None:
             voice_value = data['voice']
-            # Extract integer ID if it's a dict or convert if it's a string/int
+            # Extract integer ID from dict or convert from string/int
             if isinstance(voice_value, dict) and 'id' in voice_value:
-                data['voice'] = voice_value['id']  # Send as integer
+                voice_id = voice_value['id']
+                data['voice'] = {'id': voice_id}  # Send as dictionary for update endpoint
             elif isinstance(voice_value, (int, str)) and voice_value:
                 try:
-                    data['voice'] = int(voice_value) if voice_value else None
+                    voice_id = int(voice_value) if voice_value else None
+                    if voice_id:
+                        data['voice'] = {'id': voice_id}  # Send as dictionary for update endpoint
+                    else:
+                        data.pop('voice', None)
                 except (ValueError, TypeError):
                     data.pop('voice', None)
             else:
@@ -259,15 +265,12 @@ def update_campaign(request, campaign_id):
         print(f"[Campaign Update] Updating campaign with data: {data}")
         result = tingting_service.update_campaign(campaign_id, data)
         if result['success']:
-            # If voice was included in update and it succeeded, we're done
-            # Otherwise, try separate voice assistance endpoint as fallback
-            if 'voice' not in data or data.get('voice') is None:
-                # No voice in update, nothing to do
-                pass
-            elif result['data'] and isinstance(result['data'], dict) and result['data'].get('voice') is None:
-                # Voice was sent but not set, try separate endpoint
-                voice_id = data.get('voice')
-                if voice_id:
+            # Check if voice was set in the response
+            # If voice_id was provided but not set in response, try separate endpoint as fallback
+            if voice_id and result['data'] and isinstance(result['data'], dict):
+                response_voice = result['data'].get('voice')
+                # If voice is None or not set in response, try separate endpoint
+                if response_voice is None:
                     print(f"[Campaign Update] Voice not set in update response, trying separate endpoint: voice_id={voice_id}")
                     voice_result = tingting_service.add_voice_assistance(campaign_id, voice_id)
                     if not voice_result['success']:
