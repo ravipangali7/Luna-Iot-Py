@@ -576,6 +576,7 @@ def add_voice_assistance(request, campaign_id):
         
         voice_id = data.get('voice')
         category = data.get('category', 'Text')
+        message = data.get('message')
         
         if not voice_id:
             return error_response(
@@ -592,7 +593,14 @@ def add_voice_assistance(request, campaign_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        result = tingting_service.add_voice_assistance(campaign_id, voice_id, category)
+        # If message is not provided and category is Text, get it from the campaign
+        if category == 'Text' and not message:
+            campaign_result = tingting_service.get_campaign(campaign_id)
+            if campaign_result['success'] and campaign_result.get('data'):
+                campaign_data = campaign_result['data']
+                message = campaign_data.get('message')
+        
+        result = tingting_service.add_voice_assistance(campaign_id, voice_id, category, message)
         if result['success']:
             return success_response(
                 data=result['data'],

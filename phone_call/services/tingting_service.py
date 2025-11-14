@@ -198,12 +198,15 @@ class TingTingService:
         # Use PUT method - TingTing API doesn't accept POST for updates
         return self._make_request('PUT', f'campaign/{campaign_id}/', data=data)
     
-    def add_voice_assistance(self, campaign_id: int, voice_id: int, category: str = "Text") -> Dict[str, Any]:
+    def add_voice_assistance(self, campaign_id: int, voice_id: int, category: str = "Text", message: Optional[str] = None) -> Dict[str, Any]:
         """Add voice assistance to a campaign"""
         data = {
             "voice": voice_id,  # Integer, not dict
             "category": category
         }
+        # When category is "Text", message is required
+        if category == "Text" and message:
+            data["message"] = message
         # Try different endpoints and methods for voice assistance
         # First try: PUT to campaign/create/{id}/message/ (for updates)
         result = self._make_request('PUT', f'campaign/create/{campaign_id}/message/', data=data)
