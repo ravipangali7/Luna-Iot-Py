@@ -74,6 +74,9 @@ class TingTingService:
             elif method.upper() == 'POST':
                 if files:
                     response = requests.post(url, headers=request_headers, data=data, files=files, timeout=60)
+                elif data is None:
+                    # For endpoints that don't need a body (like run-campaign), send empty POST
+                    response = requests.post(url, headers=request_headers, timeout=30)
                 else:
                     response = requests.post(url, headers=request_headers, json=data, timeout=30)
             elif method.upper() == 'DELETE':
@@ -207,7 +210,8 @@ class TingTingService:
         """Run/execute a campaign immediately"""
         # According to TingTing API docs: run-campaign/{campaign_id}/
         # If schedule time is not given, campaign launches immediately
-        return self._make_request('POST', f'run-campaign/{campaign_id}/', data={})
+        # Don't send data={} as it causes "Invalid Content" error - send None instead
+        return self._make_request('POST', f'run-campaign/{campaign_id}/', data=None)
     
     def download_report(self, campaign_id: int) -> Dict[str, Any]:
         """Download campaign report"""
