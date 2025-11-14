@@ -195,8 +195,8 @@ class TingTingService:
     
     def update_campaign(self, campaign_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing campaign"""
-        # Use POST method as per TingTing API documentation
-        return self._make_request('POST', f'campaign/{campaign_id}/', data=data)
+        # Use PUT method - TingTing API doesn't accept POST for updates
+        return self._make_request('PUT', f'campaign/{campaign_id}/', data=data)
     
     def add_voice_assistance(self, campaign_id: int, voice_id: int, category: str = "Text") -> Dict[str, Any]:
         """Add voice assistance to a campaign"""
