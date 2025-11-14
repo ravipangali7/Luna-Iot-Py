@@ -144,6 +144,27 @@ def create_campaign(request):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
+        # Convert voice ID to dictionary format if it's an integer
+        if 'voice' in data and isinstance(data['voice'], int):
+            data['voice'] = {'id': data['voice']}
+        
+        # Validate schedule date is in the future
+        if 'schedule' in data and data['schedule']:
+            from datetime import datetime, timezone
+            try:
+                schedule_date = datetime.strptime(data['schedule'], '%Y-%m-%d').date()
+                # Use UTC to avoid timezone issues
+                today = datetime.now(timezone.utc).date()
+                if schedule_date < today:
+                    return error_response(
+                        message='Schedule date cannot be in the past. Please select a future date.',
+                        status_code=HTTP_STATUS['BAD_REQUEST'],
+                        data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
+                    )
+            except ValueError:
+                # Invalid date format, let TingTing API handle it
+                pass
+        
         print(f"[Campaign Create] Creating campaign with data: {data}")
         result = tingting_service.create_campaign(data)
         if result['success']:
@@ -155,7 +176,8 @@ def create_campaign(request):
             print(f"[Campaign Create] TingTing API error: {result.get('error')}")
             return error_response(
                 message=result.get('error', 'Failed to create campaign'),
-                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
+                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST']),
+                data={'validation_errors': result.get('validation_errors')} if result.get('validation_errors') else None
             )
     except Exception as e:
         print(f"[Campaign Create] Error creating campaign: {str(e)}")
@@ -173,7 +195,28 @@ def update_campaign(request, campaign_id):
     """Update an existing campaign"""
     try:
         # Use request.data for DRF @api_view decorator (already parsed JSON)
-        data = request.data
+        data = dict(request.data) if not isinstance(request.data, dict) else request.data
+        
+        # Convert voice ID to dictionary format if it's an integer
+        if 'voice' in data and isinstance(data['voice'], int):
+            data['voice'] = {'id': data['voice']}
+        
+        # Validate schedule date is in the future
+        if 'schedule' in data and data['schedule']:
+            from datetime import datetime, timezone
+            try:
+                schedule_date = datetime.strptime(data['schedule'], '%Y-%m-%d').date()
+                # Use UTC to avoid timezone issues
+                today = datetime.now(timezone.utc).date()
+                if schedule_date < today:
+                    return error_response(
+                        message='Schedule date cannot be in the past. Please select a future date.',
+                        status_code=HTTP_STATUS['BAD_REQUEST'],
+                        data={'validation_errors': {'schedule': ['Cannot schedule past dates.']}}
+                    )
+            except ValueError:
+                # Invalid date format, let TingTing API handle it
+                pass
         
         result = tingting_service.update_campaign(campaign_id, data)
         if result['success']:
@@ -184,7 +227,8 @@ def update_campaign(request, campaign_id):
         else:
             return error_response(
                 message=result.get('error', 'Failed to update campaign'),
-                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
+                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST']),
+                data={'validation_errors': result.get('validation_errors')} if result.get('validation_errors') else None
             )
     except json.JSONDecodeError:
         return error_response(

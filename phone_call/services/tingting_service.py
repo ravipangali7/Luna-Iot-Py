@@ -105,10 +105,40 @@ class TingTingService:
                     return {'success': True, 'data': {'message': 'Operation successful'}}
             else:
                 error_msg = f'API returned status {response.status_code}'
+                validation_errors = {}
                 try:
                     error_data = response.json()
                     print(f"[TingTing API] ERROR Response: {error_data}")
+                    
+                    # Try to get standard error message
                     error_msg = error_data.get('message', error_data.get('error', error_msg))
+                    
+                    # Parse validation errors into user-friendly format
+                    error_messages = []
+                    if isinstance(error_data, dict):
+                        for field, errors in error_data.items():
+                            if field in ['message', 'error', 'detail']:
+                                continue
+                            if isinstance(errors, list):
+                                error_messages.append(f"{field.replace('_', ' ').title()}: {', '.join(errors)}")
+                                validation_errors[field] = errors
+                            elif isinstance(errors, dict):
+                                # Handle nested errors like {'voice': {'non_field_errors': [...]}}
+                                for key, value in errors.items():
+                                    if isinstance(value, list):
+                                        error_messages.append(f"{field.replace('_', ' ').title()} ({key.replace('_', ' ').title()}): {', '.join(value)}")
+                                        validation_errors[field] = {key: value}
+                                    else:
+                                        error_messages.append(f"{field.replace('_', ' ').title()} ({key.replace('_', ' ').title()}): {str(value)}")
+                                        validation_errors[field] = {key: str(value)}
+                            else:
+                                error_messages.append(f"{field.replace('_', ' ').title()}: {str(errors)}")
+                                validation_errors[field] = str(errors)
+                    
+                    # If we have validation errors, use them as the main error message
+                    if error_messages:
+                        error_msg = '; '.join(error_messages)
+                    
                     # Log full error details
                     if 'detail' in error_data:
                         print(f"[TingTing API] ERROR Detail: {error_data['detail']}")
@@ -119,7 +149,12 @@ class TingTingService:
                     print(f"[TingTing API] ERROR Response (non-JSON): {error_text}")
                     error_msg = error_text
                 
-                return {'success': False, 'error': error_msg, 'status_code': response.status_code}
+                return {
+                    'success': False, 
+                    'error': error_msg, 
+                    'status_code': response.status_code,
+                    'validation_errors': validation_errors if validation_errors else None
+                }
                 
         except requests.exceptions.Timeout:
             print(f"[TingTing API] ERROR: Timeout for {endpoint}")
