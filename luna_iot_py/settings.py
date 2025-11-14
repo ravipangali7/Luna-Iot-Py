@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'school',
     'health',
     'finance',
+    'phone_call',
     
     
     # Third party
@@ -225,6 +226,10 @@ SMS_ROUTE_ID = '130'
 SMS_SENDER_ID = 'SMSBit'
 
 NODEJS_API_BASE_URL="https://www.system.mylunago.com"
+
+# TingTing API Configuration
+TINGTING_API_KEY = 'OAkAIaWCBzx6KE-CtavqcO-1MxKjXvd0RwchlQ2t_8lmAjOBiDePQn-jwVRUNvwj'
+TINGTING_API_BASE_URL = 'https://app.tingting.io/api/v1'
 
 # Logging Configuration
 LOGGING = {

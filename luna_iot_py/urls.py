@@ -47,6 +47,9 @@ urlpatterns = [
     # School module URLs
     path('api/school/', include('school.urls')),
     
+    # Phone Call module URLs
+    path('api/phone-call/', include('phone_call.urls')),
+    
     # Admin URLs
     path('admin/', admin.site.urls),
 ]
