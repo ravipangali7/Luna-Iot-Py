@@ -2098,6 +2098,247 @@ def search_vehicles(request):
 
 
 @csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def search_vehicles_by_expire(request):
+    """
+    Search vehicles by expiration period (expire in X days/weeks/months)
+    Supports pagination with page parameter
+    """
+    try:
+        user = request.user
+        expire_period = request.GET.get('expire_period', '').strip()
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size
+        
+        if not expire_period:
+            return error_response('Expire period is required', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Map expire period to days
+        period_map = {
+            '1_day': 1,
+            '3_days': 3,
+            '1_week': 7,
+            '1_month': 30,
+            '3_months': 90,
+            '6_months': 180
+        }
+        
+        if expire_period not in period_map:
+            return error_response('Invalid expire period. Valid values: 1_day, 3_days, 1_week, 1_month, 3_months, 6_months', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Calculate date range
+        now = datetime.now()
+        target_date = now + timedelta(days=period_map[expire_period])
+        
+        # Filter vehicles where expireDate is between now and target_date
+        expire_filter = Q(
+            expireDate__gte=now,
+            expireDate__lte=target_date
+        )
+        
+        # Get vehicles based on user role and apply expire filter
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles that match expire filter
+            vehicles = Vehicle.objects.filter(expire_filter).select_related('device').prefetch_related('userVehicles__user').distinct()
+        else:
+            # For regular users, find vehicles that match expire filter AND user has access to
+            vehicles = Vehicle.objects.filter(
+                Q(expire_filter) & (
+                    Q(userVehicles__user=user) |  # Direct vehicle access
+                    Q(device__userDevices__user=user)  # Device access
+                )
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
+        
+        # Create paginator
+        paginator = Paginator(vehicles, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
+        vehicles_data = []
+        for vehicle in page_obj:
+            # Get all users with access to this vehicle
+            user_vehicles = []
+            for uv in vehicle.userVehicles.all():
+                user_vehicles.append({
+                    'id': uv.id,
+                    'userId': uv.user.id,
+                    'vehicleId': uv.vehicle.id,
+                    'isMain': uv.isMain,
+                    'user': {
+                        'id': uv.user.id,
+                        'name': uv.user.name,
+                        'phone': uv.user.phone,
+                        'status': 'active',  # Default status
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                        'createdAt': uv.createdAt.isoformat(),
+                        'updatedAt': uv.createdAt.isoformat()
+                    },
+                    'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
+                    'allAccess': uv.allAccess,
+                    'liveTracking': uv.liveTracking,
+                    'history': uv.history,
+                    'report': uv.report,
+                    'vehicleProfile': uv.vehicleProfile,
+                    'events': uv.events,
+                    'geofence': uv.geofence,
+                    'edit': uv.edit,
+                    'shareTracking': uv.shareTracking,
+                    'notification': uv.notification
+                })
+            
+            # Get current user's userVehicle relationship
+            try:
+                current_user_uv = vehicle.userVehicles.filter(user=user).first()
+            except Exception:
+                current_user_uv = None
+            
+            # Get main customer (user with isMain=True)
+            main_customer = None
+            for uv in vehicle.userVehicles.all():
+                if uv.isMain:
+                    main_customer = {
+                        'id': uv.id,
+                        'userId': uv.user.id,
+                        'vehicleId': uv.vehicle.id,
+                        'isMain': uv.isMain,
+                        'user': {
+                            'id': uv.user.id,
+                            'name': uv.user.name,
+                            'phone': uv.user.phone,
+                            'status': 'active',  # Default status
+                            'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in uv.user.groups.all()],
+                            'createdAt': uv.user.created_at.isoformat() if uv.user.created_at else None,
+                            'updatedAt': uv.user.updated_at.isoformat() if uv.user.updated_at else None
+                        },
+                        'createdAt': uv.createdAt.isoformat() if uv.createdAt else None,
+                        'allAccess': uv.allAccess,
+                        'liveTracking': uv.liveTracking,
+                        'history': uv.history,
+                        'report': uv.report,
+                        'vehicleProfile': uv.vehicleProfile,
+                        'events': uv.events,
+                        'geofence': uv.geofence,
+                        'edit': uv.edit,
+                        'shareTracking': uv.shareTracking,
+                        'notification': uv.notification
+                    }
+                    break
+            
+            # Get latest recharge info
+            try:
+                latest_recharge_obj = Recharge.objects.filter(device=vehicle.device).order_by('-createdAt').first()
+                latest_recharge = {
+                    'id': latest_recharge_obj.id,
+                    'deviceId': latest_recharge_obj.device.id,
+                    'amount': float(latest_recharge_obj.amount),
+                    'createdAt': latest_recharge_obj.createdAt.isoformat()
+                } if latest_recharge_obj else None
+            except Exception as e:
+                latest_recharge = None
+            
+            # Calculate today's km
+            today_km = calculate_today_km(vehicle.imei)
+            
+            # Get latest status
+            try:
+                latest_status_obj = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_status = {
+                    'id': latest_status_obj.id,
+                    'imei': latest_status_obj.imei,
+                    'battery': latest_status_obj.battery,
+                    'signal': latest_status_obj.signal,
+                    'ignition': latest_status_obj.ignition,
+                    'charging': latest_status_obj.charging,
+                    'relay': latest_status_obj.relay,
+                    'createdAt': latest_status_obj.createdAt.isoformat(),
+                    'updatedAt': latest_status_obj.updatedAt.isoformat()
+                } if latest_status_obj else None
+            except Exception as e:
+                latest_status = None
+            
+            # Get latest location
+            try:
+                latest_location_obj = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                latest_location = {
+                    'id': latest_location_obj.id,
+                    'imei': latest_location_obj.imei,
+                    'latitude': float(latest_location_obj.latitude),
+                    'longitude': float(latest_location_obj.longitude),
+                    'speed': latest_location_obj.speed,
+                    'course': latest_location_obj.course,
+                    'satellite': latest_location_obj.satellite,
+                    'realTimeGps': latest_location_obj.realTimeGps,
+                    'createdAt': latest_location_obj.createdAt.isoformat(),
+                    'updatedAt': latest_location_obj.updatedAt.isoformat()
+                } if latest_location_obj else None
+            except Exception as e:
+                latest_location = None
+            
+            vehicle_data = {
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'odometer': float(vehicle.odometer),
+                'mileage': float(vehicle.mileage),
+                'minimumFuel': float(vehicle.minimumFuel),
+                'speedLimit': vehicle.speedLimit,
+                'expireDate': vehicle.expireDate.isoformat() if vehicle.expireDate else None,
+                'is_active': vehicle.is_active,
+                'is_relay': vehicle.is_relay,
+                'createdAt': vehicle.createdAt.isoformat() if vehicle.createdAt else None,
+                'updatedAt': vehicle.updatedAt.isoformat() if vehicle.updatedAt else None,
+                'device': {
+                    'id': vehicle.device.id,
+                    'imei': vehicle.device.imei,
+                    'phone': vehicle.device.phone,
+                    'sim': vehicle.device.sim,
+                    'protocol': vehicle.device.protocol,
+                    'iccid': vehicle.device.iccid,
+                    'model': vehicle.device.model
+                } if vehicle.device else None,
+                'userVehicles': user_vehicles,
+                'mainCustomer': main_customer,
+                'latestRecharge': latest_recharge,
+                'latestStatus': latest_status,
+                'latestLocation': latest_location,
+                'todayKm': today_km,
+                'ownershipType': 'Own' if current_user_uv and current_user_uv.isMain else 'Shared' if current_user_uv else 'Customer'
+            }
+            vehicles_data.append(vehicle_data)
+        
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'vehicles': vehicles_data,
+            'pagination': pagination_info
+        }
+        
+        period_display = expire_period.replace('_', ' ').title()
+        return success_response(response_data, f'Found {paginator.count} vehicles expiring within {period_display}')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
 @require_http_methods(["PUT"])
 @require_auth
 def activate_vehicle(request, imei):
