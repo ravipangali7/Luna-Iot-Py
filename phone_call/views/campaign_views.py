@@ -222,18 +222,22 @@ def update_campaign(request, campaign_id):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        # Remove voice field - it's set via separate endpoint
-        voice_id = None
-        if 'voice' in data:
-            voice_value = data.pop('voice', None)
+        # Handle voice field - convert to integer if needed, keep in data for update
+        if 'voice' in data and data['voice'] is not None:
+            voice_value = data['voice']
             # Extract integer ID if it's a dict or convert if it's a string/int
             if isinstance(voice_value, dict) and 'id' in voice_value:
-                voice_id = voice_value['id']
+                data['voice'] = voice_value['id']  # Send as integer
             elif isinstance(voice_value, (int, str)) and voice_value:
                 try:
-                    voice_id = int(voice_value) if voice_value else None
+                    data['voice'] = int(voice_value) if voice_value else None
                 except (ValueError, TypeError):
-                    voice_id = None
+                    data.pop('voice', None)
+            else:
+                data.pop('voice', None)
+        elif 'voice' in data and (data['voice'] is None or data['voice'] == ''):
+            # Remove voice field if it's None or empty
+            data.pop('voice', None)
         
         # Validate schedule date is in the future
         if 'schedule' in data and data['schedule']:
@@ -252,15 +256,22 @@ def update_campaign(request, campaign_id):
                 # Invalid date format, let TingTing API handle it
                 pass
         
+        print(f"[Campaign Update] Updating campaign with data: {data}")
         result = tingting_service.update_campaign(campaign_id, data)
         if result['success']:
-            # Add voice assistance if voice_id was provided
-            if voice_id:
-                print(f"[Campaign Update] Adding voice assistance: voice_id={voice_id}, campaign_id={campaign_id}")
-                voice_result = tingting_service.add_voice_assistance(campaign_id, voice_id)
-                if not voice_result['success']:
-                    print(f"[Campaign Update] Warning: Failed to add voice assistance: {voice_result.get('error')}")
-                    # Don't fail the whole request, just log the warning
+            # If voice was included in update and it succeeded, we're done
+            # Otherwise, try separate voice assistance endpoint as fallback
+            if 'voice' not in data or data.get('voice') is None:
+                # No voice in update, nothing to do
+                pass
+            elif result['data'] and isinstance(result['data'], dict) and result['data'].get('voice') is None:
+                # Voice was sent but not set, try separate endpoint
+                voice_id = data.get('voice')
+                if voice_id:
+                    print(f"[Campaign Update] Voice not set in update response, trying separate endpoint: voice_id={voice_id}")
+                    voice_result = tingting_service.add_voice_assistance(campaign_id, voice_id)
+                    if not voice_result['success']:
+                        print(f"[Campaign Update] Warning: Failed to add voice assistance: {voice_result.get('error')}")
             
             return success_response(
                 data=result['data'],

@@ -204,7 +204,32 @@ class TingTingService:
             "voice": voice_id,  # Integer, not dict
             "category": category
         }
-        return self._make_request('POST', f'campaign/create/{campaign_id}/message/', data=data)
+        # Try different endpoints and methods for voice assistance
+        # First try: PUT to campaign/create/{id}/message/ (for updates)
+        result = self._make_request('PUT', f'campaign/create/{campaign_id}/message/', data=data)
+        if result['success']:
+            return result
+        
+        # Second try: PATCH to campaign/create/{id}/message/
+        if result.get('status_code') == 405:
+            result = self._make_request('PATCH', f'campaign/create/{campaign_id}/message/', data=data)
+            if result['success']:
+                return result
+        
+        # Third try: POST to campaign/create/{id}/message/ (for new campaigns)
+        if result.get('status_code') == 405:
+            result = self._make_request('POST', f'campaign/create/{campaign_id}/message/', data=data)
+            if result['success']:
+                return result
+        
+        # Fourth try: PUT to campaign/{id}/message/ (alternative endpoint)
+        if result.get('status_code') == 405:
+            result = self._make_request('PUT', f'campaign/{campaign_id}/message/', data=data)
+            if result['success']:
+                return result
+        
+        # If all fail, return the last error
+        return result
     
     def delete_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """Delete a campaign"""
