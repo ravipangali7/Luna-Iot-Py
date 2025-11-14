@@ -419,127 +419,210 @@ class TingTingService:
     # Testing
     def test_voice(self, campaign_id: int, voice_input: int, message: str) -> Dict[str, Any]:
         """Test voice synthesis"""
-        # Try multiple endpoint formats as the API documentation might be unclear
+        # Ensure message is properly UTF-8 encoded and handle newlines
+        # The API might expect newlines as literal \n or as spaces
+        # Try with original message first, then with normalized newlines if needed
+        original_message = message
+        
+        # Normalize message: ensure it's a string and handle encoding
+        if not isinstance(message, str):
+            message = str(message)
+        
+        # Ensure UTF-8 encoding
+        try:
+            message = message.encode('utf-8').decode('utf-8')
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            # If encoding fails, try to fix it
+            message = message.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+        
+        # Prepare data with proper encoding
         data = {
             "voice_input": voice_input,  # Voice ID
             "message": message
         }
         
-        # List of possible endpoint formats to try
-        endpoint_formats = [
-            f'campaign/test-speak/riri/{campaign_id}/',  # Try with campaign prefix
-            f'test-speak/riri/{campaign_id}/',  # Original format from docs
-            f'campaign/{campaign_id}/test-voice/',  # Alternative format
-            f'test-voice/{campaign_id}/',  # Simple format
-        ]
+        # Use the correct endpoint from documentation: test-speak/riri/<campaign_id>/
+        endpoint = f'test-speak/riri/{campaign_id}/'
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
         
-        last_error = None
-        for endpoint in endpoint_formats:
-            try:
-                url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        # Prepare headers with explicit UTF-8 charset
+        request_headers = self.headers.copy()
+        request_headers['Content-Type'] = 'application/json; charset=utf-8'
+        
+        # Log request details (mask sensitive data)
+        log_headers = request_headers.copy()
+        if 'Authorization' in log_headers:
+            auth_header = log_headers['Authorization']
+            if 'Bearer' in auth_header:
+                token = auth_header.split('Bearer ')[1]
+                masked_token = token[:10] + '...' + token[-5:] if len(token) > 15 else '***'
+                log_headers['Authorization'] = f'Bearer {masked_token}'
+        
+        print(f"[TingTing API] Test Voice - Endpoint: {endpoint}")
+        print(f"[TingTing API] Request: POST {url}")
+        print(f"[TingTing API] Headers: {log_headers}")
+        print(f"[TingTing API] Request Body (JSON): {data}")
+        print(f"[TingTing API] Message length: {len(message)} chars, Message (first 100 chars): {message[:100]}")
+        
+        # Try with original message first
+        try:
+            # Make POST request with explicit JSON encoding
+            response = requests.post(
+                url, 
+                headers=request_headers, 
+                json=data, 
+                timeout=30,
+                # Ensure proper encoding
+                allow_redirects=True
+            )
+            
+            print(f"[TingTing API] Response Status: {response.status_code}")
+            print(f"[TingTing API] Response Headers: {dict(response.headers)}")
+            
+            # Check if successful
+            if response.status_code in [200, 201]:
+                try:
+                    response_data = response.json()
+                    print(f"[TingTing API] Response Body (JSON): {response_data}")
+                except ValueError:
+                    # Response might be plain text URL (as per documentation)
+                    response_text = response.text.strip()
+                    print(f"[TingTing API] Response Body (plain text): {response_text[:200]}")
+                    response_data = response_text
                 
-                # Prepare headers
-                request_headers = self.headers.copy()
+                # Handle different response formats
+                # According to docs, it returns: "https://riritwo.prixacdn.net/output/..."
+                audio_url = None
+                if isinstance(response_data, str):
+                    # Direct string URL (as per documentation)
+                    audio_url = response_data.strip().strip('"')  # Remove quotes if present
+                elif isinstance(response_data, dict):
+                    # JSON object - try multiple possible fields
+                    audio_url = (response_data.get('url') or 
+                                response_data.get('audio_url') or 
+                                response_data.get('audio') or 
+                                response_data.get('file_url'))
                 
-                # Log request details (mask sensitive data)
-                log_headers = request_headers.copy()
-                if 'Authorization' in log_headers:
-                    auth_header = log_headers['Authorization']
-                    if 'Bearer' in auth_header:
-                        token = auth_header.split('Bearer ')[1]
-                        masked_token = token[:10] + '...' + token[-5:] if len(token) > 15 else '***'
-                        log_headers['Authorization'] = f'Bearer {masked_token}'
-                
-                print(f"[TingTing API] Test Voice - Trying endpoint: {endpoint}")
-                print(f"[TingTing API] Request: POST {url}")
-                print(f"[TingTing API] Headers: {log_headers}")
-                print(f"[TingTing API] Request Body (JSON): {data}")
-                
-                # Make POST request
-                response = requests.post(url, headers=request_headers, json=data, timeout=30)
-                
-                print(f"[TingTing API] Response Status: {response.status_code}")
-                
-                # Check if successful
-                if response.status_code in [200, 201]:
-                    try:
-                        response_data = response.json()
-                        print(f"[TingTing API] Response Body: {response_data}")
-                        
-                        # Handle different response formats
-                        # The API might return:
-                        # 1. Direct string URL: "https://..."
-                        # 2. JSON object with url/audio_url field: {"url": "https://..."}
-                        # 3. JSON object with message and url: {"message": "...", "url": "https://..."}
-                        audio_url = None
-                        if isinstance(response_data, str):
-                            audio_url = response_data
-                        elif isinstance(response_data, dict):
-                            audio_url = response_data.get('url') or response_data.get('audio_url') or response_data.get('audio') or response_data.get('file_url')
-                            # If no URL found, return the whole response
-                            if not audio_url:
-                                audio_url = response_data
-                        
-                        return {
-                            'success': True,
-                            'data': audio_url if audio_url else response_data
-                        }
-                    except ValueError:
-                        # Response might be plain text URL
-                        response_text = response.text.strip()
-                        print(f"[TingTing API] Response Body (non-JSON): {response_text[:200]}")
-                        if response_text.startswith('http'):
-                            return {'success': True, 'data': response_text}
-                        return {'success': True, 'data': {'message': 'Voice test completed', 'response': response_text}}
-                
-                # If not successful, try next endpoint unless it's a clear validation error (400)
-                elif response.status_code == 400:
-                    # 400 means bad request - endpoint exists but request is invalid
-                    # Don't try other endpoints, return error
-                    try:
-                        error_data = response.json()
-                        error_msg = error_data.get('message', error_data.get('error', f'Bad request: {response.status_code}'))
-                        print(f"[TingTing API] ERROR Response: {error_data}")
-                        return {
-                            'success': False,
-                            'error': error_msg,
-                            'status_code': response.status_code
-                        }
-                    except ValueError:
-                        error_text = response.text[:500] if response.text else "Bad request"
-                        print(f"[TingTing API] ERROR Response (non-JSON): {error_text}")
-                        return {
-                            'success': False,
-                            'error': error_text,
-                            'status_code': response.status_code
-                        }
+                if audio_url and (audio_url.startswith('http://') or audio_url.startswith('https://')):
+                    return {
+                        'success': True,
+                        'data': audio_url
+                    }
                 else:
-                    # For other errors (500, 404, etc.), try next endpoint
-                    try:
-                        error_data = response.json()
-                        last_error = error_data.get('message', error_data.get('error', f'Status {response.status_code}'))
-                        print(f"[TingTing API] Endpoint {endpoint} failed with status {response.status_code}: {last_error}")
-                    except ValueError:
-                        error_text = response.text[:200] if response.text else f"Status {response.status_code}"
-                        last_error = error_text
-                        print(f"[TingTing API] Endpoint {endpoint} failed with status {response.status_code}: {error_text}")
-                    continue
+                    # Return the response as-is if we can't extract URL
+                    return {
+                        'success': True,
+                        'data': response_data
+                    }
+            
+            # Handle errors
+            elif response.status_code == 400:
+                # Bad request - endpoint exists but request is invalid
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', error_data.get('error', f'Bad request: {response.status_code}'))
+                    print(f"[TingTing API] ERROR Response (400): {error_data}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'status_code': response.status_code
+                    }
+                except ValueError:
+                    error_text = response.text[:500] if response.text else "Bad request"
+                    print(f"[TingTing API] ERROR Response (400, non-JSON): {error_text}")
+                    return {
+                        'success': False,
+                        'error': error_text,
+                        'status_code': response.status_code
+                    }
+            
+            elif response.status_code == 500:
+                # Server error - try with normalized message (replace newlines with spaces)
+                print(f"[TingTing API] 500 Error - Trying with normalized message (newlines replaced)")
+                normalized_message = original_message.replace('\n', ' ').replace('\r', ' ').strip()
+                # Remove multiple spaces
+                normalized_message = ' '.join(normalized_message.split())
+                
+                if normalized_message != message:
+                    data_normalized = {
+                        "voice_input": voice_input,
+                        "message": normalized_message
+                    }
+                    print(f"[TingTing API] Retry with normalized message: {data_normalized}")
                     
-            except requests.exceptions.RequestException as e:
-                print(f"[TingTing API] Request error for endpoint {endpoint}: {str(e)}")
-                last_error = f'Request failed: {str(e)}'
-                continue
-            except Exception as e:
-                print(f"[TingTing API] Unexpected error for endpoint {endpoint}: {str(e)}")
-                last_error = f'Unexpected error: {str(e)}'
-                continue
-        
-        # If all endpoints failed, return the last error
-        return {
-            'success': False,
-            'error': last_error or 'All endpoint formats failed. Please check the API documentation.',
-            'status_code': 500
-        }
+                    try:
+                        response_retry = requests.post(
+                            url, 
+                            headers=request_headers, 
+                            json=data_normalized, 
+                            timeout=30
+                        )
+                        
+                        if response_retry.status_code in [200, 201]:
+                            try:
+                                response_data = response_retry.json()
+                            except ValueError:
+                                response_data = response_retry.text.strip()
+                            
+                            audio_url = None
+                            if isinstance(response_data, str):
+                                audio_url = response_data.strip().strip('"')
+                            elif isinstance(response_data, dict):
+                                audio_url = (response_data.get('url') or 
+                                            response_data.get('audio_url') or 
+                                            response_data.get('audio') or 
+                                            response_data.get('file_url'))
+                            
+                            if audio_url and (audio_url.startswith('http://') or audio_url.startswith('https://')):
+                                return {
+                                    'success': True,
+                                    'data': audio_url
+                                }
+                    except Exception as e:
+                        print(f"[TingTing API] Retry failed: {str(e)}")
+                
+                # If retry failed or didn't happen, return the original 500 error
+                error_text = response.text[:500] if response.text else "Internal server error"
+                print(f"[TingTing API] ERROR Response (500): {error_text}")
+                return {
+                    'success': False,
+                    'error': f'Server error (500): The TingTing API returned an internal server error. This might be due to special characters or message format. Please try with a simpler message.',
+                    'status_code': response.status_code
+                }
+            
+            else:
+                # Other errors (404, etc.)
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', error_data.get('error', f'Status {response.status_code}'))
+                    print(f"[TingTing API] ERROR Response ({response.status_code}): {error_data}")
+                except ValueError:
+                    error_text = response.text[:500] if response.text else f"Status {response.status_code}"
+                    error_msg = error_text
+                    print(f"[TingTing API] ERROR Response ({response.status_code}, non-JSON): {error_text}")
+                
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'status_code': response.status_code
+                }
+                
+        except requests.exceptions.RequestException as e:
+            print(f"[TingTing API] Request error: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Request failed: {str(e)}',
+                'status_code': 500
+            }
+        except Exception as e:
+            print(f"[TingTing API] Unexpected error: {str(e)}")
+            import traceback
+            print(f"[TingTing API] Traceback: {traceback.format_exc()}")
+            return {
+                'success': False,
+                'error': f'Unexpected error: {str(e)}',
+                'status_code': 500
+            }
     
     def demo_call(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Make a demo call"""
