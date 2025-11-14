@@ -47,6 +47,9 @@ class TingTingService:
             if files:
                 # Remove Content-Type for file uploads (let requests set it)
                 request_headers.pop('Content-Type', None)
+            elif data is None:
+                # Remove Content-Type when there's no body (like run-campaign endpoint)
+                request_headers.pop('Content-Type', None)
             
             # Log request details (mask sensitive data)
             log_headers = request_headers.copy()
