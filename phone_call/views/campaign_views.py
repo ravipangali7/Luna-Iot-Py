@@ -120,7 +120,8 @@ def get_campaign(request, campaign_id):
 def create_campaign(request):
     """Create a new campaign"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.create_campaign(data)
         if result['success']:
@@ -151,7 +152,8 @@ def create_campaign(request):
 def update_campaign(request, campaign_id):
     """Update an existing campaign"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.update_campaign(campaign_id, data)
         if result['success']:
@@ -283,7 +285,8 @@ def download_report(request, campaign_id):
 def add_contact(request, campaign_id):
     """Add individual contact to campaign"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.add_contact(campaign_id, data)
         if result['success']:
@@ -396,7 +399,8 @@ def get_contact_info(request, contact_id):
 def update_contact_attributes(request, contact_id):
     """Update contact attributes"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.update_contact_attributes(contact_id, data)
         if result['success']:
@@ -427,7 +431,8 @@ def update_contact_attributes(request, contact_id):
 def update_contact(request, contact_id):
     """Update contact"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.update_contact(contact_id, data)
         if result['success']:
@@ -459,7 +464,8 @@ def update_contact(request, contact_id):
 def test_voice(request):
     """Test voice synthesis"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.test_voice(data)
         if result['success']:
@@ -490,7 +496,8 @@ def test_voice(request):
 def demo_call(request):
     """Make a demo call"""
     try:
-        data = json.loads(request.body) if request.body else {}
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
         
         result = tingting_service.demo_call(data)
         if result['success']:
