@@ -208,8 +208,59 @@ class TingTingService:
         """Run/execute a campaign immediately"""
         # According to TingTing API docs: run-campaign/{campaign_id}/
         # If schedule time is not given, campaign launches immediately
-        # Send empty JSON body {} with Content-Type header - API expects JSON content
-        return self._make_request('POST', f'run-campaign/{campaign_id}/', data={})
+        # The API doesn't show sample input, so try POST without body and without Content-Type
+        try:
+            url = f"{self.base_url}/run-campaign/{campaign_id}/"
+            
+            # Prepare headers without Content-Type for this endpoint
+            request_headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Accept': 'application/json'
+            }
+            
+            print(f"[TingTing API] Request: POST {url}")
+            print(f"[TingTing API] Headers: {request_headers}")
+            print(f"[TingTing API] Request Body: (no body)")
+            
+            # Send POST request without body
+            response = requests.post(url, headers=request_headers, timeout=30)
+            
+            print(f"[TingTing API] Response Status: {response.status_code}")
+            try:
+                response_data = response.json()
+                print(f"[TingTing API] Response Body: {response_data}")
+            except ValueError:
+                response_text = response.text[:500] if response.text else "No response body"
+                print(f"[TingTing API] Response Body (non-JSON): {response_text}")
+            
+            if response.status_code in [200, 201]:
+                try:
+                    response_data = response.json()
+                    return {'success': True, 'data': response_data}
+                except ValueError:
+                    return {'success': True, 'data': {'message': 'Operation successful'}}
+            else:
+                error_msg = f'API returned status {response.status_code}'
+                try:
+                    error_data = response.json()
+                    print(f"[TingTing API] ERROR Response: {error_data}")
+                    error_msg = error_data.get('message', error_data.get('error', error_msg))
+                except ValueError:
+                    error_text = response.text or error_msg
+                    print(f"[TingTing API] ERROR Response (non-JSON): {error_text}")
+                    error_msg = error_text
+                
+                return {'success': False, 'error': error_msg, 'status_code': response.status_code}
+                
+        except requests.exceptions.Timeout:
+            print(f"[TingTing API] ERROR: Timeout for run-campaign/{campaign_id}/")
+            return {'success': False, 'error': 'Request timeout'}
+        except requests.exceptions.RequestException as e:
+            print(f"[TingTing API] ERROR: Request error for run-campaign/{campaign_id}/: {str(e)}")
+            return {'success': False, 'error': f'Request failed: {str(e)}'}
+        except Exception as e:
+            print(f"[TingTing API] ERROR: Unexpected error calling run-campaign/{campaign_id}/: {str(e)}")
+            return {'success': False, 'error': f'Unexpected error: {str(e)}'}
     
     def download_report(self, campaign_id: int) -> Dict[str, Any]:
         """Download campaign report"""
