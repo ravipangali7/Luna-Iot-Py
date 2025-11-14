@@ -144,27 +144,18 @@ def create_campaign(request):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        # Voice field should be sent as dictionary format {'id': voice_id}
-        # Convert voice ID to dictionary format if it's an integer or string
-        if 'voice' in data and data['voice'] is not None:
-            if isinstance(data['voice'], int):
-                data['voice'] = {'id': data['voice']}
-            elif isinstance(data['voice'], str) and data['voice'].strip():
-                # Convert string to integer first, then to dict
+        # Remove voice field - it's set via separate endpoint
+        voice_id = None
+        if 'voice' in data:
+            voice_value = data.pop('voice', None)
+            # Extract integer ID if it's a dict or convert if it's a string/int
+            if isinstance(voice_value, dict) and 'id' in voice_value:
+                voice_id = voice_value['id']
+            elif isinstance(voice_value, (int, str)) and voice_value:
                 try:
-                    data['voice'] = {'id': int(data['voice'])}
-                except ValueError:
-                    data.pop('voice', None)
-            elif isinstance(data['voice'], dict):
-                # Already in dict format, ensure it has 'id' key
-                if 'id' not in data['voice']:
-                    data.pop('voice', None)
-            else:
-                # Invalid format, remove it
-                data.pop('voice', None)
-        elif 'voice' in data and (data['voice'] is None or data['voice'] == ''):
-            # Remove voice field if it's None or empty
-            data.pop('voice', None)
+                    voice_id = int(voice_value) if voice_value else None
+                except (ValueError, TypeError):
+                    voice_id = None
         
         # Validate schedule date is in the future
         if 'schedule' in data and data['schedule']:
@@ -186,8 +177,19 @@ def create_campaign(request):
         print(f"[Campaign Create] Creating campaign with data: {data}")
         result = tingting_service.create_campaign(data)
         if result['success']:
+            campaign_data = result['data']
+            campaign_id = campaign_data.get('id') if isinstance(campaign_data, dict) else None
+            
+            # Add voice assistance if voice_id was provided
+            if voice_id and campaign_id:
+                print(f"[Campaign Create] Adding voice assistance: voice_id={voice_id}, campaign_id={campaign_id}")
+                voice_result = tingting_service.add_voice_assistance(campaign_id, voice_id)
+                if not voice_result['success']:
+                    print(f"[Campaign Create] Warning: Failed to add voice assistance: {voice_result.get('error')}")
+                    # Don't fail the whole request, just log the warning
+            
             return success_response(
-                data=result['data'],
+                data=campaign_data,
                 message=SUCCESS_MESSAGES.get('CREATED', 'Campaign created successfully')
             )
         else:
@@ -220,27 +222,18 @@ def update_campaign(request, campaign_id):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        # Voice field should be sent as dictionary format {'id': voice_id}
-        # Convert voice ID to dictionary format if it's an integer or string
-        if 'voice' in data and data['voice'] is not None:
-            if isinstance(data['voice'], int):
-                data['voice'] = {'id': data['voice']}
-            elif isinstance(data['voice'], str) and data['voice'].strip():
-                # Convert string to integer first, then to dict
+        # Remove voice field - it's set via separate endpoint
+        voice_id = None
+        if 'voice' in data:
+            voice_value = data.pop('voice', None)
+            # Extract integer ID if it's a dict or convert if it's a string/int
+            if isinstance(voice_value, dict) and 'id' in voice_value:
+                voice_id = voice_value['id']
+            elif isinstance(voice_value, (int, str)) and voice_value:
                 try:
-                    data['voice'] = {'id': int(data['voice'])}
-                except ValueError:
-                    data.pop('voice', None)
-            elif isinstance(data['voice'], dict):
-                # Already in dict format, ensure it has 'id' key
-                if 'id' not in data['voice']:
-                    data.pop('voice', None)
-            else:
-                # Invalid format, remove it
-                data.pop('voice', None)
-        elif 'voice' in data and (data['voice'] is None or data['voice'] == ''):
-            # Remove voice field if it's None or empty
-            data.pop('voice', None)
+                    voice_id = int(voice_value) if voice_value else None
+                except (ValueError, TypeError):
+                    voice_id = None
         
         # Validate schedule date is in the future
         if 'schedule' in data and data['schedule']:
@@ -261,6 +254,14 @@ def update_campaign(request, campaign_id):
         
         result = tingting_service.update_campaign(campaign_id, data)
         if result['success']:
+            # Add voice assistance if voice_id was provided
+            if voice_id:
+                print(f"[Campaign Update] Adding voice assistance: voice_id={voice_id}, campaign_id={campaign_id}")
+                voice_result = tingting_service.add_voice_assistance(campaign_id, voice_id)
+                if not voice_result['success']:
+                    print(f"[Campaign Update] Warning: Failed to add voice assistance: {voice_result.get('error')}")
+                    # Don't fail the whole request, just log the warning
+            
             return success_response(
                 data=result['data'],
                 message=SUCCESS_MESSAGES.get('UPDATED', 'Campaign updated successfully')
@@ -594,6 +595,54 @@ def update_contact(request, contact_id):
             status_code=HTTP_STATUS['BAD_REQUEST']
         )
     except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def add_voice_assistance(request, campaign_id):
+    """Add voice assistance to a campaign"""
+    try:
+        # Use request.data for DRF @api_view decorator (already parsed JSON)
+        data = request.data
+        
+        voice_id = data.get('voice')
+        category = data.get('category', 'Text')
+        
+        if not voice_id:
+            return error_response(
+                message='Voice ID is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Convert voice_id to integer if needed
+        try:
+            voice_id = int(voice_id)
+        except (ValueError, TypeError):
+            return error_response(
+                message='Invalid voice ID format',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        result = tingting_service.add_voice_assistance(campaign_id, voice_id, category)
+        if result['success']:
+            return success_response(
+                data=result['data'],
+                message=SUCCESS_MESSAGES.get('UPDATED', 'Voice assistance added successfully')
+            )
+        else:
+            return error_response(
+                message=result.get('error', 'Failed to add voice assistance'),
+                status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST']),
+                data={'validation_errors': result.get('validation_errors')} if result.get('validation_errors') else None
+            )
+    except Exception as e:
+        print(f"[Add Voice Assistance] Error: {str(e)}")
+        print(f"[Add Voice Assistance] Traceback: {traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)

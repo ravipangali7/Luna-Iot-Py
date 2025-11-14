@@ -195,8 +195,16 @@ class TingTingService:
     
     def update_campaign(self, campaign_id: int, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing campaign"""
-        # Use PUT method for updates (REST convention)
-        return self._make_request('PUT', f'campaign/{campaign_id}/', data=data)
+        # Use POST method as per TingTing API documentation
+        return self._make_request('POST', f'campaign/{campaign_id}/', data=data)
+    
+    def add_voice_assistance(self, campaign_id: int, voice_id: int, category: str = "Text") -> Dict[str, Any]:
+        """Add voice assistance to a campaign"""
+        data = {
+            "voice": voice_id,  # Integer, not dict
+            "category": category
+        }
+        return self._make_request('POST', f'campaign/create/{campaign_id}/message/', data=data)
     
     def delete_campaign(self, campaign_id: int) -> Dict[str, Any]:
         """Delete a campaign"""

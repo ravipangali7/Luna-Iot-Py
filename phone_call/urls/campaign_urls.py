@@ -19,6 +19,7 @@ urlpatterns = [
     path('campaign/<int:campaign_id>/run/', campaign_views.run_campaign, name='run_campaign'),
     path('campaign/<int:campaign_id>/report/', campaign_views.download_report, name='download_report'),
     path('campaign/<int:campaign_id>/details/', campaign_views.get_campaign_details, name='get_campaign_details'),
+    path('campaign/<int:campaign_id>/voice-assistance/', campaign_views.add_voice_assistance, name='add_voice_assistance'),
     path('campaign/<int:campaign_id>/update', campaign_views.update_campaign, name='update_campaign'),
     path('campaign/<int:campaign_id>/delete', campaign_views.delete_campaign, name='delete_campaign'),
     path('campaign/<int:campaign_id>/', campaign_views.get_campaign, name='get_campaign'),
