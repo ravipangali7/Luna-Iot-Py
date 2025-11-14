@@ -4,6 +4,7 @@ Handles all API calls to TingTing telephony service
 """
 import requests
 import logging
+import re
 from django.conf import settings
 from typing import Dict, Any, Optional, List
 
@@ -537,18 +538,42 @@ class TingTingService:
                     }
             
             elif response.status_code == 500:
-                # Server error - try with normalized message (replace newlines with spaces)
-                print(f"[TingTing API] 500 Error - Trying with normalized message (newlines replaced)")
-                normalized_message = original_message.replace('\n', ' ').replace('\r', ' ').strip()
-                # Remove multiple spaces
-                normalized_message = ' '.join(normalized_message.split())
+                # Server error - try with aggressively normalized message
+                print(f"[TingTing API] 500 Error - Trying with normalized message (cleaning special characters)")
                 
-                if normalized_message != message:
+                # Aggressive message normalization
+                normalized_message = original_message
+                
+                # Step 1: Replace newlines and carriage returns with spaces
+                normalized_message = normalized_message.replace('\n', ' ').replace('\r', ' ')
+                
+                # Step 2: Replace problematic special characters
+                # Replace pipe characters with periods or remove them
+                normalized_message = normalized_message.replace('|', '।')
+                
+                # Step 3: Normalize all whitespace (tabs, multiple spaces, etc.)
+                # Replace all whitespace characters (spaces, tabs, etc.) with single space
+                normalized_message = re.sub(r'\s+', ' ', normalized_message)
+                
+                # Step 4: Trim whitespace from beginning and end
+                normalized_message = normalized_message.strip()
+                
+                # Step 5: Remove any remaining control characters (except common punctuation)
+                # Keep common Nepali/Unicode punctuation: ।, ।, ,, ., ?, !, etc.
+                normalized_message = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', normalized_message)
+                
+                print(f"[TingTing API] Original message length: {len(original_message)} chars")
+                print(f"[TingTing API] Normalized message length: {len(normalized_message)} chars")
+                print(f"[TingTing API] Original message (first 100 chars): {original_message[:100]}")
+                print(f"[TingTing API] Normalized message (first 100 chars): {normalized_message[:100]}")
+                
+                # Only retry if the normalized message is different and not empty
+                if normalized_message != message and normalized_message.strip():
                     data_normalized = {
                         "voice_input": voice_input,
                         "message": normalized_message
                     }
-                    print(f"[TingTing API] Retry with normalized message: {data_normalized}")
+                    print(f"[TingTing API] Retry with normalized message - Request Body: {data_normalized}")
                     
                     try:
                         response_retry = requests.post(
@@ -558,11 +583,15 @@ class TingTingService:
                             timeout=30
                         )
                         
+                        print(f"[TingTing API] Retry Response Status: {response_retry.status_code}")
+                        
                         if response_retry.status_code in [200, 201]:
                             try:
                                 response_data = response_retry.json()
+                                print(f"[TingTing API] Retry Response Body (JSON): {response_data}")
                             except ValueError:
                                 response_data = response_retry.text.strip()
+                                print(f"[TingTing API] Retry Response Body (plain text): {response_data[:200]}")
                             
                             audio_url = None
                             if isinstance(response_data, str):
@@ -574,19 +603,34 @@ class TingTingService:
                                             response_data.get('file_url'))
                             
                             if audio_url and (audio_url.startswith('http://') or audio_url.startswith('https://')):
+                                print(f"[TingTing API] Retry successful! Audio URL: {audio_url}")
                                 return {
                                     'success': True,
                                     'data': audio_url
                                 }
+                            else:
+                                print(f"[TingTing API] Retry returned success but no valid URL found")
+                        else:
+                            # Log retry failure
+                            try:
+                                error_data = response_retry.json()
+                                print(f"[TingTing API] Retry failed with status {response_retry.status_code}: {error_data}")
+                            except ValueError:
+                                error_text = response_retry.text[:200] if response_retry.text else "No error message"
+                                print(f"[TingTing API] Retry failed with status {response_retry.status_code}: {error_text}")
                     except Exception as e:
-                        print(f"[TingTing API] Retry failed: {str(e)}")
+                        print(f"[TingTing API] Retry exception: {str(e)}")
+                        import traceback
+                        print(f"[TingTing API] Retry traceback: {traceback.format_exc()}")
+                else:
+                    print(f"[TingTing API] Skipping retry - normalized message is same as original or empty")
                 
                 # If retry failed or didn't happen, return the original 500 error
                 error_text = response.text[:500] if response.text else "Internal server error"
                 print(f"[TingTing API] ERROR Response (500): {error_text}")
                 return {
                     'success': False,
-                    'error': f'Server error (500): The TingTing API returned an internal server error. This might be due to special characters or message format. Please try with a simpler message.',
+                    'error': f'Server error (500): The TingTing API returned an internal server error. The message has been normalized (spaces cleaned, special characters replaced) but still failed. Please try with a simpler message or contact TingTing support.',
                     'status_code': response.status_code
                 }
             
