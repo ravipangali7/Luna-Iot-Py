@@ -48,6 +48,26 @@ class TingTingService:
                 # Remove Content-Type for file uploads (let requests set it)
                 request_headers.pop('Content-Type', None)
             
+            # Log request details (mask sensitive data)
+            log_headers = request_headers.copy()
+            if 'Authorization' in log_headers:
+                # Mask the token for security
+                auth_header = log_headers['Authorization']
+                if 'Bearer' in auth_header:
+                    token = auth_header.split('Bearer ')[1]
+                    masked_token = token[:10] + '...' + token[-5:] if len(token) > 15 else '***'
+                    log_headers['Authorization'] = f'Bearer {masked_token}'
+            
+            print(f"[TingTing API] Request: {method.upper()} {url}")
+            print(f"[TingTing API] Headers: {log_headers}")
+            if params:
+                print(f"[TingTing API] Query Params: {params}")
+            if data and not files:
+                print(f"[TingTing API] Request Body (JSON): {data}")
+            elif data and files:
+                print(f"[TingTing API] Request Data: {data}")
+                print(f"[TingTing API] Files: {list(files.keys())}")
+            
             # Make request
             if method.upper() == 'GET':
                 response = requests.get(url, headers=request_headers, params=params, timeout=30)
@@ -62,6 +82,15 @@ class TingTingService:
                 response = requests.patch(url, headers=request_headers, json=data, timeout=30)
             else:
                 return {'success': False, 'error': f'Unsupported HTTP method: {method}'}
+            
+            # Log response details
+            print(f"[TingTing API] Response Status: {response.status_code}")
+            try:
+                response_data = response.json()
+                print(f"[TingTing API] Response Body: {response_data}")
+            except ValueError:
+                response_text = response.text[:500] if response.text else "No response body"
+                print(f"[TingTing API] Response Body (non-JSON): {response_text}")
             
             # Handle response
             if response.status_code in [200, 201, 204]:
@@ -78,20 +107,28 @@ class TingTingService:
                 error_msg = f'API returned status {response.status_code}'
                 try:
                     error_data = response.json()
+                    print(f"[TingTing API] ERROR Response: {error_data}")
                     error_msg = error_data.get('message', error_data.get('error', error_msg))
+                    # Log full error details
+                    if 'detail' in error_data:
+                        print(f"[TingTing API] ERROR Detail: {error_data['detail']}")
+                    if 'errors' in error_data:
+                        print(f"[TingTing API] ERROR Validation Errors: {error_data['errors']}")
                 except ValueError:
-                    error_msg = response.text or error_msg
+                    error_text = response.text or error_msg
+                    print(f"[TingTing API] ERROR Response (non-JSON): {error_text}")
+                    error_msg = error_text
                 
                 return {'success': False, 'error': error_msg, 'status_code': response.status_code}
                 
         except requests.exceptions.Timeout:
-            logger.error(f"TingTing API timeout for {endpoint}")
+            print(f"[TingTing API] ERROR: Timeout for {endpoint}")
             return {'success': False, 'error': 'Request timeout'}
         except requests.exceptions.RequestException as e:
-            logger.error(f"TingTing API request error for {endpoint}: {str(e)}")
+            print(f"[TingTing API] ERROR: Request error for {endpoint}: {str(e)}")
             return {'success': False, 'error': f'Request failed: {str(e)}'}
         except Exception as e:
-            logger.error(f"Unexpected error calling TingTing API {endpoint}: {str(e)}")
+            print(f"[TingTing API] ERROR: Unexpected error calling {endpoint}: {str(e)}")
             return {'success': False, 'error': f'Unexpected error: {str(e)}'}
     
     # Voice Models
@@ -153,7 +190,7 @@ class TingTingService:
             else:
                 return {'success': False, 'error': f'Failed to download report: {response.status_code}'}
         except Exception as e:
-            logger.error(f"Error downloading report for campaign {campaign_id}: {str(e)}")
+            print(f"[TingTing API] ERROR: Error downloading report for campaign {campaign_id}: {str(e)}")
             return {'success': False, 'error': f'Error downloading report: {str(e)}'}
     
     # Contacts
@@ -194,13 +231,13 @@ class TingTingService:
                 return {'success': False, 'error': error_msg, 'status_code': response.status_code}
                 
         except requests.exceptions.Timeout:
-            logger.error(f"TingTing API timeout for bulk contacts upload")
+            print(f"[TingTing API] ERROR: Timeout for bulk contacts upload")
             return {'success': False, 'error': 'Request timeout'}
         except requests.exceptions.RequestException as e:
-            logger.error(f"TingTing API request error for bulk contacts: {str(e)}")
+            print(f"[TingTing API] ERROR: Request error for bulk contacts: {str(e)}")
             return {'success': False, 'error': f'Request failed: {str(e)}'}
         except Exception as e:
-            logger.error(f"Unexpected error uploading bulk contacts: {str(e)}")
+            print(f"[TingTing API] ERROR: Unexpected error uploading bulk contacts: {str(e)}")
             return {'success': False, 'error': f'Unexpected error: {str(e)}'}
     
     def delete_contact(self, contact_id: int) -> Dict[str, Any]:

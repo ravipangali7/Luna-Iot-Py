@@ -131,7 +131,7 @@ def create_campaign(request):
             try:
                 data = json.loads(request.body.decode('utf-8'))
             except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                logger.error(f"Failed to parse request body: {str(e)}")
+                print(f"[Campaign Create] Failed to parse request body: {str(e)}")
                 return error_response(
                     message='Invalid JSON in request body',
                     status_code=HTTP_STATUS['BAD_REQUEST']
@@ -144,7 +144,7 @@ def create_campaign(request):
             if not isinstance(data['user_phone'], list):
                 data['user_phone'] = [data['user_phone']] if data['user_phone'] else []
         
-        logger.info(f"Creating campaign with data: {data}")
+        print(f"[Campaign Create] Creating campaign with data: {data}")
         result = tingting_service.create_campaign(data)
         if result['success']:
             return success_response(
@@ -152,13 +152,14 @@ def create_campaign(request):
                 message=SUCCESS_MESSAGES.get('CREATED', 'Campaign created successfully')
             )
         else:
-            logger.error(f"TingTing API error: {result.get('error')}")
+            print(f"[Campaign Create] TingTing API error: {result.get('error')}")
             return error_response(
                 message=result.get('error', 'Failed to create campaign'),
                 status_code=result.get('status_code', HTTP_STATUS['BAD_REQUEST'])
             )
     except Exception as e:
-        logger.error(f"Error creating campaign: {str(e)}\n{traceback.format_exc()}")
+        print(f"[Campaign Create] Error creating campaign: {str(e)}")
+        print(f"[Campaign Create] Traceback: {traceback.format_exc()}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
