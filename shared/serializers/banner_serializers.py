@@ -13,7 +13,7 @@ class BannerSerializer(serializers.ModelSerializer):
         model = Banner
         fields = [
             'id', 'title', 'image', 'url', 
-            'is_active', 'click', 'created_at', 'updated_at'
+            'is_active', 'click', 'order_position', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'click', 'created_at', 'updated_at']
 
@@ -23,7 +23,7 @@ class BannerCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Banner
-        fields = ['title', 'image', 'url', 'is_active']
+        fields = ['title', 'image', 'url', 'is_active', 'order_position']
     
     def validate_title(self, value):
         """Validate banner title"""
@@ -43,6 +43,12 @@ class BannerCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Please enter a valid URL")
             return value.strip()
         return value
+    
+    def validate_order_position(self, value):
+        """Validate order position"""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Order position must be >= 0")
+        return value
 
 
 class BannerUpdateSerializer(serializers.ModelSerializer):
@@ -50,7 +56,7 @@ class BannerUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Banner
-        fields = ['title', 'image', 'url', 'is_active']
+        fields = ['title', 'image', 'url', 'is_active', 'order_position']
     
     def validate_title(self, value):
         """Validate banner title"""
@@ -69,6 +75,12 @@ class BannerUpdateSerializer(serializers.ModelSerializer):
             except Exception:
                 raise serializers.ValidationError("Please enter a valid URL")
             return value.strip()
+        return value
+    
+    def validate_order_position(self, value):
+        """Validate order position"""
+        if value is not None and value < 0:
+            raise serializers.ValidationError("Order position must be >= 0")
         return value
 
 
@@ -78,7 +90,7 @@ class BannerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Banner
         fields = [
-            'id', 'title', 'is_active', 'click', 'created_at'
+            'id', 'title', 'is_active', 'click', 'order_position', 'created_at'
         ]
         read_only_fields = ['id', 'click', 'created_at']
 
@@ -89,7 +101,7 @@ class ActiveBannerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Banner
         fields = [
-            'id', 'title', 'image', 'url', 'click', 'created_at'
+            'id', 'title', 'image', 'url', 'click', 'order_position', 'created_at'
         ]
         read_only_fields = ['id', 'click', 'created_at']
 

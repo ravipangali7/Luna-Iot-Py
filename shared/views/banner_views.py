@@ -22,7 +22,7 @@ def get_active_banners(request):
     Get all active banners (public endpoint)
     """
     try:
-        banners = Banner.objects.filter(isActive=True).order_by('-createdAt')
+        banners = Banner.objects.filter(isActive=True).order_by('orderPosition', '-createdAt')
         
         banners_data = []
         for banner in banners:
@@ -32,6 +32,7 @@ def get_active_banners(request):
                 'url': banner.url,
                 'isActive': banner.isActive,
                 'click': banner.click,
+                'orderPosition': banner.orderPosition,
                 'image': banner.image.name if banner.image else None,
                 'imageUrl': f'https://py.mylunago.com/media/{banner.image.name}' if banner.image else None,
                 'createdAt': banner.createdAt.isoformat() if banner.createdAt else None,
@@ -54,7 +55,7 @@ def get_all_banners(request):
     Get all banners (only Super Admin)
     """
     try:
-        banners = Banner.objects.all().order_by('-createdAt')
+        banners = Banner.objects.all().order_by('orderPosition', '-createdAt')
         
         banners_data = []
         for banner in banners:
@@ -64,6 +65,7 @@ def get_all_banners(request):
                 'url': banner.url,
                 'isActive': banner.isActive,
                 'click': banner.click,
+                'orderPosition': banner.orderPosition,
                 'image': banner.image.name if banner.image else None,
                 'imageUrl': f'https://py.mylunago.com/media/{banner.image.name}' if banner.image else None,
                 'createdAt': banner.createdAt.isoformat() if banner.createdAt else None,
@@ -97,6 +99,7 @@ def get_banner_by_id(request, id):
             'url': banner.url,
             'isActive': banner.isActive,
             'click': banner.click,
+            'orderPosition': banner.orderPosition,
             'image': banner.image.name if banner.image else None,
             'imageUrl': f'https://py.mylunago.com/media/{banner.image.name}' if banner.image else None,
             'createdAt': banner.createdAt.isoformat() if banner.createdAt else None,
@@ -122,10 +125,19 @@ def create_banner(request):
         title = request.POST.get('title')
         url = request.POST.get('url') or None
         isActive = request.POST.get('isActive', 'true').lower() == 'true'
+        orderPosition = request.POST.get('orderPosition', '0')
         
         # Validate required fields
         if not title:
             return error_response('Title is required', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Validate order position
+        try:
+            orderPosition = int(orderPosition) if orderPosition else 0
+            if orderPosition < 0:
+                return error_response('Order position must be >= 0', HTTP_STATUS['BAD_REQUEST'])
+        except ValueError:
+            return error_response('Order position must be a valid number', HTTP_STATUS['BAD_REQUEST'])
         
         # Handle image upload
         image_file = None
@@ -137,6 +149,7 @@ def create_banner(request):
             title=title,
             url=url if url and url.strip() else None,
             isActive=isActive,
+            orderPosition=orderPosition,
             image=image_file
         )
         
@@ -146,6 +159,7 @@ def create_banner(request):
             'url': banner.url,
             'isActive': banner.isActive,
             'click': banner.click,
+            'orderPosition': banner.orderPosition,
             'image': banner.image.name if banner.image else None,
             'imageUrl': f'https://py.mylunago.com/media/{banner.image.name}' if banner.image else None,
             'createdAt': banner.createdAt.isoformat() if banner.createdAt else None,
@@ -177,6 +191,7 @@ def update_banner(request, id):
         title = request.POST.get('title')
         url = request.POST.get('url')
         isActive = request.POST.get('isActive')
+        orderPosition = request.POST.get('orderPosition')
         
         # Update banner fields
         if title is not None:
@@ -186,6 +201,14 @@ def update_banner(request, id):
             banner.url = url.strip() if url and url.strip() else None
         if isActive is not None:
             banner.isActive = isActive.lower() == 'true'
+        if orderPosition is not None:
+            try:
+                orderPosition = int(orderPosition)
+                if orderPosition < 0:
+                    return error_response('Order position must be >= 0', HTTP_STATUS['BAD_REQUEST'])
+                banner.orderPosition = orderPosition
+            except ValueError:
+                return error_response('Order position must be a valid number', HTTP_STATUS['BAD_REQUEST'])
         
         # Handle image update
         if 'image' in request.FILES:
@@ -208,6 +231,7 @@ def update_banner(request, id):
             'url': banner.url,
             'isActive': banner.isActive,
             'click': banner.click,
+            'orderPosition': banner.orderPosition,
             'image': banner.image.name if banner.image else None,
             'imageUrl': f'https://py.mylunago.com/media/{banner.image.name}' if banner.image else None,
             'createdAt': banner.createdAt.isoformat() if banner.createdAt else None,
