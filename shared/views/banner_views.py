@@ -120,12 +120,12 @@ def create_banner(request):
     try:
         # Get form data
         title = request.POST.get('title')
-        url = request.POST.get('url')
+        url = request.POST.get('url') or None
         isActive = request.POST.get('isActive', 'true').lower() == 'true'
         
         # Validate required fields
-        if not title or not url:
-            return error_response('Title and URL are required', HTTP_STATUS['BAD_REQUEST'])
+        if not title:
+            return error_response('Title is required', HTTP_STATUS['BAD_REQUEST'])
         
         # Handle image upload
         image_file = None
@@ -135,7 +135,7 @@ def create_banner(request):
         # Create banner
         banner = Banner.objects.create(
             title=title,
-            url=url,
+            url=url if url and url.strip() else None,
             isActive=isActive,
             image=image_file
         )
@@ -182,7 +182,8 @@ def update_banner(request, id):
         if title is not None:
             banner.title = title
         if url is not None:
-            banner.url = url
+            # Allow empty string to set URL to None
+            banner.url = url.strip() if url and url.strip() else None
         if isActive is not None:
             banner.isActive = isActive.lower() == 'true'
         

@@ -32,10 +32,17 @@ class BannerCreateSerializer(serializers.ModelSerializer):
         return value.strip()
     
     def validate_url(self, value):
-        """Validate banner URL"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Banner URL cannot be empty")
-        return value.strip()
+        """Validate banner URL - only validate format if provided"""
+        if value:
+            try:
+                # Validate URL format if provided
+                from django.core.validators import URLValidator
+                validator = URLValidator()
+                validator(value.strip())
+            except Exception:
+                raise serializers.ValidationError("Please enter a valid URL")
+            return value.strip()
+        return value
 
 
 class BannerUpdateSerializer(serializers.ModelSerializer):
@@ -52,10 +59,17 @@ class BannerUpdateSerializer(serializers.ModelSerializer):
         return value.strip()
     
     def validate_url(self, value):
-        """Validate banner URL"""
-        if not value or not value.strip():
-            raise serializers.ValidationError("Banner URL cannot be empty")
-        return value.strip()
+        """Validate banner URL - only validate format if provided"""
+        if value:
+            try:
+                # Validate URL format if provided
+                from django.core.validators import URLValidator
+                validator = URLValidator()
+                validator(value.strip())
+            except Exception:
+                raise serializers.ValidationError("Please enter a valid URL")
+            return value.strip()
+        return value
 
 
 class BannerListSerializer(serializers.ModelSerializer):
