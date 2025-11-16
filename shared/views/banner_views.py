@@ -197,17 +197,21 @@ def update_banner(request, id):
         if title is not None:
             banner.title = title
         if url is not None:
+            # Handle "undefined" string explicitly and convert to None
             # Allow empty string to set URL to None
-            banner.url = url.strip() if url and url.strip() else None
+            if url == 'undefined' or url.strip() == 'undefined':
+                banner.url = None
+            else:
+                banner.url = url.strip() if url and url.strip() else None
         if isActive is not None:
             banner.isActive = isActive.lower() == 'true'
-        if orderPosition is not None:
+        if orderPosition is not None and orderPosition != '':
             try:
-                orderPosition = int(orderPosition)
-                if orderPosition < 0:
+                orderPositionInt = int(orderPosition)
+                if orderPositionInt < 0:
                     return error_response('Order position must be >= 0', HTTP_STATUS['BAD_REQUEST'])
-                banner.orderPosition = orderPosition
-            except ValueError:
+                banner.orderPosition = orderPositionInt
+            except (ValueError, TypeError):
                 return error_response('Order position must be a valid number', HTTP_STATUS['BAD_REQUEST'])
         
         # Handle image update
