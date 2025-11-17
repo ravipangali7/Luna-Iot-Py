@@ -232,8 +232,8 @@ class DueTransactionUpdateSerializer(serializers.ModelSerializer):
 
 class DueTransactionListSerializer(serializers.ModelSerializer):
     """Serializer for due transaction list (minimal data)"""
-    user_name = serializers.CharField(source='user.name', read_only=True)
-    user_phone = serializers.CharField(source='user.phone', read_only=True)
+    user_name = serializers.SerializerMethodField()
+    user_phone = serializers.SerializerMethodField()
     particulars_count = serializers.SerializerMethodField()
     
     class Meta:
@@ -244,6 +244,14 @@ class DueTransactionListSerializer(serializers.ModelSerializer):
             'particulars_count', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
+    
+    def get_user_name(self, obj):
+        """Get user name safely"""
+        return obj.user.name if obj.user else None
+    
+    def get_user_phone(self, obj):
+        """Get user phone safely"""
+        return obj.user.phone if obj.user else None
     
     def get_particulars_count(self, obj):
         """Get count of particulars"""

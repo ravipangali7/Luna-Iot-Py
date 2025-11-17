@@ -76,8 +76,8 @@ def get_all_due_transactions(request):
             
             queryset = queryset.filter(search_filter)
         
-        if is_paid is not None:
-            is_paid_bool = is_paid.lower() == 'true'
+        if is_paid and is_paid.strip():
+            is_paid_bool = is_paid.lower().strip() == 'true'
             queryset = queryset.filter(is_paid=is_paid_bool)
         
         # Order by created_at descending
@@ -105,7 +105,16 @@ def get_all_due_transactions(request):
             message=SUCCESS_MESSAGES['FETCHED']
         )
     
+    except ValueError as e:
+        return error_response(
+            message=f"Invalid parameter: {str(e)}",
+            status_code=HTTP_STATUS['BAD_REQUEST']
+        )
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        # Log the full traceback for debugging
+        print(f"Error in get_all_due_transactions: {error_trace}")
         return error_response(
             message=f"Error fetching due transactions: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
@@ -179,8 +188,8 @@ def get_user_due_transactions(request, user_id):
         queryset = DueTransaction.objects.filter(user_id=user_id).select_related('user').prefetch_related('particulars')
         
         # Apply filters
-        if is_paid is not None:
-            is_paid_bool = is_paid.lower() == 'true'
+        if is_paid and is_paid.strip():
+            is_paid_bool = is_paid.lower().strip() == 'true'
             queryset = queryset.filter(is_paid=is_paid_bool)
         
         # Order by created_at descending
@@ -422,8 +431,8 @@ def get_my_due_transactions(request):
         queryset = DueTransaction.objects.filter(user=request.user).select_related('user').prefetch_related('particulars')
         
         # Apply filters
-        if is_paid is not None:
-            is_paid_bool = is_paid.lower() == 'true'
+        if is_paid and is_paid.strip():
+            is_paid_bool = is_paid.lower().strip() == 'true'
             queryset = queryset.filter(is_paid=is_paid_bool)
         
         # Order by created_at descending
