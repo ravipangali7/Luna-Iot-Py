@@ -184,14 +184,24 @@ class Command(BaseCommand):
                         if renew_date > now:
                             renew_date = now
                         
+                        # Calculate VAT and total before creating
+                        try:
+                            my_setting = MySetting.objects.first()
+                            vat_percent = float(my_setting.vat_percent) if my_setting and my_setting.vat_percent else 0.0
+                        except:
+                            vat_percent = 0.0
+                        
+                        vat_amount = (vehicle_price * Decimal(str(vat_percent))) / Decimal('100')
+                        total_amount = vehicle_price + vat_amount
+                        
                         new_due = DueTransaction.objects.create(
                             user=main_user,
                             subtotal=vehicle_price,
+                            vat=vat_amount,
+                            total=total_amount,
                             renew_date=renew_date,
                             expire_date=vehicle.expireDate
                         )
-                        new_due.calculate_totals()
-                        new_due.save()
                         
                         # Create particular
                         DueTransactionParticular.objects.create(
@@ -363,14 +373,24 @@ class Command(BaseCommand):
                         # Calculate total subtotal
                         total_subtotal = renewal_price * school_parents.count()
                         
+                        # Calculate VAT and total before creating
+                        try:
+                            my_setting = MySetting.objects.first()
+                            vat_percent = float(my_setting.vat_percent) if my_setting and my_setting.vat_percent else 0.0
+                        except:
+                            vat_percent = 0.0
+                        
+                        vat_amount = (total_subtotal * Decimal(str(vat_percent))) / Decimal('100')
+                        total_amount = total_subtotal + vat_amount
+                        
                         new_due = DueTransaction.objects.create(
                             user=first_user,
                             subtotal=total_subtotal,
+                            vat=vat_amount,
+                            total=total_amount,
                             renew_date=renew_date,
                             expire_date=institute_module.expire_date
                         )
-                        new_due.calculate_totals()
-                        new_due.save()
                         
                         # Create particulars for all parents
                         for school_parent in school_parents:
