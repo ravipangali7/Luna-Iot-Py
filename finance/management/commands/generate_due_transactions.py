@@ -84,7 +84,7 @@ class Command(BaseCommand):
         expired_vehicles = Vehicle.objects.filter(
             expireDate__lt=now,
             expireDate__isnull=False
-        ).select_related('device').prefetch_related('userVehicles')
+        ).select_related('device', 'device__subscription_plan').prefetch_related('userVehicles')
         
         self.stdout.write(f'Found {expired_vehicles.count()} expired vehicles')
         
@@ -122,9 +122,26 @@ class Command(BaseCommand):
                     )
                     continue
                 
-                # Calculate price (using vehicle renewal price if available, or default)
-                # For now, we'll use a default price - this can be enhanced later
-                vehicle_price = Decimal('1000.00')  # Default price, can be made configurable
+                # Calculate price from device subscription plan
+                if vehicle.device and vehicle.device.subscription_plan:
+                    vehicle_price = vehicle.device.subscription_plan.price
+                else:
+                    # Fallback: use default from MySetting or zero
+                    try:
+                        my_setting = MySetting.objects.first()
+                        if my_setting and hasattr(my_setting, 'vehicle_price'):
+                            vehicle_price = my_setting.vehicle_price or Decimal('0.00')
+                        else:
+                            vehicle_price = Decimal('0.00')
+                    except:
+                        vehicle_price = Decimal('0.00')
+                    
+                    if vehicle_price == Decimal('0.00'):
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'  Vehicle {vehicle.id} has no subscription plan and no default price. Using 0.00.'
+                            )
+                        )
                 
                 if dry_run:
                     self.stdout.write(

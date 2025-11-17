@@ -160,13 +160,32 @@ class DueTransactionCreateSerializer(serializers.ModelSerializer):
 
 class DueTransactionUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating due transaction"""
+    particulars = DueTransactionParticularCreateSerializer(many=True, required=False)
     
     class Meta:
         model = DueTransaction
-        fields = ['is_paid', 'pay_date']
+        fields = [
+            'subtotal', 'vat', 'total', 'renew_date', 'expire_date',
+            'is_paid', 'pay_date', 'particulars'
+        ]
+    
+    def validate_subtotal(self, value):
+        """Validate subtotal is positive"""
+        if value <= 0:
+            raise serializers.ValidationError("Subtotal must be positive")
+        return value
     
     def validate(self, data):
-        """Validate payment status"""
+        """Validate dates and payment status"""
+        renew_date = data.get('renew_date')
+        expire_date = data.get('expire_date')
+        
+        if renew_date and expire_date:
+            if expire_date <= renew_date:
+                raise serializers.ValidationError(
+                    "Expire date must be after renew date"
+                )
+        
         is_paid = data.get('is_paid')
         pay_date = data.get('pay_date')
         
@@ -178,6 +197,37 @@ class DueTransactionUpdateSerializer(serializers.ModelSerializer):
             data['pay_date'] = None
         
         return data
+    
+    def update(self, instance, validated_data):
+        """Update due transaction and particulars"""
+        particulars_data = validated_data.pop('particulars', None)
+        
+        # Update main transaction fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Update particulars if provided
+        if particulars_data is not None:
+            # Delete existing particulars
+            instance.particulars.all().delete()
+            
+            # Create new particulars
+            for particular_data in particulars_data:
+                DueTransactionParticular.objects.create(
+                    due_transaction=instance,
+                    **particular_data
+                )
+            
+            # Recalculate totals from particulars
+            total_subtotal = sum(
+                float(p.total) for p in instance.particulars.all()
+            )
+            instance.subtotal = total_subtotal
+            instance.calculate_totals()
+            instance.save()
+        
+        return instance
 
 
 class DueTransactionListSerializer(serializers.ModelSerializer):

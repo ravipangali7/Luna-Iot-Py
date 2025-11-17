@@ -2,7 +2,7 @@
 Due Transaction Views
 Handles due transaction management endpoints with payment processing
 """
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Sum, Count
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -11,6 +11,13 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from decimal import Decimal
+from io import BytesIO
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 from finance.models import DueTransaction, DueTransactionParticular, Wallet, Transaction
 from core.models import User
@@ -26,6 +33,7 @@ from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
+from finance.management.commands.generate_due_transactions import Command as GenerateDueTransactionsCommand
 
 
 @api_view(['GET'])
@@ -353,6 +361,43 @@ def create_due_transaction(request):
         )
 
 
+@api_view(['PUT'])
+@require_super_admin
+@api_response
+def update_due_transaction(request, due_transaction_id):
+    """
+    Update due transaction (Super Admin only)
+    """
+    try:
+        due_transaction = DueTransaction.objects.get(id=due_transaction_id)
+        serializer = DueTransactionUpdateSerializer(due_transaction, data=request.data)
+        
+        if serializer.is_valid():
+            updated_transaction = serializer.save()
+            response_serializer = DueTransactionSerializer(updated_transaction)
+            return success_response(
+                data=response_serializer.data,
+                message="Due transaction updated successfully."
+            )
+        else:
+            return error_response(
+                message="Validation error",
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+    
+    except DueTransaction.DoesNotExist:
+        return error_response(
+            message="Due transaction not found",
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=f"Error updating due transaction: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+        )
+
+
 @api_view(['GET'])
 @require_auth
 @api_response
@@ -402,6 +447,258 @@ def get_my_due_transactions(request):
     except Exception as e:
         return error_response(
             message=f"Error fetching due transactions: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+        )
+
+
+@api_view(['POST'])
+@require_super_admin
+@api_response
+def generate_due_transactions(request):
+    """
+    Trigger due transaction generation (Super Admin only)
+    This runs the management command to generate dues for expired vehicles and institutional modules
+    """
+    try:
+        command = GenerateDueTransactionsCommand()
+        # Capture output to return in response
+        from io import StringIO
+        import sys
+        
+        output = StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = output
+        
+        try:
+            command.handle(dry_run=False)
+            result_output = output.getvalue()
+        finally:
+            sys.stdout = old_stdout
+        
+        return success_response(
+            message="Due transactions generated successfully",
+            data={'output': result_output}
+        )
+    except Exception as e:
+        return error_response(
+            message=f"Error generating due transactions: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+        )
+
+
+@api_view(['DELETE'])
+@require_super_admin
+@api_response
+def delete_due_transaction(request, due_transaction_id):
+    """
+    Delete due transaction (Super Admin only, unpaid only)
+    """
+    try:
+        due_transaction = DueTransaction.objects.get(id=due_transaction_id)
+        
+        # Only allow deletion of unpaid transactions
+        if due_transaction.is_paid:
+            return error_response(
+                message="Cannot delete paid due transactions",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Delete the transaction (this will cascade delete particulars)
+        due_transaction.delete()
+        
+        return success_response(
+            message="Due transaction deleted successfully"
+        )
+    
+    except DueTransaction.DoesNotExist:
+        return error_response(
+            message="Due transaction not found",
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=f"Error deleting due transaction: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+        )
+
+
+@api_view(['GET'])
+@require_auth
+def download_due_transaction_invoice(request, due_transaction_id):
+    """
+    Download due transaction invoice as PDF
+    User can download their own invoices, Super Admin can download any
+    """
+    try:
+        due_transaction = DueTransaction.objects.select_related('user').prefetch_related('particulars').get(id=due_transaction_id)
+        
+        # Check access
+        is_super_admin = request.user.groups.filter(name='Super Admin').exists()
+        is_owner = due_transaction.user.id == request.user.id
+        
+        if not (is_super_admin or is_owner):
+            return error_response(
+                message="Access denied. You can only download your own invoices.",
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        story = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#1a1a1a'),
+            spaceAfter=30,
+            alignment=TA_CENTER
+        )
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#333333'),
+            spaceAfter=12
+        )
+        normal_style = styles['Normal']
+        
+        # Company/Header Info
+        story.append(Paragraph("INVOICE", title_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        # Invoice Details
+        invoice_data = [
+            ['Invoice Number:', f'INV-{due_transaction.id:06d}'],
+            ['Date:', due_transaction.created_at.strftime('%B %d, %Y')],
+            ['Status:', 'PAID' if due_transaction.is_paid else 'UNPAID'],
+        ]
+        if due_transaction.pay_date:
+            invoice_data.append(['Payment Date:', due_transaction.pay_date.strftime('%B %d, %Y')])
+        
+        invoice_table = Table(invoice_data, colWidths=[2*inch, 4*inch])
+        invoice_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(invoice_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Bill To Section
+        story.append(Paragraph("Bill To:", heading_style))
+        user_info = [
+            ['Name:', due_transaction.user.name or 'N/A'],
+            ['Phone:', due_transaction.user.phone or 'N/A'],
+        ]
+        if due_transaction.user.email:
+            user_info.append(['Email:', due_transaction.user.email])
+        
+        user_table = Table(user_info, colWidths=[1.5*inch, 4.5*inch])
+        user_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(user_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Dates
+        dates_data = [
+            ['Renew Date:', due_transaction.renew_date.strftime('%B %d, %Y')],
+            ['Expire Date:', due_transaction.expire_date.strftime('%B %d, %Y')],
+        ]
+        dates_table = Table(dates_data, colWidths=[2*inch, 4*inch])
+        dates_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(dates_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Items Table
+        story.append(Paragraph("Items:", heading_style))
+        items_data = [['Particular', 'Type', 'Amount', 'Qty', 'Total']]
+        
+        for particular in due_transaction.particulars.all():
+            items_data.append([
+                particular.particular[:50] + ('...' if len(particular.particular) > 50 else ''),
+                particular.type.upper(),
+                f"Rs. {float(particular.amount):.2f}",
+                str(particular.quantity),
+                f"Rs. {float(particular.total):.2f}"
+            ])
+        
+        items_table = Table(items_data, colWidths=[3*inch, 1*inch, 1*inch, 0.8*inch, 1.2*inch])
+        items_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ]))
+        story.append(items_table)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Totals
+        totals_data = [
+            ['Subtotal:', f"Rs. {float(due_transaction.subtotal):.2f}"],
+            ['VAT:', f"Rs. {float(due_transaction.vat):.2f}"],
+            ['Total:', f"Rs. {float(due_transaction.total):.2f}"],
+        ]
+        totals_table = Table(totals_data, colWidths=[2*inch, 4*inch])
+        totals_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, -1), (1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('FONTSIZE', (1, -1), (1, -1), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
+            ('LINEABOVE', (0, -1), (-1, -1), 2, colors.black),
+        ]))
+        story.append(totals_table)
+        story.append(Spacer(1, 0.5*inch))
+        
+        # Footer
+        footer_text = "Thank you for your business!"
+        if not due_transaction.is_paid:
+            footer_text = "Please make payment to complete this transaction."
+        story.append(Paragraph(footer_text, ParagraphStyle('Footer', parent=normal_style, alignment=TA_CENTER, fontSize=10)))
+        
+        # Build PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Create HTTP response
+        response = HttpResponse(buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="invoice_{due_transaction.id}.pdf"'
+        return response
+    
+    except DueTransaction.DoesNotExist:
+        return error_response(
+            message="Due transaction not found",
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=f"Error generating invoice: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
         )
 
