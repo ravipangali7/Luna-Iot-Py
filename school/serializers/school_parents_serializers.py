@@ -41,6 +41,21 @@ class SchoolParentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create school parent with bus assignments"""
         school_buses = validated_data.pop('school_buses', [])
+        parent = validated_data.get('parent')
+        
+        # Check for duplicate: same parent + same bus combination
+        if school_buses and parent:
+            # Check if any SchoolParent already exists with this parent and any of the buses
+            existing_parents = SchoolParent.objects.filter(parent=parent)
+            for existing_parent in existing_parents:
+                # Check if any of the buses being assigned already exist for this parent
+                common_buses = existing_parent.school_buses.filter(id__in=[bus.id for bus in school_buses])
+                if common_buses.exists():
+                    bus_names = ', '.join([bus.bus.name for bus in common_buses])
+                    raise serializers.ValidationError(
+                        f"This parent is already associated with one or more of the selected buses: {bus_names}"
+                    )
+        
         school_parent = SchoolParent.objects.create(**validated_data)
         if school_buses:
             school_parent.school_buses.set(school_buses)

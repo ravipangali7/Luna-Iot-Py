@@ -530,17 +530,24 @@ def get_my_school_vehicles(request):
 def create_school_parent(request):
     """Create new school parent"""
     try:
+        from rest_framework.exceptions import ValidationError
         serializer = SchoolParentCreateSerializer(data=request.data)
         
         if serializer.is_valid():
-            school_parent = serializer.save()
-            response_serializer = SchoolParentSerializer(school_parent)
-            
-            return success_response(
-                data=response_serializer.data,
-                message=SUCCESS_MESSAGES.get('DATA_CREATED', 'School parent created successfully'),
-                status_code=HTTP_STATUS['CREATED']
-            )
+            try:
+                school_parent = serializer.save()
+                response_serializer = SchoolParentSerializer(school_parent)
+                
+                return success_response(
+                    data=response_serializer.data,
+                    message=SUCCESS_MESSAGES.get('DATA_CREATED', 'School parent created successfully'),
+                    status_code=HTTP_STATUS['CREATED']
+                )
+            except ValidationError as ve:
+                return error_response(
+                    message=str(ve.detail[0]) if hasattr(ve, 'detail') and ve.detail else str(ve),
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
         else:
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
