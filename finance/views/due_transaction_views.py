@@ -102,7 +102,7 @@ def get_all_due_transactions(request):
                     'has_previous': page_obj.has_previous(),
                 }
             },
-            message=SUCCESS_MESSAGES['FETCHED']
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Data retrieved successfully')
         )
     
     except ValueError as e:
@@ -117,7 +117,7 @@ def get_all_due_transactions(request):
         print(f"Error in get_all_due_transactions: {error_trace}")
         return error_response(
             message=f"Error fetching due transactions: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -145,7 +145,7 @@ def get_due_transaction_by_id(request, due_transaction_id):
         serializer = DueTransactionSerializer(due_transaction)
         return success_response(
             data=serializer.data,
-            message=SUCCESS_MESSAGES['FETCHED']
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Data retrieved successfully')
         )
     
     except DueTransaction.DoesNotExist:
@@ -156,7 +156,7 @@ def get_due_transaction_by_id(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error fetching due transaction: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -214,13 +214,13 @@ def get_user_due_transactions(request, user_id):
                     'has_previous': page_obj.has_previous(),
                 }
             },
-            message=SUCCESS_MESSAGES['FETCHED']
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Data retrieved successfully')
         )
     
     except Exception as e:
         return error_response(
             message=f"Error fetching user due transactions: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -277,7 +277,7 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
             if not success:
                 return error_response(
                     message="Failed to deduct from wallet balance.",
-                    status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
                 )
             
             # Update due transaction
@@ -300,7 +300,7 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error processing payment: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -342,7 +342,7 @@ def mark_due_transaction_paid(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error marking due transaction as paid: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -373,7 +373,7 @@ def create_due_transaction(request):
     except Exception as e:
         return error_response(
             message=f"Error creating due transaction: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -410,7 +410,7 @@ def update_due_transaction(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error updating due transaction: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -457,13 +457,13 @@ def get_my_due_transactions(request):
                     'has_previous': page_obj.has_previous(),
                 }
             },
-            message=SUCCESS_MESSAGES['FETCHED']
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Data retrieved successfully')
         )
     
     except Exception as e:
         return error_response(
             message=f"Error fetching due transactions: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -498,7 +498,7 @@ def generate_due_transactions(request):
     except Exception as e:
         return error_response(
             message=f"Error generating due transactions: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -534,7 +534,7 @@ def delete_due_transaction(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error deleting due transaction: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
 
@@ -715,6 +715,6 @@ def download_due_transaction_invoice(request, due_transaction_id):
     except Exception as e:
         return error_response(
             message=f"Error generating invoice: {str(e)}",
-            status_code=HTTP_STATUS['INTERNAL_SERVER_ERROR']
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
         )
 
