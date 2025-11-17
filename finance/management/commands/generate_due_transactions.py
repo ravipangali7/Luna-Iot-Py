@@ -124,13 +124,13 @@ class Command(BaseCommand):
                 
                 # Calculate price from device subscription plan
                 if vehicle.device and vehicle.device.subscription_plan:
-                    vehicle_price = vehicle.device.subscription_plan.price
+                    vehicle_price = Decimal(str(vehicle.device.subscription_plan.price))
                 else:
                     # Fallback: use default from MySetting or zero
                     try:
                         my_setting = MySetting.objects.first()
                         if my_setting and hasattr(my_setting, 'vehicle_price'):
-                            vehicle_price = my_setting.vehicle_price or Decimal('0.00')
+                            vehicle_price = Decimal(str(my_setting.vehicle_price)) if my_setting.vehicle_price else Decimal('0.00')
                         else:
                             vehicle_price = Decimal('0.00')
                     except:
@@ -187,11 +187,11 @@ class Command(BaseCommand):
                         # Calculate VAT and total before creating
                         try:
                             my_setting = MySetting.objects.first()
-                            vat_percent = float(my_setting.vat_percent) if my_setting and my_setting.vat_percent else 0.0
+                            vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
                         except:
-                            vat_percent = 0.0
+                            vat_percent = Decimal('0.00')
                         
-                        vat_amount = (vehicle_price * Decimal(str(vat_percent))) / Decimal('100')
+                        vat_amount = (vehicle_price * vat_percent) / Decimal('100')
                         total_amount = vehicle_price + vat_amount
                         
                         new_due = DueTransaction.objects.create(
@@ -376,11 +376,13 @@ class Command(BaseCommand):
                         # Calculate VAT and total before creating
                         try:
                             my_setting = MySetting.objects.first()
-                            vat_percent = float(my_setting.vat_percent) if my_setting and my_setting.vat_percent else 0.0
+                            vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
                         except:
-                            vat_percent = 0.0
+                            vat_percent = Decimal('0.00')
                         
-                        vat_amount = (total_subtotal * Decimal(str(vat_percent))) / Decimal('100')
+                        # Ensure total_subtotal is Decimal
+                        total_subtotal = Decimal(str(total_subtotal))
+                        vat_amount = (total_subtotal * vat_percent) / Decimal('100')
                         total_amount = total_subtotal + vat_amount
                         
                         new_due = DueTransaction.objects.create(
