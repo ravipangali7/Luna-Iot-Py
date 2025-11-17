@@ -17,7 +17,8 @@ class InstituteModuleSerializer(serializers.ModelSerializer):
         model = InstituteModule
         fields = [
             'id', 'institute', 'institute_name', 'module', 'module_name',
-            'users', 'user_count', 'created_at', 'updated_at'
+            'users', 'user_count', 'expire_date', 'renewal_price',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'user_count']
     
@@ -45,7 +46,7 @@ class InstituteModuleCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InstituteModule
-        fields = ['institute', 'module', 'user_ids']
+        fields = ['institute', 'module', 'user_ids', 'expire_date', 'renewal_price']
     
     def validate_institute(self, value):
         """Validate institute exists"""
@@ -104,7 +105,7 @@ class InstituteModuleUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = InstituteModule
-        fields = ['institute', 'module', 'user_ids']
+        fields = ['institute', 'module', 'user_ids', 'expire_date', 'renewal_price']
     
     def validate_institute(self, value):
         """Validate institute exists"""
@@ -169,7 +170,7 @@ class InstituteModuleListSerializer(serializers.ModelSerializer):
         model = InstituteModule
         fields = [
             'id', 'institute', 'institute_name', 'module', 'module_name',
-            'user_count', 'created_at'
+            'user_count', 'expire_date', 'renewal_price', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

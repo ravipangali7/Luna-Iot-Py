@@ -27,6 +27,21 @@ class InstituteModule(models.Model):
         help_text="Users assigned to this institute module"
     )
     
+    expire_date = models.DateTimeField(
+        null=True, 
+        blank=True, 
+        db_column='expire_date',
+        help_text="Expiration date for this institute module"
+    )
+    renewal_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        db_column='renewal_price',
+        help_text="Renewal price for this institute module"
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')

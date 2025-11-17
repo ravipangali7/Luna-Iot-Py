@@ -20,6 +20,22 @@ class Wallet(models.Model):
         db_column='user_id',
         help_text="User who owns this wallet"
     )
+    call_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        db_column='call_price',
+        help_text="Call price for this wallet"
+    )
+    sms_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        db_column='sms_price',
+        help_text="SMS price for this wallet"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True, 
         db_column='created_at',

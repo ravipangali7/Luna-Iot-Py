@@ -10,6 +10,7 @@ from .institute_service_serializers import *
 from .institute_serializers import *
 from .institute_module_serializers import *
 from .module_serializers import *
+from .my_setting_serializers import *
 __all__ = [
     # Auth serializers
     'LoginSerializer',
@@ -53,4 +54,8 @@ __all__ = [
     'ModuleCreateSerializer',
     'ModuleUpdateSerializer',
     'ModuleListSerializer',
+    
+    # MySetting serializers
+    'MySettingSerializer',
+    'MySettingUpdateSerializer',
 ]

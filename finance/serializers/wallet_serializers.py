@@ -16,8 +16,8 @@ class WalletSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = [
-            'id', 'balance', 'user', 'user_info', 'recent_transactions',
-            'created_at', 'updated_at'
+            'id', 'balance', 'user', 'user_info', 'call_price', 'sms_price',
+            'recent_transactions', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -54,7 +54,7 @@ class WalletCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Wallet
-        fields = ['user_id', 'balance']
+        fields = ['user_id', 'balance', 'call_price', 'sms_price']
     
     def validate_user_id(self, value):
         """Validate user exists and doesn't already have a wallet"""
@@ -87,7 +87,7 @@ class WalletUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Wallet
-        fields = ['balance']
+        fields = ['balance', 'call_price', 'sms_price']
     
     def validate_balance(self, value):
         """Validate balance is not negative"""
@@ -104,7 +104,8 @@ class WalletListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = [
-            'id', 'balance', 'user_name', 'user_phone', 'created_at'
+            'id', 'balance', 'user_name', 'user_phone', 'call_price', 'sms_price',
+            'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -178,8 +179,8 @@ class WalletDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
         fields = [
-            'id', 'balance', 'user', 'transactions', 'balance_change_today',
-            'created_at', 'updated_at'
+            'id', 'balance', 'user', 'call_price', 'sms_price', 'transactions',
+            'balance_change_today', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     

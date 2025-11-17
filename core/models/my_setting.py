@@ -1,8 +1,37 @@
 from django.db import models
+from decimal import Decimal
 
 class MySetting(models.Model):
     id = models.BigAutoField(primary_key=True)
     mypay_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    vat_percent = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        db_column='vat_percent',
+        help_text="VAT percentage"
+    )
+    call_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        db_column='call_price',
+        help_text="Default call price"
+    )
+    sms_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        db_column='sms_price',
+        help_text="Default SMS price"
+    )
+    parent_price = models.DecimalField(
+        max_digits=15, 
+        decimal_places=2, 
+        default=Decimal('0.00'),
+        db_column='parent_price',
+        help_text="Default parent price"
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')
 
