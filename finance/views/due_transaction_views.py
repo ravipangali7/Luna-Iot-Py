@@ -63,11 +63,18 @@ def get_all_due_transactions(request):
         
         # Apply filters
         if search_query:
-            queryset = queryset.filter(
-                Q(user__name__icontains=search_query) |
-                Q(user__phone__icontains=search_query) |
-                Q(id__icontains=search_query)
-            )
+            # Build search filter for text fields
+            search_filter = Q(user__name__icontains=search_query) | Q(user__phone__icontains=search_query)
+            
+            # Try to search by ID if search query is numeric
+            try:
+                search_id = int(search_query)
+                search_filter |= Q(id=search_id)
+            except ValueError:
+                # If not numeric, only search by name and phone
+                pass
+            
+            queryset = queryset.filter(search_filter)
         
         if is_paid is not None:
             is_paid_bool = is_paid.lower() == 'true'
@@ -87,10 +94,10 @@ def get_all_due_transactions(request):
             data={
                 'results': serializer.data,
                 'pagination': {
-                    'page': page,
+                    'current_page': page,
                     'page_size': page_size,
                     'total_pages': paginator.num_pages,
-                    'total_count': paginator.count,
+                    'total_items': paginator.count,
                     'has_next': page_obj.has_next(),
                     'has_previous': page_obj.has_previous(),
                 }
@@ -190,10 +197,10 @@ def get_user_due_transactions(request, user_id):
             data={
                 'results': serializer.data,
                 'pagination': {
-                    'page': page,
+                    'current_page': page,
                     'page_size': page_size,
                     'total_pages': paginator.num_pages,
-                    'total_count': paginator.count,
+                    'total_items': paginator.count,
                     'has_next': page_obj.has_next(),
                     'has_previous': page_obj.has_previous(),
                 }
@@ -433,10 +440,10 @@ def get_my_due_transactions(request):
             data={
                 'results': serializer.data,
                 'pagination': {
-                    'page': page,
+                    'current_page': page,
                     'page_size': page_size,
                     'total_pages': paginator.num_pages,
-                    'total_count': paginator.count,
+                    'total_items': paginator.count,
                     'has_next': page_obj.has_next(),
                     'has_previous': page_obj.has_previous(),
                 }
