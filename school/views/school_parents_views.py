@@ -42,7 +42,8 @@ def get_all_school_parents(request):
         if search_query:
             school_parents = school_parents.filter(
                 Q(parent__name__icontains=search_query) |
-                Q(parent__phone__icontains=search_query)
+                Q(parent__phone__icontains=search_query) |
+                Q(child_name__icontains=search_query)
             )
         
         if institute_filter:
@@ -114,17 +115,43 @@ def get_school_parent_by_id(request, parent_id):
 @require_auth
 @api_response
 def get_school_parents_by_institute(request, institute_id):
-    """Get school parents by institute"""
+    """Get school parents by institute with pagination and search"""
     try:
+        search_query = request.GET.get('search', '').strip() or request.GET.get('q', '').strip()
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 25))
+        
         school_parents = SchoolParent.objects.select_related('parent').prefetch_related('school_buses').filter(
             school_buses__institute_id=institute_id
-        ).distinct().order_by('-created_at')
+        ).distinct()
         
-        serializer = SchoolParentListSerializer(school_parents, many=True)
+        if search_query:
+            school_parents = school_parents.filter(
+                Q(parent__name__icontains=search_query) |
+                Q(parent__phone__icontains=search_query) |
+                Q(child_name__icontains=search_query)
+            )
+        
+        school_parents = school_parents.order_by('-created_at')
+        
+        paginator = Paginator(school_parents, page_size)
+        page_obj = paginator.get_page(page)
+        
+        serializer = SchoolParentListSerializer(page_obj.object_list, many=True)
         
         return success_response(
-            data=serializer.data,
-            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'School parents retrieved successfully')
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'School parents retrieved successfully'),
+            data={
+                'school_parents': serializer.data,
+                'pagination': {
+                    'current_page': page_obj.number,
+                    'total_pages': paginator.num_pages,
+                    'total_items': paginator.count,
+                    'page_size': page_size,
+                    'has_next': page_obj.has_next(),
+                    'has_previous': page_obj.has_previous()
+                }
+            }
         )
     except Exception as e:
         return error_response(

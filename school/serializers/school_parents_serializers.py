@@ -21,7 +21,7 @@ class SchoolParentSerializer(serializers.ModelSerializer):
         model = SchoolParent
         fields = [
             'id', 'parent', 'parent_id', 'school_buses', 'latitude', 'longitude',
-            'created_at', 'updated_at'
+            'child_name', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -36,7 +36,7 @@ class SchoolParentCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SchoolParent
-        fields = ['parent', 'school_buses', 'latitude', 'longitude']
+        fields = ['parent', 'school_buses', 'latitude', 'longitude', 'child_name']
     
     def create(self, validated_data):
         """Create school parent with bus assignments"""
@@ -70,7 +70,7 @@ class SchoolParentListSerializer(serializers.ModelSerializer):
         model = SchoolParent
         fields = [
             'id', 'parent_name', 'parent_phone', 'school_buses_count',
-            'latitude', 'longitude', 'created_at'
+            'latitude', 'longitude', 'child_name', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
     

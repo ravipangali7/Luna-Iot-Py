@@ -31,6 +31,12 @@ class SchoolParent(models.Model):
         null=True,
         help_text="Parent location longitude"
     )
+    child_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Child name"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
