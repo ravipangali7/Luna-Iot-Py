@@ -167,7 +167,7 @@ class Command(BaseCommand):
                         
                         # Recalculate totals
                         unpaid_due.subtotal = sum(
-                            float(p.total) for p in unpaid_due.particulars.all()
+                            Decimal(str(p.total)) for p in unpaid_due.particulars.all()
                         )
                         unpaid_due.calculate_totals()
                         unpaid_due.save()
@@ -346,7 +346,7 @@ class Command(BaseCommand):
                         if added_count > 0:
                             # Recalculate totals
                             unpaid_due.subtotal = sum(
-                                float(p.total) for p in unpaid_due.particulars.all()
+                                Decimal(str(p.total)) for p in unpaid_due.particulars.all()
                             )
                             unpaid_due.calculate_totals()
                             unpaid_due.save()

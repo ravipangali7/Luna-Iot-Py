@@ -83,11 +83,15 @@ class DueTransaction(models.Model):
         
         try:
             setting = MySetting.objects.first()
-            vat_percent = float(setting.vat_percent) if setting and setting.vat_percent else 0.0
+            vat_percent = Decimal(str(setting.vat_percent)) if setting and setting.vat_percent else Decimal('0.00')
         except:
-            vat_percent = 0.0
+            vat_percent = Decimal('0.00')
         
-        vat_amount = (self.subtotal * Decimal(str(vat_percent))) / Decimal('100')
+        # Ensure subtotal is Decimal
+        if not isinstance(self.subtotal, Decimal):
+            self.subtotal = Decimal(str(self.subtotal))
+        
+        vat_amount = (self.subtotal * vat_percent) / Decimal('100')
         total_amount = self.subtotal + vat_amount
         
         self.vat = vat_amount
