@@ -51,6 +51,7 @@ class SchoolParent(models.Model):
             models.Index(fields=['parent']),
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['parent', 'child_name'], name='school_parent_p_cn_idx'),
         ]
     
     def __str__(self):
