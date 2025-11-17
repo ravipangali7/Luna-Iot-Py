@@ -111,6 +111,11 @@ def get_all_vehicles(request):
         
         vehicles_data = []
         for vehicle in vehicles:
+            # Check if vehicle is expired and deactivate if needed
+            if vehicle.expireDate and vehicle.expireDate <= datetime.now() and vehicle.is_active:
+                vehicle.is_active = False
+                vehicle.save(update_fields=['is_active'])
+            
             # Get user vehicle relationship
             user_vehicle = vehicle.userVehicles.filter(user=user).first()
             
@@ -216,6 +221,11 @@ def get_all_vehicles_detailed(request):
         
         vehicles_data = []
         for vehicle in vehicles:
+            # Check if vehicle is expired and deactivate if needed
+            if vehicle.expireDate and vehicle.expireDate <= datetime.now() and vehicle.is_active:
+                vehicle.is_active = False
+                vehicle.save(update_fields=['is_active'])
+            
             # Get all users with access to this vehicle (userVehicles format)
             user_vehicles = []
             for uv in vehicle.userVehicles.all():
@@ -437,6 +447,11 @@ def get_vehicle_by_imei(request, imei):
         
         if not vehicle:
             return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check if vehicle is expired and deactivate if needed
+        if vehicle.expireDate and vehicle.expireDate <= datetime.now() and vehicle.is_active:
+            vehicle.is_active = False
+            vehicle.save(update_fields=['is_active'])
         
         # Get user vehicle relationship
         user_vehicle = vehicle.userVehicles.filter(user=user).first()
@@ -1654,6 +1669,11 @@ def get_vehicles_paginated(request):
         
         vehicles_data = []
         for vehicle in page_obj:
+            # Check if vehicle is expired and deactivate if needed
+            if vehicle.expireDate and vehicle.expireDate <= datetime.now() and vehicle.is_active:
+                vehicle.is_active = False
+                vehicle.save(update_fields=['is_active'])
+            
             # Get all users with access to this vehicle (userVehicles format)
             user_vehicles = []
             for uv in vehicle.userVehicles.all():
