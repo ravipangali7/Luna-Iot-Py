@@ -25,4 +25,7 @@ urlpatterns = [
     # Dashboard routes
     path('dashboard/', include('core.urls.dashboard_urls')),
     
+    # Settings routes
+    path('settings/', include('core.urls.settings_urls')),
+    
 ]
