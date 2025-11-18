@@ -1,6 +1,7 @@
 from django.db import models
 from core.models import User, Institute
 from decimal import Decimal
+from fleet.models import Vehicle
 
 
 class DueTransaction(models.Model):
@@ -134,6 +135,15 @@ class DueTransactionParticular(models.Model):
         db_column='institute_id',
         help_text="Institute associated with this particular (for parent type)"
     )
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='due_transaction_particulars',
+        db_column='vehicle_id',
+        help_text="Vehicle associated with this particular (for vehicle type)"
+    )
     amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
@@ -166,6 +176,7 @@ class DueTransactionParticular(models.Model):
             models.Index(fields=['due_transaction']),
             models.Index(fields=['type']),
             models.Index(fields=['institute']),
+            models.Index(fields=['vehicle']),
         ]
 
     def __str__(self):

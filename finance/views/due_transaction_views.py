@@ -21,6 +21,8 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 
 from finance.models import DueTransaction, DueTransactionParticular, Wallet, Transaction
 from core.models import User
+from fleet.models import Vehicle
+from device.models import UserDevice
 from finance.serializers import (
     DueTransactionSerializer,
     DueTransactionCreateSerializer,
@@ -34,6 +36,33 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from finance.management.commands.generate_due_transactions import Command as GenerateDueTransactionsCommand
+from datetime import timedelta
+
+
+def renew_vehicle(vehicle, pay_date):
+    """
+    Renew vehicle: set is_active=True and update expire_date to next year (same month/day)
+    Example: if expire_date is 2025/10/23, after payment it becomes 2026/10/23
+    """
+    if vehicle and vehicle.expireDate:
+        vehicle.is_active = True
+        # Update expire_date to next year (same month/day)
+        # expireDate is a DateTimeField, so we can use replace
+        try:
+            from datetime import datetime
+            current_expire = vehicle.expireDate
+            if isinstance(current_expire, datetime):
+                new_year = current_expire.year + 1
+                vehicle.expireDate = current_expire.replace(year=new_year)
+            else:
+                # Handle timezone-aware datetime
+                new_year = current_expire.year + 1
+                vehicle.expireDate = current_expire.replace(year=new_year)
+        except Exception as e:
+            # Fallback: add 365 days
+            from datetime import timedelta
+            vehicle.expireDate = vehicle.expireDate + timedelta(days=365)
+        vehicle.save()
 
 
 @api_view(['GET'])
@@ -235,8 +264,9 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
     try:
         due_transaction = DueTransaction.objects.select_related('user').get(id=due_transaction_id)
         
-        # Check if user owns this transaction
-        if due_transaction.user.id != request.user.id:
+        # Check access: user must own the transaction OR be Super Admin
+        is_super_admin = request.user.groups.filter(name='Super Admin').exists()
+        if not is_super_admin and due_transaction.user.id != request.user.id:
             return error_response(
                 message="Access denied. You can only pay your own due transactions.",
                 status_code=HTTP_STATUS['FORBIDDEN']
@@ -249,16 +279,17 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Get user's wallet
+        # Get wallet of the user who owns the due transaction (not the person paying)
+        transaction_owner = due_transaction.user
         try:
-            wallet = Wallet.objects.get(user=due_transaction.user)
+            wallet = Wallet.objects.get(user=transaction_owner)
         except Wallet.DoesNotExist:
             return error_response(
                 message="Wallet not found for this user.",
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if wallet has sufficient balance
+        # Check if wallet has sufficient balance (applies to all roles including Super Admin)
         if wallet.balance < due_transaction.total:
             return error_response(
                 message=f"Insufficient wallet balance. Required: {due_transaction.total}, Available: {wallet.balance}",
@@ -266,11 +297,12 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
             )
         
         # Process payment
+        pay_date = timezone.now()
         with db_transaction.atomic():
-            # Deduct from wallet
+            # Deduct from wallet (owner's wallet, not the payer's wallet)
             success = wallet.subtract_balance(
                 amount=due_transaction.total,
-                description=f"Payment for Due Transaction #{due_transaction.id}",
+                description=f"Payment for Due Transaction #{due_transaction.id}" + (f" (paid by {request.user.name or request.user.phone})" if is_super_admin else ""),
                 performed_by=request.user
             )
             
@@ -282,8 +314,13 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
             
             # Update due transaction
             due_transaction.is_paid = True
-            due_transaction.pay_date = timezone.now()
+            due_transaction.pay_date = pay_date
             due_transaction.save()
+            
+            # Renew all vehicles associated with paid particulars
+            for particular in due_transaction.particulars.filter(type='vehicle', vehicle__isnull=False):
+                if particular.vehicle:
+                    renew_vehicle(particular.vehicle, pay_date)
         
         # Serialize and return
         serializer = DueTransactionSerializer(due_transaction)
@@ -298,6 +335,155 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
             status_code=HTTP_STATUS['NOT_FOUND']
         )
     except Exception as e:
+        return error_response(
+            message=f"Error processing payment: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def pay_particular_with_wallet(request, particular_id):
+    """
+    Pay a particular (vehicle) using wallet balance
+    Removes particular from original due transaction and creates new paid due transaction
+    User can pay their own due transaction particulars
+    """
+    try:
+        particular = DueTransactionParticular.objects.select_related(
+            'due_transaction', 'due_transaction__user', 'vehicle'
+        ).get(id=particular_id)
+        
+        # Check if particular is vehicle type
+        if particular.type != 'vehicle':
+            return error_response(
+                message="Only vehicle type particulars can be paid individually.",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Check if vehicle exists
+        if not particular.vehicle:
+            return error_response(
+                message="This particular is not linked to a vehicle.",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Check access: user must own the due transaction OR be Super Admin
+        is_super_admin = request.user.groups.filter(name='Super Admin').exists()
+        if not is_super_admin and particular.due_transaction.user.id != request.user.id:
+            return error_response(
+                message="Access denied. You can only pay your own due transaction particulars.",
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        # Check if due transaction is already paid
+        if particular.due_transaction.is_paid:
+            return error_response(
+                message="The due transaction containing this particular is already paid.",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Get wallet of the user who owns the due transaction (not the person paying)
+        transaction_owner = particular.due_transaction.user
+        try:
+            wallet = Wallet.objects.get(user=transaction_owner)
+        except Wallet.DoesNotExist:
+            return error_response(
+                message="Wallet not found for this user.",
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if wallet has sufficient balance (applies to all roles including Super Admin)
+        if wallet.balance < particular.total:
+            return error_response(
+                message=f"Insufficient wallet balance. Required: {particular.total}, Available: {wallet.balance}",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Process partial payment
+        pay_date = timezone.now()
+        with db_transaction.atomic():
+            # Deduct from wallet (owner's wallet, not the payer's wallet)
+            success = wallet.subtract_balance(
+                amount=particular.total,
+                description=f"Payment for Particular #{particular.id} (Vehicle {particular.vehicle.id})" + (f" (paid by {request.user.name or request.user.phone})" if is_super_admin else ""),
+                performed_by=request.user
+            )
+            
+            if not success:
+                return error_response(
+                    message="Failed to deduct from wallet balance.",
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
+                )
+            
+            # Get original due transaction and save vehicle reference
+            original_due = particular.due_transaction
+            vehicle_to_renew = particular.vehicle
+            particular_particular = particular.particular
+            particular_institute = particular.institute
+            particular_amount = particular.amount
+            particular_quantity = particular.quantity
+            particular_total = particular.total
+            
+            # Create new paid due transaction for this vehicle (owner is the transaction owner, not the payer)
+            new_due = DueTransaction.objects.create(
+                user=transaction_owner,
+                subtotal=particular_amount,
+                vat=original_due.vat * (particular_total / original_due.subtotal) if original_due.subtotal > 0 else Decimal('0.00'),
+                total=particular_total,
+                renew_date=original_due.renew_date,
+                expire_date=original_due.expire_date,
+                is_paid=True,
+                pay_date=pay_date
+            )
+            
+            # Create new particular for the paid due transaction
+            DueTransactionParticular.objects.create(
+                due_transaction=new_due,
+                particular=particular_particular,
+                type=particular.type,
+                vehicle=vehicle_to_renew,
+                institute=particular_institute,
+                amount=particular_amount,
+                quantity=particular_quantity,
+                total=particular_total
+            )
+            
+            # Remove particular from original due transaction
+            particular.delete()
+            
+            # Recalculate original due transaction totals
+            remaining_particulars = original_due.particulars.all()
+            if remaining_particulars.exists():
+                original_due.subtotal = sum(
+                    Decimal(str(p.total)) for p in remaining_particulars
+                )
+                original_due.calculate_totals()
+                original_due.save()
+            else:
+                # If no particulars left, delete the empty due transaction
+                original_due.delete()
+            
+            # Renew vehicle
+            renew_vehicle(vehicle_to_renew, pay_date)
+        
+        # Serialize and return the new paid due transaction
+        serializer = DueTransactionSerializer(new_due)
+        return success_response(
+            data=serializer.data,
+            message="Particular paid successfully. Vehicle has been renewed."
+        )
+    
+    except DueTransactionParticular.DoesNotExist:
+        return error_response(
+            message="Particular not found",
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"Error in pay_particular_with_wallet: {error_trace}")
         return error_response(
             message=f"Error processing payment: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_ERROR']
@@ -323,15 +509,21 @@ def mark_due_transaction_paid(request, due_transaction_id):
             )
         
         # Update due transaction
+        pay_date = timezone.now()
         due_transaction.is_paid = True
-        due_transaction.pay_date = timezone.now()
+        due_transaction.pay_date = pay_date
         due_transaction.save()
+        
+        # Renew all vehicles associated with paid particulars
+        for particular in due_transaction.particulars.filter(type='vehicle', vehicle__isnull=False):
+            if particular.vehicle:
+                renew_vehicle(particular.vehicle, pay_date)
         
         # Serialize and return
         serializer = DueTransactionSerializer(due_transaction)
         return success_response(
             data=serializer.data,
-            message="Due transaction marked as paid successfully."
+            message="Due transaction marked as paid successfully. Vehicles have been renewed."
         )
     
     except DueTransaction.DoesNotExist:
@@ -420,6 +612,8 @@ def update_due_transaction(request, due_transaction_id):
 def get_my_due_transactions(request):
     """
     Get current user's due transactions
+    For dealers: includes their own due transactions + due transactions for vehicles linked to their devices
+    For customers: only their own due transactions
     """
     try:
         # Get filter parameters
@@ -427,8 +621,26 @@ def get_my_due_transactions(request):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
         
+        # Check if user is a dealer
+        is_dealer = request.user.groups.filter(name='Dealer').exists()
+        
         # Build queryset
-        queryset = DueTransaction.objects.filter(user=request.user).select_related('user').prefetch_related('particulars')
+        if is_dealer:
+            # Dealer: own due transactions + due transactions for vehicles linked to their devices
+            # Get devices assigned to this dealer
+            dealer_devices = UserDevice.objects.filter(user=request.user).values_list('device', flat=True)
+            
+            # Get vehicles linked to dealer's devices
+            dealer_vehicles = Vehicle.objects.filter(device__in=dealer_devices).values_list('id', flat=True)
+            
+            # Get due transactions: own + those with particulars linked to dealer's vehicles
+            queryset = DueTransaction.objects.filter(
+                Q(user=request.user) |  # Own due transactions
+                Q(particulars__vehicle__in=dealer_vehicles)  # Due transactions for vehicles linked to dealer's devices
+            ).select_related('user').prefetch_related('particulars').distinct()
+        else:
+            # Customer: only own due transactions
+            queryset = DueTransaction.objects.filter(user=request.user).select_related('user').prefetch_related('particulars')
         
         # Apply filters
         if is_paid and is_paid.strip():

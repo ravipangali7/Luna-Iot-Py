@@ -101,24 +101,15 @@ class Command(BaseCommand):
                 
                 main_user = main_user_vehicle.user
                 
-                # Check if unpaid DueTransaction exists for this user
-                unpaid_due = DueTransaction.objects.filter(
-                    user=main_user,
-                    is_paid=False
-                ).first()
-                
-                # Check if particular for this vehicle already exists in any unpaid due
-                vehicle_particular_exists = False
-                if unpaid_due:
-                    vehicle_particular_exists = DueTransactionParticular.objects.filter(
-                        due_transaction=unpaid_due,
-                        type='vehicle',
-                        particular__icontains=f"Vehicle {vehicle.id}"
-                    ).exists()
+                # Check if unpaid due transaction already exists for this specific vehicle
+                vehicle_particular_exists = DueTransactionParticular.objects.filter(
+                    vehicle=vehicle,
+                    due_transaction__is_paid=False
+                ).exists()
                 
                 if vehicle_particular_exists:
                     self.stdout.write(
-                        self.style.WARNING(f'  Vehicle {vehicle.id} already has a particular in unpaid due. Skipping.')
+                        self.style.WARNING(f'  Vehicle {vehicle.id} already has an unpaid due transaction. Skipping.')
                     )
                     continue
                 
@@ -153,70 +144,48 @@ class Command(BaseCommand):
                     count += 1
                     continue
                 
-                # Create or update due transaction
+                # Create new due transaction per vehicle
                 with transaction.atomic():
-                    if unpaid_due:
-                        # Add particular to existing due
-                        particular = DueTransactionParticular.objects.create(
-                            due_transaction=unpaid_due,
-                            particular=f"Vehicle {vehicle.id} - {vehicle.name} ({vehicle.vehicleNo}) - Renewal",
-                            type='vehicle',
-                            amount=vehicle_price,
-                            quantity=1
+                    # Calculate renew_date (one year before expire_date)
+                    renew_date = vehicle.expireDate - timedelta(days=365)
+                    if renew_date > now:
+                        renew_date = now
+                    
+                    # Calculate VAT and total before creating
+                    try:
+                        my_setting = MySetting.objects.first()
+                        vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+                    except:
+                        vat_percent = Decimal('0.00')
+                    
+                    vat_amount = (vehicle_price * vat_percent) / Decimal('100')
+                    total_amount = vehicle_price + vat_amount
+                    
+                    # Create new due transaction for this vehicle
+                    new_due = DueTransaction.objects.create(
+                        user=main_user,
+                        subtotal=vehicle_price,
+                        vat=vat_amount,
+                        total=total_amount,
+                        renew_date=renew_date,
+                        expire_date=vehicle.expireDate
+                    )
+                    
+                    # Create particular linked to vehicle
+                    DueTransactionParticular.objects.create(
+                        due_transaction=new_due,
+                        particular=f"Vehicle {vehicle.id} - {vehicle.name} ({vehicle.vehicleNo}) - Renewal",
+                        type='vehicle',
+                        vehicle=vehicle,  # Link to vehicle
+                        amount=vehicle_price,
+                        quantity=1
+                    )
+                    
+                    self.stdout.write(
+                        self.style.SUCCESS(
+                            f'  Created new due transaction {new_due.id} for Vehicle {vehicle.id} ({vehicle.name}) - User {main_user.id}'
                         )
-                        
-                        # Recalculate totals
-                        unpaid_due.subtotal = sum(
-                            Decimal(str(p.total)) for p in unpaid_due.particulars.all()
-                        )
-                        unpaid_due.calculate_totals()
-                        unpaid_due.save()
-                        
-                        self.stdout.write(
-                            self.style.SUCCESS(
-                                f'  Added particular for Vehicle {vehicle.id} to existing due transaction {unpaid_due.id}'
-                            )
-                        )
-                    else:
-                        # Create new due transaction
-                        # Calculate renew_date (one year before expire_date)
-                        renew_date = vehicle.expireDate - timedelta(days=365)
-                        if renew_date > now:
-                            renew_date = now
-                        
-                        # Calculate VAT and total before creating
-                        try:
-                            my_setting = MySetting.objects.first()
-                            vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
-                        except:
-                            vat_percent = Decimal('0.00')
-                        
-                        vat_amount = (vehicle_price * vat_percent) / Decimal('100')
-                        total_amount = vehicle_price + vat_amount
-                        
-                        new_due = DueTransaction.objects.create(
-                            user=main_user,
-                            subtotal=vehicle_price,
-                            vat=vat_amount,
-                            total=total_amount,
-                            renew_date=renew_date,
-                            expire_date=vehicle.expireDate
-                        )
-                        
-                        # Create particular
-                        DueTransactionParticular.objects.create(
-                            due_transaction=new_due,
-                            particular=f"Vehicle {vehicle.id} - {vehicle.name} ({vehicle.vehicleNo}) - Renewal",
-                            type='vehicle',
-                            amount=vehicle_price,
-                            quantity=1
-                        )
-                        
-                        self.stdout.write(
-                            self.style.SUCCESS(
-                                f'  Created new due transaction {new_due.id} for Vehicle {vehicle.id} - User {main_user.id}'
-                            )
-                        )
+                    )
                     
                     count += 1
             

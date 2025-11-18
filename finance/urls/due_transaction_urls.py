@@ -7,6 +7,7 @@ from finance.views.due_transaction_views import (
     get_due_transaction_by_id,
     get_user_due_transactions,
     pay_due_transaction_with_wallet,
+    pay_particular_with_wallet,
     mark_due_transaction_paid,
     create_due_transaction,
     get_my_due_transactions,
@@ -37,6 +38,9 @@ urlpatterns = [
     
     # Pay due transaction with wallet
     path('<int:due_transaction_id>/pay/', pay_due_transaction_with_wallet, name='pay_due_transaction_with_wallet'),
+    
+    # Pay particular with wallet (partial payment)
+    path('particular/<int:particular_id>/pay/', pay_particular_with_wallet, name='pay_particular_with_wallet'),
     
     # Mark due transaction as paid (Super Admin)
     path('<int:due_transaction_id>/mark-paid/', mark_due_transaction_paid, name='mark_due_transaction_paid'),

@@ -11,14 +11,28 @@ from core.serializers.user_serializers import UserListSerializer
 class DueTransactionParticularSerializer(serializers.ModelSerializer):
     """Serializer for due transaction particular"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
+    vehicle_id = serializers.IntegerField(source='vehicle.id', read_only=True, allow_null=True)
+    vehicle_info = serializers.SerializerMethodField()
     
     class Meta:
         model = DueTransactionParticular
         fields = [
             'id', 'particular', 'type', 'institute', 'institute_name',
+            'vehicle', 'vehicle_id', 'vehicle_info',
             'amount', 'quantity', 'total', 'created_at'
         ]
         read_only_fields = ['id', 'total', 'created_at']
+    
+    def get_vehicle_info(self, obj):
+        """Get vehicle information if vehicle exists"""
+        if obj.vehicle:
+            return {
+                'id': obj.vehicle.id,
+                'imei': obj.vehicle.imei,
+                'name': obj.vehicle.name,
+                'vehicleNo': obj.vehicle.vehicleNo,
+            }
+        return None
 
 
 class DueTransactionParticularCreateSerializer(serializers.ModelSerializer):
@@ -260,5 +274,10 @@ class DueTransactionListSerializer(serializers.ModelSerializer):
 
 class DueTransactionPaySerializer(serializers.Serializer):
     """Serializer for paying due transaction with wallet"""
+    pass  # No additional fields needed, just the action
+
+
+class PayParticularSerializer(serializers.Serializer):
+    """Serializer for paying a particular with wallet"""
     pass  # No additional fields needed, just the action
 
