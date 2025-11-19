@@ -709,17 +709,15 @@ def get_my_due_transactions(request):
         # Build queryset
         if is_dealer:
             # Dealer: own due transactions + due transactions for vehicles linked to their devices
-            # Get devices assigned to this dealer
-            dealer_devices = UserDevice.objects.filter(user=request.user).values_list('device', flat=True)
-            
-            # Get vehicles linked to dealer's devices
-            dealer_vehicles = Vehicle.objects.filter(device__in=dealer_devices).values_list('id', flat=True)
-            
-            # Get due transactions: own + those with particulars linked to dealer's vehicles
+            # Use direct relationship traversal to avoid intermediate queries
             queryset = DueTransaction.objects.filter(
                 Q(user=request.user) |  # Own due transactions
-                Q(particulars__vehicle__in=dealer_vehicles)  # Due transactions for vehicles linked to dealer's devices
-            ).select_related('user').prefetch_related('particulars').distinct()
+                Q(particulars__vehicle__device__userDevices__user=request.user)  # Vehicles with devices assigned to dealer
+            ).select_related('user').prefetch_related(
+                'particulars',
+                'particulars__vehicle',
+                'particulars__vehicle__device'
+            ).distinct()
         else:
             # Customer: only own due transactions
             queryset = DueTransaction.objects.filter(user=request.user).select_related('user').prefetch_related('particulars')
