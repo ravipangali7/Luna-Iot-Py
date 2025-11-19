@@ -9,14 +9,16 @@ from django.core.paginator import Paginator
 from decimal import Decimal
 import json
 
-from ..models import DeviceOrder, DeviceOrderItem, SubscriptionPlan
+from ..models import DeviceOrder, DeviceOrderItem, SubscriptionPlan, DeviceCart, DeviceCartItem
 from ..serializers.device_order_serializers import (
     DeviceOrderSerializer,
     DeviceOrderListSerializer,
     DeviceOrderCreateSerializer,
     DeviceOrderItemSerializer,
     CartItemSerializer,
-    DeviceOrderStatusUpdateSerializer
+    DeviceOrderStatusUpdateSerializer,
+    DeviceCartSerializer,
+    DeviceCartItemSerializer
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import HTTP_STATUS
@@ -25,7 +27,13 @@ from api_common.decorators.auth_decorators import require_auth, require_dealer_o
 from finance.models import Wallet
 
 
-# Cart Management APIs (session-based)
+def get_or_create_cart(user):
+    """Helper function to get or create user's cart"""
+    cart, created = DeviceCart.objects.get_or_create(user=user)
+    return cart
+
+
+# Cart Management APIs (database-based)
 @api_view(['GET'])
 @require_auth
 @require_dealer_or_admin
@@ -33,50 +41,14 @@ from finance.models import Wallet
 def get_cart(request):
     """
     Get user's cart items
-    Cart is stored in session, keyed by user ID
+    Cart is stored in database
     """
     try:
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        cart_items = request.session.get(cart_key, [])
-        
-        # Enrich cart items with subscription plan details
-        enriched_items = []
-        for item in cart_items:
-            try:
-                plan = SubscriptionPlan.objects.get(id=item['subscription_plan_id'])
-                if plan.purchasing_price is None:
-                    continue  # Skip items without purchasing_price
-                
-                enriched_items.append({
-                    'subscription_plan_id': plan.id,
-                    'subscription_plan_title': plan.title,
-                    'quantity': item['quantity'],
-                    'price': float(plan.purchasing_price),
-                    'total': float(plan.purchasing_price * Decimal(str(item['quantity'])))
-                })
-            except SubscriptionPlan.DoesNotExist:
-                continue
-        
-        # Update session with cleaned items
-        request.session[cart_key] = [
-            {'subscription_plan_id': item['subscription_plan_id'], 'quantity': item['quantity']}
-            for item in enriched_items
-        ]
-        request.session.modified = True
-        request.session.save()  # Explicitly save session
-        
-        # Calculate totals
-        subtotal = sum(item['total'] for item in enriched_items)
-        total_quantity = sum(item['quantity'] for item in enriched_items)
+        cart = get_or_create_cart(request.user)
+        serializer = DeviceCartSerializer(cart)
         
         return success_response(
-            data={
-                'items': enriched_items,
-                'subtotal': float(subtotal),
-                'total_quantity': total_quantity,
-                'item_count': len(enriched_items)
-            },
+            data=serializer.data,
             message='Cart retrieved successfully'
         )
         
@@ -125,34 +97,21 @@ def add_to_cart(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Ensure session exists
-        if not request.session.session_key:
-            request.session.create()
+        # Get or create cart
+        cart = get_or_create_cart(request.user)
         
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        cart_items = request.session.get(cart_key, [])
+        # Get or create cart item
+        price = plan.purchasing_price
+        cart_item, created = DeviceCartItem.objects.get_or_create(
+            cart=cart,
+            subscription_plan=plan,
+            defaults={'quantity': quantity, 'price': price}
+        )
         
-        # Check if item already exists in cart
-        item_index = None
-        for i, item in enumerate(cart_items):
-            if item.get('subscription_plan_id') == subscription_plan_id:
-                item_index = i
-                break
-        
-        if item_index is not None:
-            # Update quantity
-            cart_items[item_index]['quantity'] += quantity
-        else:
-            # Add new item
-            cart_items.append({
-                'subscription_plan_id': subscription_plan_id,
-                'quantity': quantity
-            })
-        
-        request.session[cart_key] = cart_items
-        request.session.modified = True
-        request.session.save()  # Explicitly save session
+        if not created:
+            # Update quantity if item already exists
+            cart_item.quantity += quantity
+            cart_item.save()
         
         return success_response(
             message='Item added to cart successfully'
@@ -171,7 +130,7 @@ def add_to_cart(request):
 @api_response
 def update_cart_item(request, item_index):
     """
-    Update cart item quantity by index
+    Update cart item quantity by ID (item_index is now item_id)
     """
     try:
         quantity = int(request.data.get('quantity', 1))
@@ -182,25 +141,20 @@ def update_cart_item(request, item_index):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Ensure session exists
-        if not request.session.session_key:
-            request.session.create()
+        # Get user's cart
+        cart = get_or_create_cart(request.user)
         
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        cart_items = request.session.get(cart_key, [])
-        
-        item_index = int(item_index)
-        if item_index < 0 or item_index >= len(cart_items):
+        # Get cart item by ID
+        try:
+            cart_item = DeviceCartItem.objects.get(id=item_index, cart=cart)
+        except DeviceCartItem.DoesNotExist:
             return error_response(
                 message='Cart item not found',
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        cart_items[item_index]['quantity'] = quantity
-        request.session[cart_key] = cart_items
-        request.session.modified = True
-        request.session.save()  # Explicitly save session
+        cart_item.quantity = quantity
+        cart_item.save()
         
         return success_response(
             message='Cart item updated successfully'
@@ -219,28 +173,22 @@ def update_cart_item(request, item_index):
 @api_response
 def remove_from_cart(request, item_index):
     """
-    Remove item from cart by index
+    Remove item from cart by ID (item_index is now item_id)
     """
     try:
-        # Ensure session exists
-        if not request.session.session_key:
-            request.session.create()
+        # Get user's cart
+        cart = get_or_create_cart(request.user)
         
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        cart_items = request.session.get(cart_key, [])
-        
-        item_index = int(item_index)
-        if item_index < 0 or item_index >= len(cart_items):
+        # Get cart item by ID
+        try:
+            cart_item = DeviceCartItem.objects.get(id=item_index, cart=cart)
+        except DeviceCartItem.DoesNotExist:
             return error_response(
                 message='Cart item not found',
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        cart_items.pop(item_index)
-        request.session[cart_key] = cart_items
-        request.session.modified = True
-        request.session.save()  # Explicitly save session
+        cart_item.delete()
         
         return success_response(
             message='Item removed from cart successfully'
@@ -262,15 +210,8 @@ def clear_cart(request):
     Clear entire cart
     """
     try:
-        # Ensure session exists
-        if not request.session.session_key:
-            request.session.create()
-        
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        request.session[cart_key] = []
-        request.session.modified = True
-        request.session.save()  # Explicitly save session
+        cart = get_or_create_cart(request.user)
+        cart.clear()
         
         return success_response(
             message='Cart cleared successfully'
@@ -294,15 +235,11 @@ def create_order(request):
     Validates minimum quantity, checks wallet balance, and deducts payment
     """
     try:
-        # Ensure session exists
-        if not request.session.session_key:
-            request.session.create()
+        # Get user's cart
+        cart = get_or_create_cart(request.user)
+        cart_items = cart.items.all()
         
-        user_id = request.user.id
-        cart_key = f'cart_{user_id}'
-        cart_items = request.session.get(cart_key, [])
-        
-        if not cart_items:
+        if not cart_items.exists():
             return error_response(
                 message='Cart is empty',
                 status_code=HTTP_STATUS['BAD_REQUEST']
@@ -315,21 +252,19 @@ def create_order(request):
         order_items_data = []
         total_quantity = 0
         
-        for item in cart_items:
-            try:
-                plan = SubscriptionPlan.objects.get(id=item['subscription_plan_id'])
-                if plan.purchasing_price is None:
-                    continue
-                
-                quantity = item['quantity']
-                total_quantity += quantity
-                
-                order_items_data.append({
-                    'subscription_plan': plan.id,
-                    'quantity': quantity
-                })
-            except SubscriptionPlan.DoesNotExist:
+        for cart_item in cart_items:
+            plan = cart_item.subscription_plan
+            if plan.purchasing_price is None:
                 continue
+            
+            quantity = cart_item.quantity
+            total_quantity += quantity
+            
+            order_items_data.append({
+                'subscription_plan': plan.id,
+                'quantity': quantity,
+                'price': cart_item.price  # Use price from cart item (snapshot)
+            })
         
         # Validate minimum quantity
         if total_quantity < 50:
@@ -347,11 +282,10 @@ def create_order(request):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Calculate totals
+        # Calculate totals using prices from cart items
         subtotal = Decimal('0.00')
         for item_data in order_items_data:
-            plan = SubscriptionPlan.objects.get(id=item_data['subscription_plan'])
-            subtotal += plan.purchasing_price * Decimal(str(item_data['quantity']))
+            subtotal += Decimal(str(item_data['price'])) * Decimal(str(item_data['quantity']))
         
         if is_vat:
             vat = subtotal * Decimal('0.13')
@@ -378,13 +312,13 @@ def create_order(request):
             total=total
         )
         
-        # Create order items
+        # Create order items using prices from cart
         for item_data in order_items_data:
             plan = SubscriptionPlan.objects.get(id=item_data['subscription_plan'])
             DeviceOrderItem.objects.create(
                 device_order=order,
                 subscription_plan=plan,
-                price=plan.purchasing_price,
+                price=item_data['price'],  # Use price from cart item
                 quantity=item_data['quantity']
             )
         
@@ -411,8 +345,7 @@ def create_order(request):
             )
         
         # Clear cart
-        request.session[cart_key] = []
-        request.session.modified = True
+        cart.clear()
         
         serializer = DeviceOrderSerializer(order)
         

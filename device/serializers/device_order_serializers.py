@@ -3,7 +3,7 @@ Device Order Serializers
 Handles serialization for device order management endpoints
 """
 from rest_framework import serializers
-from device.models import DeviceOrder, DeviceOrderItem, SubscriptionPlan
+from device.models import DeviceOrder, DeviceOrderItem, SubscriptionPlan, DeviceCart, DeviceCartItem
 from core.serializers.user_serializers import UserListSerializer
 
 
@@ -50,8 +50,52 @@ class DeviceOrderItemCreateSerializer(serializers.ModelSerializer):
         return value
 
 
+class DeviceCartItemSerializer(serializers.ModelSerializer):
+    """Serializer for cart items (database model)"""
+    subscription_plan_id = serializers.IntegerField(source='subscription_plan.id', read_only=True)
+    subscription_plan_title = serializers.CharField(source='subscription_plan.title', read_only=True)
+    total = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DeviceCartItem
+        fields = [
+            'id', 'subscription_plan_id', 'subscription_plan_title',
+            'price', 'quantity', 'total', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'price', 'total', 'created_at', 'updated_at']
+    
+    def get_total(self, obj):
+        """Calculate total for cart item"""
+        return float(obj.get_total())
+
+
+class DeviceCartSerializer(serializers.ModelSerializer):
+    """Serializer for device cart with items"""
+    items = DeviceCartItemSerializer(many=True, read_only=True)
+    subtotal = serializers.SerializerMethodField()
+    total_quantity = serializers.SerializerMethodField()
+    item_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DeviceCart
+        fields = ['id', 'items', 'subtotal', 'total_quantity', 'item_count', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_subtotal(self, obj):
+        """Calculate subtotal of all items"""
+        return float(obj.get_subtotal())
+    
+    def get_total_quantity(self, obj):
+        """Calculate total quantity"""
+        return obj.get_total_quantity()
+    
+    def get_item_count(self, obj):
+        """Get count of items in cart"""
+        return obj.items.count()
+
+
 class CartItemSerializer(serializers.Serializer):
-    """Serializer for cart items (session-based)"""
+    """Legacy serializer for cart items (kept for compatibility)"""
     subscription_plan_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1)
     price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
