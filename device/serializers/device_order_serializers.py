@@ -54,6 +54,7 @@ class DeviceCartItemSerializer(serializers.ModelSerializer):
     """Serializer for cart items (database model)"""
     subscription_plan_id = serializers.IntegerField(source='subscription_plan.id', read_only=True)
     subscription_plan_title = serializers.CharField(source='subscription_plan.title', read_only=True)
+    price = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
     
     class Meta:
@@ -63,6 +64,10 @@ class DeviceCartItemSerializer(serializers.ModelSerializer):
             'price', 'quantity', 'total', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'price', 'total', 'created_at', 'updated_at']
+    
+    def get_price(self, obj):
+        """Convert price to float"""
+        return float(obj.price)
     
     def get_total(self, obj):
         """Calculate total for cart item"""
