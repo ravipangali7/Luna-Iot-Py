@@ -20,6 +20,8 @@ class DeviceOrderItemSerializer(serializers.ModelSerializer):
     """Serializer for device order item"""
     subscription_plan = SubscriptionPlanBasicSerializer(read_only=True)
     subscription_plan_id = serializers.IntegerField(write_only=True)
+    price = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
     
     class Meta:
         model = DeviceOrderItem
@@ -28,6 +30,14 @@ class DeviceOrderItemSerializer(serializers.ModelSerializer):
             'price', 'quantity', 'total', 'created_at'
         ]
         read_only_fields = ['id', 'price', 'total', 'created_at']
+    
+    def get_price(self, obj):
+        """Convert price to float"""
+        return float(obj.price)
+    
+    def get_total(self, obj):
+        """Convert total to float"""
+        return float(obj.total)
     
     def validate_quantity(self, value):
         """Validate quantity is positive"""
@@ -112,6 +122,9 @@ class DeviceOrderSerializer(serializers.ModelSerializer):
     """Serializer for device order with items"""
     user_info = serializers.SerializerMethodField()
     items = DeviceOrderItemSerializer(many=True, read_only=True)
+    sub_total = serializers.SerializerMethodField()
+    vat = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
     
     class Meta:
         model = DeviceOrder
@@ -125,6 +138,18 @@ class DeviceOrderSerializer(serializers.ModelSerializer):
     def get_user_info(self, obj):
         """Get user information"""
         return UserListSerializer(obj.user).data
+    
+    def get_sub_total(self, obj):
+        """Convert sub_total to float"""
+        return float(obj.sub_total)
+    
+    def get_vat(self, obj):
+        """Convert vat to float"""
+        return float(obj.vat)
+    
+    def get_total(self, obj):
+        """Convert total to float"""
+        return float(obj.total)
 
 
 class DeviceOrderListSerializer(serializers.ModelSerializer):
@@ -132,6 +157,9 @@ class DeviceOrderListSerializer(serializers.ModelSerializer):
     user_info = serializers.SerializerMethodField()
     items_count = serializers.SerializerMethodField()
     total_quantity = serializers.SerializerMethodField()
+    sub_total = serializers.SerializerMethodField()
+    vat = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
     
     class Meta:
         model = DeviceOrder
@@ -145,6 +173,18 @@ class DeviceOrderListSerializer(serializers.ModelSerializer):
     def get_user_info(self, obj):
         """Get user information"""
         return UserListSerializer(obj.user).data
+    
+    def get_sub_total(self, obj):
+        """Convert sub_total to float"""
+        return float(obj.sub_total)
+    
+    def get_vat(self, obj):
+        """Convert vat to float"""
+        return float(obj.vat)
+    
+    def get_total(self, obj):
+        """Convert total to float"""
+        return float(obj.total)
     
     def get_items_count(self, obj):
         """Get count of items in order"""
