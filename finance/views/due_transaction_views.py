@@ -65,6 +65,32 @@ def renew_vehicle(vehicle, pay_date):
         vehicle.save()
 
 
+def _dealer_has_access_to_due_transaction(due_transaction, user):
+    """
+    Check if a dealer has access to a due transaction via vehicle device assignment.
+    
+    Args:
+        due_transaction: DueTransaction instance
+        user: User instance to check access for
+    
+    Returns:
+        bool: True if dealer has access, False otherwise
+    """
+    # Check if user is a dealer
+    is_dealer = user.groups.filter(name='Dealer').exists()
+    if not is_dealer:
+        return False
+    
+    # Check if any particular in the transaction has a vehicle whose device is assigned to the dealer
+    has_access = DueTransactionParticular.objects.filter(
+        due_transaction=due_transaction,
+        vehicle__isnull=False,
+        vehicle__device__userDevices__user=user
+    ).exists()
+    
+    return has_access
+
+
 @api_view(['GET'])
 @require_auth
 @api_response
@@ -164,8 +190,9 @@ def get_due_transaction_by_id(request, due_transaction_id):
         # Check access
         is_super_admin = request.user.groups.filter(name='Super Admin').exists()
         is_owner = due_transaction.user.id == request.user.id
+        dealer_has_access = _dealer_has_access_to_due_transaction(due_transaction, request.user)
         
-        if not (is_super_admin or is_owner):
+        if not (is_super_admin or is_owner or dealer_has_access):
             return error_response(
                 message="Access denied. You can only view your own due transactions.",
                 status_code=HTTP_STATUS['FORBIDDEN']
@@ -264,9 +291,12 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
     try:
         due_transaction = DueTransaction.objects.select_related('user').get(id=due_transaction_id)
         
-        # Check access: user must own the transaction OR be Super Admin
+        # Check access: user must own the transaction OR be Super Admin OR dealer with device access
         is_super_admin = request.user.groups.filter(name='Super Admin').exists()
-        if not is_super_admin and due_transaction.user.id != request.user.id:
+        is_owner = due_transaction.user.id == request.user.id
+        dealer_has_access = _dealer_has_access_to_due_transaction(due_transaction, request.user)
+        
+        if not (is_super_admin or is_owner or dealer_has_access):
             return error_response(
                 message="Access denied. You can only pay your own due transactions.",
                 status_code=HTTP_STATUS['FORBIDDEN']
@@ -399,9 +429,18 @@ def pay_particular_with_wallet(request, particular_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Check access: user must own the due transaction OR be Super Admin
+        # Check access: user must own the due transaction OR be Super Admin OR dealer with device access
         is_super_admin = request.user.groups.filter(name='Super Admin').exists()
-        if not is_super_admin and particular.due_transaction.user.id != request.user.id:
+        is_owner = particular.due_transaction.user.id == request.user.id
+        # For vehicle particulars, check if the vehicle's device is assigned to dealer
+        dealer_has_access = False
+        if particular.vehicle and particular.vehicle.device:
+            dealer_has_access = UserDevice.objects.filter(
+                user=request.user,
+                device=particular.vehicle.device
+            ).exists()
+        
+        if not (is_super_admin or is_owner or dealer_has_access):
             return error_response(
                 message="Access denied. You can only pay your own due transaction particulars.",
                 status_code=HTTP_STATUS['FORBIDDEN']
@@ -843,8 +882,9 @@ def download_due_transaction_invoice(request, due_transaction_id):
         # Check access
         is_super_admin = request.user.groups.filter(name='Super Admin').exists()
         is_owner = due_transaction.user.id == request.user.id
+        dealer_has_access = _dealer_has_access_to_due_transaction(due_transaction, request.user)
         
-        if not (is_super_admin or is_owner):
+        if not (is_super_admin or is_owner or dealer_has_access):
             return error_response(
                 message="Access denied. You can only download your own invoices.",
                 status_code=HTTP_STATUS['FORBIDDEN']
