@@ -111,6 +111,7 @@ class NCHLConnectIPS:
         txn_amt_str = str(txn_amt)
         
         # Build message string (order is critical!)
+        # IMPORTANT: Must include "TOKEN=TOKEN" at the end as per NCHL documentation
         message = (
             f"MERCHANTID={self.merchant_id},"
             f"APPID={self.app_id},"
@@ -121,7 +122,8 @@ class NCHLConnectIPS:
             f"TXNAMT={txn_amt_str},"
             f"REFERENCEID={reference_id},"
             f"REMARKS={remarks},"
-            f"PARTICULARS={particulars}"
+            f"PARTICULARS={particulars},"
+            f"TOKEN=TOKEN"
         )
         
         return self._sign_message(message)
