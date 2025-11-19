@@ -154,8 +154,8 @@ DATABASES = {
         'NAME': 'luna_iot_test',
         'USER': 'root', 
         'PASSWORD': '214fa86d5dfe4729', 
-        'HOST': '38.54.71.218', 
-        # 'HOST': 'localhost', 
+        # 'HOST': '38.54.71.218', 
+        'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 600,  # 10 minutes
@@ -230,6 +230,15 @@ NODEJS_API_BASE_URL="https://www.system.mylunago.com"
 # TingTing API Configuration
 TINGTING_API_KEY = 'OAkAIaWCBzx6KE-CtavqcO-1MxKjXvd0RwchlQ2t_8lmAjOBiDePQn-jwVRUNvwj'
 TINGTING_API_BASE_URL = 'https://app.tingting.io/api/v1'
+
+# NCHL ConnectIPS Payment Gateway Configuration
+NCHL_MERCHANT_ID = os.getenv('NCHL_MERCHANT_ID', '3856')
+NCHL_APP_ID = os.getenv('NCHL_APP_ID', 'MER-3856-APP-1')
+NCHL_APP_NAME = os.getenv('NCHL_APP_NAME', 'LUNA G.P.S. AND RESEARCH CENTER')
+NCHL_APP_PASSWORD = os.getenv('NCHL_APP_PASSWORD', 'L@Na@Ba35')
+NCHL_PFX_PATH = os.getenv('NCHL_PFX_PATH', 'LUNAG.pfx')  # Relative to BASE_DIR or absolute path
+NCHL_PFX_PASSWORD = os.getenv('NCHL_PFX_PASSWORD', 'LuCER3@55')
+NCHL_BASE_URL = os.getenv('NCHL_BASE_URL', 'https://login.connectips.com')  # Test URL, change for production
 
 # Logging Configuration
 LOGGING = {
