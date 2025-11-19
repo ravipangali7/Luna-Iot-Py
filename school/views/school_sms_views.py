@@ -3,6 +3,7 @@ School SMS Views
 Handles school SMS management endpoints
 """
 import logging
+from decimal import Decimal
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -19,6 +20,8 @@ from api_common.decorators.auth_decorators import require_auth, require_super_ad
 from school.models import SchoolSMS
 from api_common.exceptions.api_exceptions import NotFoundError
 from api_common.utils.sms_service import sms_service
+from finance.models import Wallet
+from core.models import MySetting
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +147,50 @@ def create_school_sms(request):
             sms_results = []
             
             if phone_numbers:
+                # Get or create wallet for logged-in user
+                wallet, created = Wallet.objects.get_or_create(
+                    user=request.user,
+                    defaults={'balance': Decimal('0.00')}
+                )
+                
+                # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
+                sms_price = wallet.sms_price
+                if sms_price is None or sms_price == Decimal('0.00'):
+                    try:
+                        my_setting = MySetting.objects.first()
+                        if my_setting and my_setting.sms_price:
+                            sms_price = Decimal(str(my_setting.sms_price))
+                        else:
+                            sms_price = Decimal('0.00')
+                    except Exception as e:
+                        logger.warning(f"Error getting default SMS price from MySetting: {str(e)}")
+                        sms_price = Decimal('0.00')
+                
+                # Calculate total cost
+                total_cost = Decimal(str(len(phone_numbers))) * sms_price
+                
+                # Check if wallet balance is sufficient
+                if wallet.balance < total_cost:
+                    return error_response(
+                        message=f"Insufficient wallet balance. Required: {total_cost}, Available: {wallet.balance}. Please top up your wallet first.",
+                        status_code=HTTP_STATUS['BAD_REQUEST']
+                    )
+                
+                # Deduct balance before sending SMS
+                success = wallet.subtract_balance(
+                    amount=total_cost,
+                    description=f"School SMS to {len(phone_numbers)} recipients",
+                    performed_by=request.user
+                )
+                
+                if not success:
+                    return error_response(
+                        message="Failed to deduct from wallet balance. Please try again.",
+                        status_code=HTTP_STATUS['INTERNAL_ERROR']
+                    )
+                
+                logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS")
+                
                 logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
                 
                 for phone_number in phone_numbers:
