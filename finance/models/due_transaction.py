@@ -158,7 +158,15 @@ class DueTransactionParticular(models.Model):
         max_digits=15,
         decimal_places=2,
         db_column='amount',
-        help_text="Unit amount for this particular"
+        help_text="Unit amount for this particular (customer price)"
+    )
+    dealer_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        db_column='dealer_amount',
+        help_text="Dealer price for this particular"
     )
     quantity = models.IntegerField(
         default=1,

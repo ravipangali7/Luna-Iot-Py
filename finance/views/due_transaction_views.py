@@ -117,7 +117,7 @@ def get_all_due_transactions(request):
         page_obj = paginator.get_page(page)
         
         # Serialize
-        serializer = DueTransactionListSerializer(page_obj.object_list, many=True)
+        serializer = DueTransactionListSerializer(page_obj.object_list, many=True, context={'request': request})
         
         return success_response(
             data={
@@ -171,7 +171,7 @@ def get_due_transaction_by_id(request, due_transaction_id):
                 status_code=HTTP_STATUS['FORBIDDEN']
             )
         
-        serializer = DueTransactionSerializer(due_transaction)
+        serializer = DueTransactionSerializer(due_transaction, context={'request': request})
         return success_response(
             data=serializer.data,
             message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Data retrieved successfully')
@@ -229,7 +229,7 @@ def get_user_due_transactions(request, user_id):
         page_obj = paginator.get_page(page)
         
         # Serialize
-        serializer = DueTransactionListSerializer(page_obj.object_list, many=True)
+        serializer = DueTransactionListSerializer(page_obj.object_list, many=True, context={'request': request})
         
         return success_response(
             data={
@@ -289,20 +289,49 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Check if payer is Dealer
+        is_dealer = payer.groups.filter(name='Dealer').exists()
+        is_customer = payer.groups.filter(name='Customer').exists() and not is_dealer and not is_super_admin
+        
+        # Calculate payment amount based on payer's role
+        payment_amount = Decimal('0.00')
+        for particular in due_transaction.particulars.all():
+            if is_dealer and particular.dealer_amount is not None:
+                # Dealer pays dealer_amount
+                payment_amount += Decimal(str(particular.dealer_amount)) * Decimal(str(particular.quantity))
+            else:
+                # Customer/Admin pays regular amount (price)
+                payment_amount += Decimal(str(particular.amount)) * Decimal(str(particular.quantity))
+        
+        # Calculate VAT if needed
+        # Customers: no VAT (they don't see it, so they don't pay it)
+        # Dealers/Admins: VAT is shown and included in payment
+        if (is_dealer or is_super_admin) and not is_customer:
+            # Calculate VAT on payment amount
+            try:
+                from core.models import MySetting
+                my_setting = MySetting.objects.first()
+                vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+            except:
+                vat_percent = Decimal('0.00')
+            vat_amount = (payment_amount * vat_percent) / Decimal('100')
+            payment_amount = payment_amount + vat_amount
+        
         # Check if payer's wallet has sufficient balance
-        if wallet.balance < due_transaction.total:
+        if wallet.balance < payment_amount:
             return error_response(
-                message=f"Insufficient wallet balance. Required: {due_transaction.total}, Available: {wallet.balance}",
+                message=f"Insufficient wallet balance. Required: {payment_amount}, Available: {wallet.balance}",
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
         # Process payment
         pay_date = timezone.now()
+        price_type = "dealer price" if is_dealer else "customer price"
         with db_transaction.atomic():
             # Deduct from payer's wallet (logged-in user's wallet)
             success = wallet.subtract_balance(
-                amount=due_transaction.total,
-                description=f"Payment for Due Transaction #{due_transaction.id} (User: {due_transaction.user.name or due_transaction.user.phone})",
+                amount=payment_amount,
+                description=f"Payment for Due Transaction #{due_transaction.id} ({price_type}) (User: {due_transaction.user.name or due_transaction.user.phone})",
                 performed_by=request.user
             )
             
@@ -324,7 +353,7 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
                     renew_vehicle(particular.vehicle, pay_date)
         
         # Serialize and return
-        serializer = DueTransactionSerializer(due_transaction)
+        serializer = DueTransactionSerializer(due_transaction, context={'request': request})
         return success_response(
             data=serializer.data,
             message="Due transaction paid successfully."
@@ -395,21 +424,47 @@ def pay_particular_with_wallet(request, particular_id):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Check if payer is Dealer
+        is_dealer = payer.groups.filter(name='Dealer').exists()
+        is_customer = payer.groups.filter(name='Customer').exists() and not is_dealer and not is_super_admin
+        
+        # Calculate payment amount based on payer's role
+        if is_dealer and particular.dealer_amount is not None:
+            # Dealer pays dealer_amount
+            particular_payment_amount = Decimal(str(particular.dealer_amount)) * Decimal(str(particular.quantity))
+        else:
+            # Customer/Admin pays regular amount (price)
+            particular_payment_amount = Decimal(str(particular.amount)) * Decimal(str(particular.quantity))
+        
+        # Calculate VAT if needed
+        # Customers: no VAT (they don't see it, so they don't pay it)
+        # Dealers/Admins: VAT is shown and included in payment
+        if (is_dealer or is_super_admin) and not is_customer:
+            try:
+                from core.models import MySetting
+                my_setting = MySetting.objects.first()
+                vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+            except:
+                vat_percent = Decimal('0.00')
+            vat_amount = (particular_payment_amount * vat_percent) / Decimal('100')
+            particular_payment_amount = particular_payment_amount + vat_amount
+        
         # Check if payer's wallet has sufficient balance
-        if wallet.balance < particular.total:
+        if wallet.balance < particular_payment_amount:
             return error_response(
-                message=f"Insufficient wallet balance. Required: {particular.total}, Available: {wallet.balance}",
+                message=f"Insufficient wallet balance. Required: {particular_payment_amount}, Available: {wallet.balance}",
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
         # Process partial payment
         pay_date = timezone.now()
         transaction_owner = particular.due_transaction.user
+        price_type = "dealer price" if is_dealer else "customer price"
         with db_transaction.atomic():
             # Deduct from payer's wallet (logged-in user's wallet)
             success = wallet.subtract_balance(
-                amount=particular.total,
-                description=f"Payment for Particular #{particular.id} (Vehicle {particular.vehicle.id}, User: {transaction_owner.name or transaction_owner.phone})",
+                amount=particular_payment_amount,
+                description=f"Payment for Particular #{particular.id} ({price_type}) (Vehicle {particular.vehicle.id}, User: {transaction_owner.name or transaction_owner.phone})",
                 performed_by=request.user
             )
             
@@ -425,15 +480,38 @@ def pay_particular_with_wallet(request, particular_id):
             particular_particular = particular.particular
             particular_institute = particular.institute
             particular_amount = particular.amount
+            particular_dealer_amount = particular.dealer_amount
             particular_quantity = particular.quantity
-            particular_total = particular.total
+            
+            # Calculate totals for new transaction based on payer role
+            if is_dealer and particular_dealer_amount is not None:
+                new_subtotal = Decimal(str(particular_dealer_amount)) * Decimal(str(particular_quantity))
+            else:
+                new_subtotal = Decimal(str(particular_amount)) * Decimal(str(particular_quantity))
+            
+            # Calculate VAT for new transaction
+            # Customers: no VAT (they don't see it, so they don't pay it)
+            # Dealers/Admins: VAT is shown and included in payment
+            if (is_dealer or is_super_admin) and not is_customer:
+                try:
+                    from core.models import MySetting
+                    my_setting = MySetting.objects.first()
+                    vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+                except:
+                    vat_percent = Decimal('0.00')
+                new_vat = (new_subtotal * vat_percent) / Decimal('100')
+                new_total = new_subtotal + new_vat
+            else:
+                # Customer: no VAT
+                new_vat = Decimal('0.00')
+                new_total = new_subtotal
             
             # Create new paid due transaction for this vehicle (owner is the transaction owner, not the payer)
             new_due = DueTransaction.objects.create(
                 user=transaction_owner,
-                subtotal=particular_amount,
-                vat=original_due.vat * (particular_total / original_due.subtotal) if original_due.subtotal > 0 else Decimal('0.00'),
-                total=particular_total,
+                subtotal=new_subtotal,
+                vat=new_vat,
+                total=new_total,
                 renew_date=original_due.renew_date,
                 expire_date=original_due.expire_date,
                 is_paid=True,
@@ -449,8 +527,9 @@ def pay_particular_with_wallet(request, particular_id):
                 vehicle=vehicle_to_renew,
                 institute=particular_institute,
                 amount=particular_amount,
+                dealer_amount=particular_dealer_amount,
                 quantity=particular_quantity,
-                total=particular_total
+                total=new_subtotal  # Store subtotal without VAT in particular.total
             )
             
             # Remove particular from original due transaction
@@ -472,7 +551,7 @@ def pay_particular_with_wallet(request, particular_id):
             renew_vehicle(vehicle_to_renew, pay_date)
         
         # Serialize and return the new paid due transaction
-        serializer = DueTransactionSerializer(new_due)
+        serializer = DueTransactionSerializer(new_due, context={'request': request})
         return success_response(
             data=serializer.data,
             message="Particular paid successfully. Vehicle has been renewed."
@@ -523,7 +602,7 @@ def mark_due_transaction_paid(request, due_transaction_id):
                 renew_vehicle(particular.vehicle, pay_date)
         
         # Serialize and return
-        serializer = DueTransactionSerializer(due_transaction)
+        serializer = DueTransactionSerializer(due_transaction, context={'request': request})
         return success_response(
             data=serializer.data,
             message="Due transaction marked as paid successfully. Vehicles have been renewed."
@@ -553,7 +632,7 @@ def create_due_transaction(request):
         
         if serializer.is_valid():
             due_transaction = serializer.save()
-            response_serializer = DueTransactionSerializer(due_transaction)
+            response_serializer = DueTransactionSerializer(due_transaction, context={'request': request})
             return success_response(
                 data=response_serializer.data,
                 message="Due transaction created successfully."
@@ -585,7 +664,7 @@ def update_due_transaction(request, due_transaction_id):
         
         if serializer.is_valid():
             updated_transaction = serializer.save()
-            response_serializer = DueTransactionSerializer(updated_transaction)
+            response_serializer = DueTransactionSerializer(updated_transaction, context={'request': request})
             return success_response(
                 data=response_serializer.data,
                 message="Due transaction updated successfully."
@@ -658,7 +737,7 @@ def get_my_due_transactions(request):
         page_obj = paginator.get_page(page)
         
         # Serialize
-        serializer = DueTransactionListSerializer(page_obj.object_list, many=True)
+        serializer = DueTransactionListSerializer(page_obj.object_list, many=True, context={'request': request})
         
         return success_response(
             data={

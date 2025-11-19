@@ -113,26 +113,44 @@ class Command(BaseCommand):
                     )
                     continue
                 
+                # Check if main_user is a Dealer
+                is_dealer = main_user.groups.filter(name='Dealer').exists()
+                
                 # Calculate price from device subscription plan
+                customer_price = Decimal('0.00')
+                dealer_price = None
+                
                 if vehicle.device and vehicle.device.subscription_plan:
-                    vehicle_price = Decimal(str(vehicle.device.subscription_plan.price))
+                    subscription_plan = vehicle.device.subscription_plan
+                    customer_price = Decimal(str(subscription_plan.price))
+                    # Get dealer price if available, fallback to customer price
+                    if subscription_plan.dealer_price:
+                        dealer_price = Decimal(str(subscription_plan.dealer_price))
+                    else:
+                        dealer_price = customer_price  # Fallback to customer price if dealer_price is null
                 else:
                     # Fallback: use default from MySetting or zero
                     try:
                         my_setting = MySetting.objects.first()
                         if my_setting and hasattr(my_setting, 'vehicle_price'):
-                            vehicle_price = Decimal(str(my_setting.vehicle_price)) if my_setting.vehicle_price else Decimal('0.00')
+                            customer_price = Decimal(str(my_setting.vehicle_price)) if my_setting.vehicle_price else Decimal('0.00')
+                            dealer_price = customer_price  # Use same price if no subscription plan
                         else:
-                            vehicle_price = Decimal('0.00')
+                            customer_price = Decimal('0.00')
+                            dealer_price = Decimal('0.00')
                     except:
-                        vehicle_price = Decimal('0.00')
+                        customer_price = Decimal('0.00')
+                        dealer_price = Decimal('0.00')
                     
-                    if vehicle_price == Decimal('0.00'):
+                    if customer_price == Decimal('0.00'):
                         self.stdout.write(
                             self.style.WARNING(
                                 f'  Vehicle {vehicle.id} has no subscription plan and no default price. Using 0.00.'
                             )
                         )
+                
+                # Use customer_price for transaction totals (backward compatibility)
+                vehicle_price = customer_price
                 
                 if dry_run:
                     self.stdout.write(
@@ -172,12 +190,14 @@ class Command(BaseCommand):
                     )
                     
                     # Create particular linked to vehicle
+                    # Store both customer price (amount) and dealer price (dealer_amount)
                     DueTransactionParticular.objects.create(
                         due_transaction=new_due,
                         particular=f"Vehicle {vehicle.id} - {vehicle.name} ({vehicle.vehicleNo}) - Renewal",
                         type='vehicle',
                         vehicle=vehicle,  # Link to vehicle
-                        amount=vehicle_price,
+                        amount=customer_price,  # Always store customer price
+                        dealer_amount=dealer_price if dealer_price else None,  # Store dealer price if available
                         quantity=1
                     )
                     
