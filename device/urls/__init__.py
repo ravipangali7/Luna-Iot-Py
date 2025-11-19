@@ -16,6 +16,9 @@ urlpatterns = [
     # Subscription plan routes
     path('subscription-plan/', include('device.urls.subscription_plan_urls')),
     
+    # Device order routes
+    path('', include('device.urls.device_order_urls')),
+    
     # Luna Tag routes
     path('luna-tag/', include('device.urls.luna_tag_urls')),
     
