@@ -118,18 +118,21 @@ def get_all_due_transactions(request):
         
         # Apply filters
         if search_query:
-            # Build search filter for text fields
-            search_filter = Q(user__name__icontains=search_query) | Q(user__phone__icontains=search_query)
+            # Build comprehensive search filter for text fields
+            search_filter = (
+                Q(user__name__icontains=search_query) |
+                Q(user__phone__icontains=search_query) |
+                Q(particulars__vehicle__vehicleNo__icontains=search_query) |
+                Q(particulars__vehicle__name__icontains=search_query) |
+                Q(particulars__vehicle__device__imei__icontains=search_query) |
+                Q(particulars__vehicle__device__phone__icontains=search_query)
+            )
             
             # Try to search by ID if search query is numeric
-            try:
-                search_id = int(search_query)
-                search_filter |= Q(id=search_id)
-            except ValueError:
-                # If not numeric, only search by name and phone
-                pass
+            if search_query.strip().isdigit():
+                search_filter |= Q(id=int(search_query.strip()))
             
-            queryset = queryset.filter(search_filter)
+            queryset = queryset.filter(search_filter).distinct()
         
         if is_paid and is_paid.strip():
             is_paid_bool = is_paid.lower().strip() == 'true'
@@ -738,6 +741,7 @@ def get_my_due_transactions(request):
     """
     try:
         # Get filter parameters
+        search_query = request.GET.get('search', '')
         is_paid = request.GET.get('is_paid')
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 20))
@@ -760,6 +764,24 @@ def get_my_due_transactions(request):
         else:
             # Customer: only own due transactions
             queryset = DueTransaction.objects.filter(user=request.user).select_related('user').prefetch_related('particulars')
+        
+        # Apply search filter
+        if search_query:
+            # Build comprehensive search filter for text fields
+            search_filter = (
+                Q(user__name__icontains=search_query) |
+                Q(user__phone__icontains=search_query) |
+                Q(particulars__vehicle__vehicleNo__icontains=search_query) |
+                Q(particulars__vehicle__name__icontains=search_query) |
+                Q(particulars__vehicle__device__imei__icontains=search_query) |
+                Q(particulars__vehicle__device__phone__icontains=search_query)
+            )
+            
+            # Try to search by ID if search query is numeric
+            if search_query.strip().isdigit():
+                search_filter |= Q(id=int(search_query.strip()))
+            
+            queryset = queryset.filter(search_filter).distinct()
         
         # Apply filters
         if is_paid and is_paid.strip():
