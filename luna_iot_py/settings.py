@@ -321,6 +321,16 @@ CACHE_TIMEOUT_DASHBOARD_STATS = 300  # 5 minutes
 CACHE_TIMEOUT_SMS_BALANCE = 600  # 10 minutes
 CACHE_TIMEOUT_TODAY_KM = 120  # 2 minutes
 
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Use database-backed sessions
+SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_AGE = 1209600  # 2 weeks (default)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_SAVE_EVERY_REQUEST = False  # Only save when modified
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000

@@ -64,6 +64,7 @@ def get_cart(request):
             for item in enriched_items
         ]
         request.session.modified = True
+        request.session.save()  # Explicitly save session
         
         # Calculate totals
         subtotal = sum(item['total'] for item in enriched_items)
@@ -124,6 +125,10 @@ def add_to_cart(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        
         user_id = request.user.id
         cart_key = f'cart_{user_id}'
         cart_items = request.session.get(cart_key, [])
@@ -147,6 +152,7 @@ def add_to_cart(request):
         
         request.session[cart_key] = cart_items
         request.session.modified = True
+        request.session.save()  # Explicitly save session
         
         return success_response(
             message='Item added to cart successfully'
@@ -176,6 +182,10 @@ def update_cart_item(request, item_index):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        
         user_id = request.user.id
         cart_key = f'cart_{user_id}'
         cart_items = request.session.get(cart_key, [])
@@ -190,6 +200,7 @@ def update_cart_item(request, item_index):
         cart_items[item_index]['quantity'] = quantity
         request.session[cart_key] = cart_items
         request.session.modified = True
+        request.session.save()  # Explicitly save session
         
         return success_response(
             message='Cart item updated successfully'
@@ -211,6 +222,10 @@ def remove_from_cart(request, item_index):
     Remove item from cart by index
     """
     try:
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        
         user_id = request.user.id
         cart_key = f'cart_{user_id}'
         cart_items = request.session.get(cart_key, [])
@@ -225,6 +240,7 @@ def remove_from_cart(request, item_index):
         cart_items.pop(item_index)
         request.session[cart_key] = cart_items
         request.session.modified = True
+        request.session.save()  # Explicitly save session
         
         return success_response(
             message='Item removed from cart successfully'
@@ -246,10 +262,15 @@ def clear_cart(request):
     Clear entire cart
     """
     try:
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        
         user_id = request.user.id
         cart_key = f'cart_{user_id}'
         request.session[cart_key] = []
         request.session.modified = True
+        request.session.save()  # Explicitly save session
         
         return success_response(
             message='Cart cleared successfully'
@@ -273,6 +294,10 @@ def create_order(request):
     Validates minimum quantity, checks wallet balance, and deducts payment
     """
     try:
+        # Ensure session exists
+        if not request.session.session_key:
+            request.session.create()
+        
         user_id = request.user.id
         cart_key = f'cart_{user_id}'
         cart_items = request.session.get(cart_key, [])
