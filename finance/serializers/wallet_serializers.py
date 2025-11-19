@@ -224,3 +224,39 @@ class WalletSummarySerializer(serializers.Serializer):
         data = super().to_representation(instance)
         data['total_balance'] = float(data['total_balance'])
         return data
+
+
+class WalletTransferSerializer(serializers.Serializer):
+    """Serializer for wallet transfer between users"""
+    recipient_phone = serializers.CharField(
+        max_length=100,
+        help_text="Phone number of the recipient user"
+    )
+    amount = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        help_text="Amount to transfer"
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+        help_text="Optional description for the transfer"
+    )
+    
+    def validate_recipient_phone(self, value):
+        """Validate recipient phone number exists"""
+        from api_common.utils.validation_utils import validate_phone_number
+        if not validate_phone_number(value):
+            raise serializers.ValidationError("Invalid phone number format")
+        
+        if not User.objects.filter(phone=value.strip()).exists():
+            raise serializers.ValidationError("Recipient user with this phone number does not exist")
+        
+        return value.strip()
+    
+    def validate_amount(self, value):
+        """Validate amount is positive"""
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive")
+        return value

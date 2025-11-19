@@ -26,7 +26,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SubscriptionPlan
-        fields = ['id', 'title', 'price', 'permissions', 'permission_ids', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'price', 'dealer_price', 'permissions', 'permission_ids', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
     
     def create(self, validated_data):
@@ -77,7 +77,7 @@ class SubscriptionPlanListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SubscriptionPlan
-        fields = ['id', 'title', 'price', 'permissions_count', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'price', 'dealer_price', 'permissions_count', 'created_at', 'updated_at']
     
     def get_permissions_count(self, obj):
         return obj.permissions.count()

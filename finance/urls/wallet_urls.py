@@ -11,4 +11,5 @@ urlpatterns = [
     path('<int:wallet_id>/topup/', wallet_views.topup_wallet, name='topup_wallet'),
     path('<int:wallet_id>/delete/', wallet_views.delete_wallet, name='delete_wallet'),
     path('summary/', wallet_views.get_wallet_summary, name='get_wallet_summary'),
+    path('transfer/', wallet_views.transfer_wallet_balance, name='transfer_wallet_balance'),
 ]

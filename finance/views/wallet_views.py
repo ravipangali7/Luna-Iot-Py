@@ -21,7 +21,8 @@ from finance.serializers import (
     WalletBalanceUpdateSerializer,
     WalletTopUpSerializer,
     WalletDetailSerializer,
-    WalletSummarySerializer
+    WalletSummarySerializer,
+    WalletTransferSerializer
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
@@ -523,5 +524,103 @@ def get_wallet_summary(request):
         return error_response(
             message="Error retrieving wallet summary",
             data=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def transfer_wallet_balance(request):
+    """
+    Transfer wallet balance from logged-in user to another user by phone number
+    """
+    try:
+        serializer = WalletTransferSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return error_response(
+                message="Validation error",
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        recipient_phone = serializer.validated_data['recipient_phone']
+        amount = Decimal(str(serializer.validated_data['amount']))
+        description = serializer.validated_data.get('description', '')
+        
+        # Get recipient user
+        try:
+            recipient = User.objects.get(phone=recipient_phone)
+        except User.DoesNotExist:
+            return error_response(
+                message="Recipient user not found",
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if trying to transfer to self
+        if recipient.id == request.user.id:
+            return error_response(
+                message="Cannot transfer to your own wallet",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Get sender's wallet
+        try:
+            sender_wallet = Wallet.objects.get(user=request.user)
+        except Wallet.DoesNotExist:
+            return error_response(
+                message="Wallet not found for your account. Please contact administrator.",
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if sender has sufficient balance
+        if sender_wallet.balance < amount:
+            return error_response(
+                message=f"Insufficient wallet balance. Required: {amount}, Available: {sender_wallet.balance}",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Get or create recipient's wallet
+        recipient_wallet, created = Wallet.objects.get_or_create(
+            user=recipient,
+            defaults={'balance': Decimal('0.00')}
+        )
+        
+        # Process transfer atomically
+        from django.db import transaction as db_transaction
+        with db_transaction.atomic():
+            # Deduct from sender's wallet
+            sender_description = f"Transfer to {recipient.name or recipient.phone}" + (f": {description}" if description else "")
+            success = sender_wallet.subtract_balance(
+                amount=amount,
+                description=sender_description,
+                performed_by=request.user
+            )
+            
+            if not success:
+                return error_response(
+                    message="Failed to deduct from your wallet balance.",
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
+                )
+            
+            # Add to recipient's wallet
+            recipient_description = f"Transfer from {request.user.name or request.user.phone}" + (f": {description}" if description else "")
+            recipient_wallet.add_balance(
+                amount=amount,
+                description=recipient_description,
+                performed_by=request.user
+            )
+        
+        # Return updated sender wallet
+        sender_serializer = WalletSerializer(sender_wallet)
+        return success_response(
+            message=f"Successfully transferred {amount} to {recipient.name or recipient.phone}",
+            data=sender_serializer.data
+        )
+    
+    except Exception as e:
+        return error_response(
+            message=f"Error processing transfer: {str(e)}",
             status_code=HTTP_STATUS['INTERNAL_ERROR']
         )

@@ -15,6 +15,15 @@ class DueTransaction(models.Model):
         db_column='user_id',
         help_text="User who owes this due"
     )
+    paid_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='paid_transactions',
+        db_column='paid_by_id',
+        help_text="User who paid for this transaction"
+    )
     subtotal = models.DecimalField(
         max_digits=15,
         decimal_places=2,
@@ -73,6 +82,7 @@ class DueTransaction(models.Model):
             models.Index(fields=['is_paid']),
             models.Index(fields=['expire_date']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['paid_by']),
         ]
 
     def __str__(self):

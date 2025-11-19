@@ -72,12 +72,13 @@ class DueTransactionParticularCreateSerializer(serializers.ModelSerializer):
 class DueTransactionSerializer(serializers.ModelSerializer):
     """Serializer for due transaction with particulars"""
     user_info = serializers.SerializerMethodField()
+    paid_by_info = serializers.SerializerMethodField()
     particulars = DueTransactionParticularSerializer(many=True, read_only=True)
     
     class Meta:
         model = DueTransaction
         fields = [
-            'id', 'user', 'user_info', 'subtotal', 'vat', 'total',
+            'id', 'user', 'user_info', 'paid_by', 'paid_by_info', 'subtotal', 'vat', 'total',
             'renew_date', 'expire_date', 'is_paid', 'pay_date',
             'particulars', 'created_at', 'updated_at'
         ]
@@ -91,6 +92,17 @@ class DueTransactionSerializer(serializers.ModelSerializer):
             'phone': obj.user.phone,
             'is_active': obj.user.is_active
         }
+    
+    def get_paid_by_info(self, obj):
+        """Get paid_by user information"""
+        if obj.paid_by:
+            return {
+                'id': obj.paid_by.id,
+                'name': obj.paid_by.name,
+                'phone': obj.paid_by.phone,
+                'is_active': obj.paid_by.is_active
+            }
+        return None
 
 
 class DueTransactionCreateSerializer(serializers.ModelSerializer):

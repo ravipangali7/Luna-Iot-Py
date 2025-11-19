@@ -279,17 +279,17 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Get wallet of the user who owns the due transaction (not the person paying)
-        transaction_owner = due_transaction.user
+        # Get wallet of the logged-in user (payer), not the transaction owner
+        payer = request.user
         try:
-            wallet = Wallet.objects.get(user=transaction_owner)
+            wallet = Wallet.objects.get(user=payer)
         except Wallet.DoesNotExist:
             return error_response(
-                message="Wallet not found for this user.",
+                message="Wallet not found for your account. Please contact administrator.",
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if wallet has sufficient balance (applies to all roles including Super Admin)
+        # Check if payer's wallet has sufficient balance
         if wallet.balance < due_transaction.total:
             return error_response(
                 message=f"Insufficient wallet balance. Required: {due_transaction.total}, Available: {wallet.balance}",
@@ -299,10 +299,10 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
         # Process payment
         pay_date = timezone.now()
         with db_transaction.atomic():
-            # Deduct from wallet (owner's wallet, not the payer's wallet)
+            # Deduct from payer's wallet (logged-in user's wallet)
             success = wallet.subtract_balance(
                 amount=due_transaction.total,
-                description=f"Payment for Due Transaction #{due_transaction.id}" + (f" (paid by {request.user.name or request.user.phone})" if is_super_admin else ""),
+                description=f"Payment for Due Transaction #{due_transaction.id} (User: {due_transaction.user.name or due_transaction.user.phone})",
                 performed_by=request.user
             )
             
@@ -315,6 +315,7 @@ def pay_due_transaction_with_wallet(request, due_transaction_id):
             # Update due transaction
             due_transaction.is_paid = True
             due_transaction.pay_date = pay_date
+            due_transaction.paid_by = request.user
             due_transaction.save()
             
             # Renew all vehicles associated with paid particulars
@@ -384,17 +385,17 @@ def pay_particular_with_wallet(request, particular_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Get wallet of the user who owns the due transaction (not the person paying)
-        transaction_owner = particular.due_transaction.user
+        # Get wallet of the logged-in user (payer), not the transaction owner
+        payer = request.user
         try:
-            wallet = Wallet.objects.get(user=transaction_owner)
+            wallet = Wallet.objects.get(user=payer)
         except Wallet.DoesNotExist:
             return error_response(
-                message="Wallet not found for this user.",
+                message="Wallet not found for your account. Please contact administrator.",
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if wallet has sufficient balance (applies to all roles including Super Admin)
+        # Check if payer's wallet has sufficient balance
         if wallet.balance < particular.total:
             return error_response(
                 message=f"Insufficient wallet balance. Required: {particular.total}, Available: {wallet.balance}",
@@ -403,11 +404,12 @@ def pay_particular_with_wallet(request, particular_id):
         
         # Process partial payment
         pay_date = timezone.now()
+        transaction_owner = particular.due_transaction.user
         with db_transaction.atomic():
-            # Deduct from wallet (owner's wallet, not the payer's wallet)
+            # Deduct from payer's wallet (logged-in user's wallet)
             success = wallet.subtract_balance(
                 amount=particular.total,
-                description=f"Payment for Particular #{particular.id} (Vehicle {particular.vehicle.id})" + (f" (paid by {request.user.name or request.user.phone})" if is_super_admin else ""),
+                description=f"Payment for Particular #{particular.id} (Vehicle {particular.vehicle.id}, User: {transaction_owner.name or transaction_owner.phone})",
                 performed_by=request.user
             )
             
@@ -435,7 +437,8 @@ def pay_particular_with_wallet(request, particular_id):
                 renew_date=original_due.renew_date,
                 expire_date=original_due.expire_date,
                 is_paid=True,
-                pay_date=pay_date
+                pay_date=pay_date,
+                paid_by=request.user
             )
             
             # Create new particular for the paid due transaction
