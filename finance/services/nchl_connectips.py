@@ -5,7 +5,7 @@ Handles token generation, payment form creation, and transaction validation
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
-from OpenSSL import crypto
+from cryptography.hazmat.primitives.serialization import pkcs12
 import base64
 import requests
 from requests.auth import HTTPBasicAuth
@@ -58,14 +58,17 @@ class NCHLConnectIPS:
             with open(pfx_full_path, 'rb') as f:
                 pfx_data = f.read()
             
-            p12 = crypto.load_pkcs12(pfx_data, self.pfx_password.encode())
-            private_key = p12.get_privatekey()
-            private_key_pem = crypto.dump_privatekey(crypto.FILETYPE_PEM, private_key)
-            self._private_key = serialization.load_pem_private_key(
-                private_key_pem,
-                password=None,
+            # Load PKCS12 using cryptography library
+            private_key_obj, certificate, additional_certificates = pkcs12.load_key_and_certificates(
+                pfx_data,
+                self.pfx_password.encode(),
                 backend=default_backend()
             )
+            
+            if private_key_obj is None:
+                raise ValueError("Failed to extract private key from PFX certificate. Check password.")
+            
+            self._private_key = private_key_obj
         return self._private_key
     
     def _sign_message(self, message):
