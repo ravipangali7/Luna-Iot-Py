@@ -27,7 +27,6 @@ grpcio-status==1.75.1
 httplib2==0.31.0
 idna==3.10
 msgpack==1.1.1
-mysqlclient==2.2.7
 pillow==11.3.0
 proto-plus==1.26.1
 protobuf==6.32.1
