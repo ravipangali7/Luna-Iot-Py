@@ -31,6 +31,65 @@ except ImportError:
     SchoolBus = None
 
 
+def exclude_school_bus_for_parents(queryset, user):
+    """
+    Exclude school bus vehicles from queryset for parents who only have access via SchoolParent.
+    Parents should access school bus vehicles through school bus specific endpoints only.
+    
+    Args:
+        queryset: Vehicle queryset to filter
+        user: User instance to check access for
+    
+    Returns:
+        Filtered queryset excluding school bus vehicles that parent only has access to via SchoolParent
+    """
+    if not SchoolParent or not SchoolBus:
+        return queryset
+    
+    try:
+        # Check if user is a school parent
+        is_school_parent = SchoolParent.objects.filter(parent=user).exists()
+        if not is_school_parent:
+            return queryset
+        
+        # Get school bus vehicle IDs that parent has access to via SchoolParent
+        school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
+        school_bus_vehicle_ids = set()
+        for school_parent in school_parents:
+            for school_bus in school_parent.school_buses.all():
+                if school_bus.bus and school_bus.bus.is_active:
+                    school_bus_vehicle_ids.add(school_bus.bus.id)
+        
+        if not school_bus_vehicle_ids:
+            return queryset
+        
+        # Get vehicles that parent has direct access to (UserVehicle or UserDevice)
+        direct_access_vehicle_ids = set(
+            Vehicle.objects.filter(
+                Q(userVehicles__user=user) |
+                Q(device__userDevices__user=user)
+            ).values_list('id', flat=True)
+        )
+        
+        # Exclude school bus vehicles that parent only has access to via SchoolParent
+        # (keep them if parent has direct access)
+        school_bus_ids_to_exclude = [
+            vid for vid in school_bus_vehicle_ids 
+            if vid not in direct_access_vehicle_ids
+        ]
+        
+        if school_bus_ids_to_exclude:
+            queryset = queryset.exclude(
+                id__in=school_bus_ids_to_exclude,
+                vehicleType=VehicleType.SCHOOL_BUS
+            )
+        
+        return queryset
+    except Exception:
+        # If there's any error, return queryset as-is
+        return queryset
+
+
 def calculate_distance(lat1, lon1, lat2, lon2):
     """
     Calculate distance between two points using Haversine formula
@@ -108,6 +167,9 @@ def get_all_vehicles(request):
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         vehicles_data = []
         for vehicle in vehicles:
@@ -218,6 +280,9 @@ def get_all_vehicles_detailed(request):
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         vehicles_data = []
         for vehicle in vehicles:
@@ -1401,6 +1466,9 @@ def get_vehicles_with_access_paginated(request):
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)
@@ -1525,6 +1593,9 @@ def search_vehicles_with_access(request):
                     Q(device__userDevices__user=user)  # Device access
                 )
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)
@@ -1627,36 +1698,13 @@ def get_vehicles_paginated(request):
             vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
         else:
             # Build query for vehicles where user has access
-            vehicle_filters = Q(
+            vehicles = Vehicle.objects.filter(
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
-            )
+            ).select_related('device').prefetch_related('userVehicles__user').distinct()
             
-            # Add school bus access: if vehicle type is SchoolBus and user is a school parent
-            # with relationship: vehicle -> school_bus -> school_parent -> user
-            if SchoolParent and SchoolBus:
-                try:
-                    # Check if user is a school parent
-                    school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
-                    if school_parents.exists():
-                        # Get vehicle IDs from school buses associated with this parent
-                        school_bus_vehicle_ids = set()
-                        for school_parent in school_parents:
-                            for school_bus in school_parent.school_buses.all():
-                                if school_bus.bus and school_bus.bus.is_active:
-                                    school_bus_vehicle_ids.add(school_bus.bus.id)
-                        
-                        # Add school bus vehicles to the filter
-                        if school_bus_vehicle_ids:
-                            vehicle_filters |= Q(
-                                id__in=school_bus_vehicle_ids,
-                                vehicleType=VehicleType.SCHOOL_BUS
-                            )
-                except Exception:
-                    # If there's any error with school models, just continue without school bus access
-                    pass
-            
-            vehicles = Vehicle.objects.filter(vehicle_filters).select_related('device').prefetch_related('userVehicles__user').distinct()
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)
@@ -1917,6 +1965,9 @@ def search_vehicles(request):
                 )
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
             
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
+            
             # Also include vehicles that match search through device-related users
             # even if current user doesn't have direct access
             additional_vehicles = Vehicle.objects.filter(
@@ -1926,6 +1977,9 @@ def search_vehicles(request):
                 Q(userVehicles__user=user) |  # Exclude vehicles user already has access to
                 Q(device__userDevices__user=user)
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles from additional_vehicles for parents
+            additional_vehicles = exclude_school_bus_for_parents(additional_vehicles, user)
             
             
             # Combine the results
@@ -2170,6 +2224,9 @@ def search_vehicles_by_expire(request):
                     Q(device__userDevices__user=user)  # Device access
                 )
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
         
         # Create paginator
         paginator = Paginator(vehicles, page_size)
@@ -2454,7 +2511,13 @@ def get_light_vehicles(request):
             vehicles = Vehicle.objects.filter(
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
-            ).filter(is_active=True).values(
+            ).filter(is_active=True)
+            
+            # Exclude school bus vehicles for parents (they access via school bus endpoints)
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
+            
+            # Apply values() after exclusion
+            vehicles = vehicles.values(
                 'id', 'imei', 'name', 'vehicleNo', 'vehicleType', 'is_active'
             ).distinct().order_by('name')
         
