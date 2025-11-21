@@ -12,8 +12,8 @@ class PaymentInitiateSerializer(serializers.Serializer):
     amount = serializers.DecimalField(
         max_digits=15,
         decimal_places=2,
-        min_value=Decimal('0.01'),
-        help_text="Amount in NPR (not paisa)"
+        min_value=Decimal('200'),
+        help_text="Amount in NPR (not paisa). Minimum amount is ₹200."
     )
     remarks = serializers.CharField(
         max_length=50,
@@ -31,9 +31,9 @@ class PaymentInitiateSerializer(serializers.Serializer):
     )
     
     def validate_amount(self, value):
-        """Validate amount is positive"""
-        if value <= 0:
-            raise serializers.ValidationError("Amount must be greater than 0")
+        """Validate amount meets minimum requirement"""
+        if value < 200:
+            raise serializers.ValidationError("Amount must be at least ₹200")
         return value
 
 
