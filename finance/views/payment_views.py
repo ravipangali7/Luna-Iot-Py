@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from decimal import Decimal
 import uuid
 import os
+import re
 
 from finance.models import Wallet, PaymentTransaction, Transaction
 from finance.serializers import (
@@ -143,13 +144,38 @@ def payment_callback(request):
     Handle payment callback from ConnectIPS gateway.
     
     Query params:
-    - txn_id: Transaction ID from ConnectIPS
+    - txn_id or TXNID: Transaction ID from ConnectIPS (case-insensitive)
     - status: success or failure
     
     This endpoint validates the transaction and updates wallet balance.
+    Handles both standard format (?txn_id=...) and malformed format (?status=success?TXNID=...).
     """
     try:
+        # Try to get transaction ID from various parameter name formats
+        # Check lowercase first (standard format)
         txn_id = request.GET.get('txn_id')
+        
+        # If not found, try uppercase (ConnectIPS sometimes sends TXNID)
+        if not txn_id:
+            txn_id = request.GET.get('TXNID')
+        
+        # If still not found, try case-insensitive lookup in all GET parameters
+        if not txn_id:
+            for key, value in request.GET.items():
+                if key.upper() == 'TXNID' or key.lower() == 'txn_id':
+                    txn_id = value
+                    break
+        
+        # If still not found, try to parse from malformed query string
+        # Handle cases like ?status=success?TXNID=TXN-CC8952FECE23
+        if not txn_id:
+            query_string = request.META.get('QUERY_STRING', '')
+            if query_string:
+                # Look for TXNID= or txn_id= in the query string
+                txn_id_match = re.search(r'(?:TXNID|txn_id)=([^&?]+)', query_string, re.IGNORECASE)
+                if txn_id_match:
+                    txn_id = txn_id_match.group(1)
+        
         callback_status = request.GET.get('status', '').lower()
         
         if not txn_id:
