@@ -167,14 +167,21 @@ def payment_callback(request):
                     break
         
         # If still not found, try to parse from malformed query string
-        # Handle cases like ?status=success?TXNID=TXN-CC8952FECE23
+        # Handle cases like ?status=success?TXNID=TXN-65063ACA3F63
         if not txn_id:
             query_string = request.META.get('QUERY_STRING', '')
             if query_string:
-                # Look for TXNID= or txn_id= in the query string
-                txn_id_match = re.search(r'(?:TXNID|txn_id)=([^&?]+)', query_string, re.IGNORECASE)
+                # Look for TXNID= or txn_id= in the query string (case-insensitive)
+                # Pattern matches: TXNID=value or txn_id=value where value contains alphanumeric and hyphens
+                # The [^&?]+ pattern captures everything until & or ? or end of string
+                txn_id_match = re.search(r'(?:TXNID|txn_id)\s*=\s*([A-Z0-9\-]+)', query_string, re.IGNORECASE)
                 if txn_id_match:
-                    txn_id = txn_id_match.group(1)
+                    txn_id = txn_id_match.group(1).strip()
+                else:
+                    # Fallback: try more flexible pattern that captures until &, ?, or end
+                    txn_id_match = re.search(r'(?:TXNID|txn_id)\s*=\s*([^&?\s]+)', query_string, re.IGNORECASE)
+                    if txn_id_match:
+                        txn_id = txn_id_match.group(1).strip()
         
         callback_status = request.GET.get('status', '').lower()
         
