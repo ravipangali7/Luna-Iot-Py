@@ -92,7 +92,12 @@ def create_vehicle_document(request, imei):
             data['vehicle'] = vehicle.id
             data['title'] = request.POST.get('title', '')
             data['last_expire_date'] = request.POST.get('last_expire_date', '')
-            data['expire_in_month'] = request.POST.get('expire_in_month', '')
+            expire_in_month_str = request.POST.get('expire_in_month', '')
+            if expire_in_month_str:
+                try:
+                    data['expire_in_month'] = int(expire_in_month_str)
+                except (ValueError, TypeError):
+                    pass  # Let serializer handle validation
             data['remarks'] = request.POST.get('remarks', '')
             
             if 'document_image_one' in request.FILES:
@@ -159,7 +164,12 @@ def update_vehicle_document(request, imei, document_id):
             if 'last_expire_date' in request.POST:
                 data['last_expire_date'] = request.POST.get('last_expire_date')
             if 'expire_in_month' in request.POST:
-                data['expire_in_month'] = request.POST.get('expire_in_month')
+                expire_in_month_str = request.POST.get('expire_in_month')
+                if expire_in_month_str:
+                    try:
+                        data['expire_in_month'] = int(expire_in_month_str)
+                    except (ValueError, TypeError):
+                        pass  # Let serializer handle validation
             if 'remarks' in request.POST:
                 data['remarks'] = request.POST.get('remarks')
             
