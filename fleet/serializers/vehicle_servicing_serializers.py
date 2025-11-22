@@ -67,7 +67,7 @@ class VehicleServicingListSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleServicing
         fields = [
-            'id', 'vehicle', 'vehicle_name', 'title', 'odometer', 'amount', 'date', 'created_at'
+            'id', 'vehicle', 'vehicle_name', 'title', 'odometer', 'amount', 'date', 'remarks', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 
