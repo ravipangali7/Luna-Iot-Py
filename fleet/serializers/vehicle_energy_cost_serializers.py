@@ -88,7 +88,7 @@ class VehicleEnergyCostListSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleEnergyCost
         fields = [
-            'id', 'vehicle_name', 'title', 'energy_type', 
+            'id', 'vehicle', 'vehicle_name', 'title', 'energy_type', 
             'entry_date', 'amount', 'total_unit', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

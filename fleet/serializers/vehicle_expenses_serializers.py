@@ -82,7 +82,7 @@ class VehicleExpensesListSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleExpenses
         fields = [
-            'id', 'vehicle_name', 'title', 'expenses_type', 
+            'id', 'vehicle', 'vehicle_name', 'title', 'expenses_type', 
             'entry_date', 'amount', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']

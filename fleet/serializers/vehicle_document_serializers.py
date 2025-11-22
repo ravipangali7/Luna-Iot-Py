@@ -62,7 +62,7 @@ class VehicleDocumentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleDocument
         fields = [
-            'id', 'vehicle_name', 'title', 'last_expire_date', 
+            'id', 'vehicle', 'vehicle_name', 'title', 'last_expire_date', 
             'expire_in_month', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
