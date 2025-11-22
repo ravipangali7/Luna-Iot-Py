@@ -19,6 +19,7 @@ class VehicleSerializer(serializers.ModelSerializer):
             'id', 'imei', 'device_imei', 'device_model', 'name', 
             'vehicleNo', 'vehicleType', 'odometer', 'mileage', 
             'minimumFuel', 'speedLimit', 'expireDate', 'is_active',
+            'servicing_distance_period', 'number_plate_photo',
             'createdAt', 'updatedAt'
         ]
         read_only_fields = ['id', 'createdAt', 'updatedAt']
@@ -35,7 +36,8 @@ class VehicleCreateSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'imei', 'name', 'vehicleNo', 'vehicleType', 
-            'odometer', 'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active'
+            'odometer', 'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active',
+            'servicing_distance_period', 'number_plate_photo'
         ]
     
     def validate_imei(self, value):
@@ -106,7 +108,8 @@ class VehicleUpdateSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'name', 'vehicleNo', 'vehicleType', 'odometer', 
-            'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active'
+            'mileage', 'minimumFuel', 'speedLimit', 'expireDate', 'is_active',
+            'servicing_distance_period', 'number_plate_photo'
         ]
     
     def validate_name(self, value):

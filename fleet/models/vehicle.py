@@ -16,6 +16,8 @@ class Vehicle(models.Model):
     expireDate = models.DateTimeField(null=True, blank=True, db_column='expire_date')
     is_active = models.BooleanField(default=True, db_column='is_active')
     is_relay = models.BooleanField(default=False, db_column='is_relay')
+    servicing_distance_period = models.IntegerField(default=10000, db_column='servicing_distance_period', help_text="Distance in kilometers between servicing")
+    number_plate_photo = models.ImageField(upload_to='vehicles/number_plates/', blank=True, null=True, db_column='number_plate_photo')
     createdAt = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updatedAt = models.DateTimeField(auto_now=True, db_column='updated_at')
 

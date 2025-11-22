@@ -1,0 +1,345 @@
+"""
+Vehicle Document Views
+Handles CRUD operations for vehicle document records
+"""
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.db.models import Q
+from datetime import datetime, timedelta
+
+from api_common.utils.response_utils import success_response, error_response
+from api_common.decorators.auth_decorators import require_auth
+from api_common.constants.api_constants import HTTP_STATUS
+from api_common.utils.exception_utils import handle_api_exception
+
+from fleet.models import Vehicle, VehicleDocument
+from fleet.serializers.vehicle_document_serializers import (
+    VehicleDocumentSerializer,
+    VehicleDocumentCreateSerializer,
+    VehicleDocumentUpdateSerializer,
+    VehicleDocumentListSerializer,
+    VehicleDocumentRenewSerializer
+)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_vehicle_documents(request, imei):
+    """Get all document records for a vehicle"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access to vehicle
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            has_access = vehicle.userVehicles.filter(user=user).exists() or \
+                        vehicle.device.userDevices.filter(user=user).exists()
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        documents = VehicleDocument.objects.filter(vehicle=vehicle).order_by('-last_expire_date', '-created_at')
+        serializer = VehicleDocumentListSerializer(documents, many=True)
+        
+        return success_response(serializer.data, 'Document records retrieved successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@require_auth
+def create_vehicle_document(request, imei):
+    """Create a new document record for a vehicle"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access to vehicle
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            user_vehicle = vehicle.userVehicles.filter(user=user).first()
+            has_access = user_vehicle and (user_vehicle.allAccess or user_vehicle.edit)
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        # Handle multipart form data for image uploads
+        data = {}
+        files = {}
+        
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            data['vehicle'] = vehicle.id
+            data['title'] = request.POST.get('title', '')
+            data['last_expire_date'] = request.POST.get('last_expire_date', '')
+            data['expire_in_month'] = request.POST.get('expire_in_month', '')
+            data['remarks'] = request.POST.get('remarks', '')
+            
+            if 'document_image_one' in request.FILES:
+                files['document_image_one'] = request.FILES['document_image_one']
+            if 'document_image_two' in request.FILES:
+                files['document_image_two'] = request.FILES['document_image_two']
+        else:
+            # JSON data
+            import json
+            data = json.loads(request.body) if request.body else {}
+            data['vehicle'] = vehicle.id
+        
+        serializer = VehicleDocumentCreateSerializer(data=data)
+        if serializer.is_valid():
+            document = serializer.save(**files)
+            response_serializer = VehicleDocumentSerializer(document)
+            return success_response(response_serializer.data, 'Document record created successfully')
+        else:
+            return error_response(serializer.errors, HTTP_STATUS['BAD_REQUEST'])
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+@require_auth
+def update_vehicle_document(request, imei, document_id):
+    """Update a document record"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Get document record
+        try:
+            document = VehicleDocument.objects.get(id=document_id, vehicle=vehicle)
+        except VehicleDocument.DoesNotExist:
+            return error_response('Document record not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            user_vehicle = vehicle.userVehicles.filter(user=user).first()
+            has_access = user_vehicle and (user_vehicle.allAccess or user_vehicle.edit)
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        # Handle multipart form data for image uploads
+        data = {}
+        files = {}
+        
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            if 'title' in request.POST:
+                data['title'] = request.POST.get('title')
+            if 'last_expire_date' in request.POST:
+                data['last_expire_date'] = request.POST.get('last_expire_date')
+            if 'expire_in_month' in request.POST:
+                data['expire_in_month'] = request.POST.get('expire_in_month')
+            if 'remarks' in request.POST:
+                data['remarks'] = request.POST.get('remarks')
+            
+            if 'document_image_one' in request.FILES:
+                files['document_image_one'] = request.FILES['document_image_one']
+            if 'document_image_two' in request.FILES:
+                files['document_image_two'] = request.FILES['document_image_two']
+        else:
+            # JSON data
+            import json
+            data = json.loads(request.body) if request.body else {}
+        
+        serializer = VehicleDocumentUpdateSerializer(document, data=data, partial=True)
+        if serializer.is_valid():
+            document = serializer.save(**files)
+            response_serializer = VehicleDocumentSerializer(document)
+            return success_response(response_serializer.data, 'Document record updated successfully')
+        else:
+            return error_response(serializer.errors, HTTP_STATUS['BAD_REQUEST'])
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+@require_auth
+def delete_vehicle_document(request, imei, document_id):
+    """Delete a document record"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Get document record
+        try:
+            document = VehicleDocument.objects.get(id=document_id, vehicle=vehicle)
+        except VehicleDocument.DoesNotExist:
+            return error_response('Document record not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            user_vehicle = vehicle.userVehicles.filter(user=user).first()
+            has_access = user_vehicle and (user_vehicle.allAccess or user_vehicle.edit)
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        document.delete()
+        return success_response(None, 'Document record deleted successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def check_document_renewal_threshold(request, imei, document_id):
+    """Check if document needs renewal based on 25% threshold"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Get document record
+        try:
+            document = VehicleDocument.objects.get(id=document_id, vehicle=vehicle)
+        except VehicleDocument.DoesNotExist:
+            return error_response('Document record not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access to vehicle
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            has_access = vehicle.userVehicles.filter(user=user).exists() or \
+                        vehicle.device.userDevices.filter(user=user).exists()
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        # Calculate threshold: last_expire_date + (expire_in_month * 0.75 months)
+        # Manual month calculation
+        months_to_add = int(document.expire_in_month * 0.75)
+        year = document.last_expire_date.year
+        month = document.last_expire_date.month + months_to_add
+        day = document.last_expire_date.day
+        
+        # Handle year overflow
+        while month > 12:
+            month -= 12
+            year += 1
+        
+        threshold_date = datetime(year, month, day).date()
+        current_date = datetime.now().date()
+        needs_renewal = current_date >= threshold_date
+        
+        return success_response({
+            'needs_renewal': needs_renewal,
+            'current_date': current_date.isoformat(),
+            'threshold_date': threshold_date.isoformat(),
+            'last_expire_date': document.last_expire_date.isoformat(),
+            'expire_in_month': document.expire_in_month
+        }, 'Threshold check completed')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+@require_auth
+def renew_vehicle_document(request, imei, document_id):
+    """Renew a document by updating last_expire_date"""
+    try:
+        user = request.user
+        
+        # Get vehicle and check access
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Get document record
+        try:
+            document = VehicleDocument.objects.get(id=document_id, vehicle=vehicle)
+        except VehicleDocument.DoesNotExist:
+            return error_response('Document record not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Check user access
+        user_group = user.groups.first()
+        has_access = False
+        if user_group and user_group.name == 'Super Admin':
+            has_access = True
+        else:
+            user_vehicle = vehicle.userVehicles.filter(user=user).first()
+            has_access = user_vehicle and (user_vehicle.allAccess or user_vehicle.edit)
+        
+        if not has_access:
+            return error_response('Access denied', HTTP_STATUS['FORBIDDEN'])
+        
+        # Parse request data
+        import json
+        data = json.loads(request.body) if request.body else {}
+        
+        serializer = VehicleDocumentRenewSerializer(data=data)
+        if not serializer.is_valid():
+            return error_response(serializer.errors, HTTP_STATUS['BAD_REQUEST'])
+        
+        # Renew document: Update last_expire_date = last_expire_date + expire_in_month months
+        # Manual month calculation
+        year = document.last_expire_date.year
+        month = document.last_expire_date.month + document.expire_in_month
+        day = document.last_expire_date.day
+        
+        # Handle year overflow
+        while month > 12:
+            month -= 12
+            year += 1
+        
+        document.last_expire_date = datetime(year, month, day).date()
+        document.save()
+        
+        response_serializer = VehicleDocumentSerializer(document)
+        return success_response(response_serializer.data, 'Document renewed successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
