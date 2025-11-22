@@ -12,7 +12,7 @@ from api_common.decorators.auth_decorators import require_auth
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.exception_utils import handle_api_exception
 
-from fleet.models import Vehicle, VehicleEnergyCost
+from fleet.models import Vehicle, VehicleEnergyCost, UserVehicle
 from fleet.serializers.vehicle_energy_cost_serializers import (
     VehicleEnergyCostSerializer,
     VehicleEnergyCostCreateSerializer,
@@ -181,6 +181,46 @@ def delete_vehicle_energy_cost(request, imei, energy_cost_id):
         
         energy_cost.delete()
         return success_response(None, 'Energy cost record deleted successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_all_owned_vehicle_energy_costs(request):
+    """Get all energy cost records for all vehicles where user has isMain=True"""
+    try:
+        user = request.user
+        
+        # Get all vehicles where user has isMain=True
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles
+            owned_vehicles = Vehicle.objects.all()
+        else:
+            # Get vehicles where user has isMain=True
+            owned_vehicle_ids = UserVehicle.objects.filter(
+                user=user,
+                isMain=True
+            ).values_list('vehicle_id', flat=True)
+            owned_vehicles = Vehicle.objects.filter(id__in=owned_vehicle_ids)
+        
+        # Group energy costs by vehicle
+        result = {}
+        for vehicle in owned_vehicles:
+            energy_costs = VehicleEnergyCost.objects.filter(vehicle=vehicle).order_by('-entry_date', '-created_at')
+            if energy_costs.exists():
+                serializer = VehicleEnergyCostListSerializer(energy_costs, many=True)
+                result[str(vehicle.id)] = {
+                    'vehicle_id': vehicle.id,
+                    'vehicle_name': vehicle.name,
+                    'vehicle_imei': vehicle.imei,
+                    'energy_costs': serializer.data
+                }
+        
+        return success_response(result, 'All owned vehicle energy cost records retrieved successfully')
     
     except Exception as e:
         return handle_api_exception(e)

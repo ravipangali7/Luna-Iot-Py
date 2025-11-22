@@ -13,7 +13,7 @@ from api_common.decorators.auth_decorators import require_auth
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.exception_utils import handle_api_exception
 
-from fleet.models import Vehicle, VehicleServicing
+from fleet.models import Vehicle, VehicleServicing, UserVehicle
 from fleet.serializers.vehicle_servicing_serializers import (
     VehicleServicingSerializer,
     VehicleServicingCreateSerializer,
@@ -240,6 +240,46 @@ def check_servicing_threshold(request, imei):
             'last_service_odometer': float(last_servicing.odometer),
             'last_service_date': last_servicing.date.isoformat() if last_servicing.date else None
         }, 'Threshold check completed')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_all_owned_vehicle_servicings(request):
+    """Get all servicing records for all vehicles where user has isMain=True"""
+    try:
+        user = request.user
+        
+        # Get all vehicles where user has isMain=True
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles
+            owned_vehicles = Vehicle.objects.all()
+        else:
+            # Get vehicles where user has isMain=True
+            owned_vehicle_ids = UserVehicle.objects.filter(
+                user=user,
+                isMain=True
+            ).values_list('vehicle_id', flat=True)
+            owned_vehicles = Vehicle.objects.filter(id__in=owned_vehicle_ids)
+        
+        # Group servicings by vehicle
+        result = {}
+        for vehicle in owned_vehicles:
+            servicings = VehicleServicing.objects.filter(vehicle=vehicle).order_by('-date', '-created_at')
+            if servicings.exists():
+                serializer = VehicleServicingListSerializer(servicings, many=True)
+                result[str(vehicle.id)] = {
+                    'vehicle_id': vehicle.id,
+                    'vehicle_name': vehicle.name,
+                    'vehicle_imei': vehicle.imei,
+                    'servicings': serializer.data
+                }
+        
+        return success_response(result, 'All owned vehicle servicing records retrieved successfully')
     
     except Exception as e:
         return handle_api_exception(e)

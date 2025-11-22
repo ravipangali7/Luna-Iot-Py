@@ -12,7 +12,7 @@ from api_common.decorators.auth_decorators import require_auth
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.exception_utils import handle_api_exception
 
-from fleet.models import Vehicle, VehicleExpenses
+from fleet.models import Vehicle, VehicleExpenses, UserVehicle
 from fleet.serializers.vehicle_expenses_serializers import (
     VehicleExpensesSerializer,
     VehicleExpensesCreateSerializer,
@@ -181,6 +181,46 @@ def delete_vehicle_expense(request, imei, expense_id):
         
         expense.delete()
         return success_response(None, 'Expense record deleted successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_all_owned_vehicle_expenses(request):
+    """Get all expenses records for all vehicles where user has isMain=True"""
+    try:
+        user = request.user
+        
+        # Get all vehicles where user has isMain=True
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles
+            owned_vehicles = Vehicle.objects.all()
+        else:
+            # Get vehicles where user has isMain=True
+            owned_vehicle_ids = UserVehicle.objects.filter(
+                user=user,
+                isMain=True
+            ).values_list('vehicle_id', flat=True)
+            owned_vehicles = Vehicle.objects.filter(id__in=owned_vehicle_ids)
+        
+        # Group expenses by vehicle
+        result = {}
+        for vehicle in owned_vehicles:
+            expenses = VehicleExpenses.objects.filter(vehicle=vehicle).order_by('-entry_date', '-created_at')
+            if expenses.exists():
+                serializer = VehicleExpensesListSerializer(expenses, many=True)
+                result[str(vehicle.id)] = {
+                    'vehicle_id': vehicle.id,
+                    'vehicle_name': vehicle.name,
+                    'vehicle_imei': vehicle.imei,
+                    'expenses': serializer.data
+                }
+        
+        return success_response(result, 'All owned vehicle expenses records retrieved successfully')
     
     except Exception as e:
         return handle_api_exception(e)

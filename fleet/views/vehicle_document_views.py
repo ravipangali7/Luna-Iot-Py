@@ -13,7 +13,7 @@ from api_common.decorators.auth_decorators import require_auth
 from api_common.constants.api_constants import HTTP_STATUS
 from api_common.utils.exception_utils import handle_api_exception
 
-from fleet.models import Vehicle, VehicleDocument
+from fleet.models import Vehicle, VehicleDocument, UserVehicle
 from fleet.serializers.vehicle_document_serializers import (
     VehicleDocumentSerializer,
     VehicleDocumentCreateSerializer,
@@ -339,6 +339,46 @@ def renew_vehicle_document(request, imei, document_id):
         
         response_serializer = VehicleDocumentSerializer(document)
         return success_response(response_serializer.data, 'Document renewed successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def get_all_owned_vehicle_documents(request):
+    """Get all document records for all vehicles where user has isMain=True"""
+    try:
+        user = request.user
+        
+        # Get all vehicles where user has isMain=True
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles
+            owned_vehicles = Vehicle.objects.all()
+        else:
+            # Get vehicles where user has isMain=True
+            owned_vehicle_ids = UserVehicle.objects.filter(
+                user=user,
+                isMain=True
+            ).values_list('vehicle_id', flat=True)
+            owned_vehicles = Vehicle.objects.filter(id__in=owned_vehicle_ids)
+        
+        # Group documents by vehicle
+        result = {}
+        for vehicle in owned_vehicles:
+            documents = VehicleDocument.objects.filter(vehicle=vehicle).order_by('-last_expire_date', '-created_at')
+            if documents.exists():
+                serializer = VehicleDocumentListSerializer(documents, many=True)
+                result[str(vehicle.id)] = {
+                    'vehicle_id': vehicle.id,
+                    'vehicle_name': vehicle.name,
+                    'vehicle_imei': vehicle.imei,
+                    'documents': serializer.data
+                }
+        
+        return success_response(result, 'All owned vehicle document records retrieved successfully')
     
     except Exception as e:
         return handle_api_exception(e)

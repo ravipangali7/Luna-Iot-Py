@@ -37,5 +37,11 @@ urlpatterns = [
     
     # Fleet Report endpoint
     path('vehicle/<str:imei>/report', fleet_report_views.get_vehicle_fleet_report, name='get_vehicle_fleet_report'),
+    
+    # All owned vehicles endpoints (grouped by vehicle)
+    path('servicing/all-owned', vehicle_servicing_views.get_all_owned_vehicle_servicings, name='get_all_owned_vehicle_servicings'),
+    path('expenses/all-owned', vehicle_expenses_views.get_all_owned_vehicle_expenses, name='get_all_owned_vehicle_expenses'),
+    path('energy-cost/all-owned', vehicle_energy_cost_views.get_all_owned_vehicle_energy_costs, name='get_all_owned_vehicle_energy_costs'),
+    path('documents/all-owned', vehicle_document_views.get_all_owned_vehicle_documents, name='get_all_owned_vehicle_documents'),
 ]
 
