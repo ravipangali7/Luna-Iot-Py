@@ -198,7 +198,28 @@ def update_vehicle_document(request, imei, document_id):
         
         serializer = VehicleDocumentUpdateSerializer(document, data=data, partial=True)
         if serializer.is_valid():
+            # Debug: Log what we're about to save
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Updating document {document_id}: files={list(files.keys())}, data keys={list(data.keys())}")
+            
             document = serializer.save(**files)
+            
+            # Handle image deletion explicitly after save
+            # This ensures images are properly cleared when deletion is requested
+            if 'document_image_one' in data and data['document_image_one'] is None:
+                logger.info(f"Clearing document_image_one for document {document_id}")
+                document.document_image_one = None
+                document.save(update_fields=['document_image_one'])
+            if 'document_image_two' in data and data['document_image_two'] is None:
+                logger.info(f"Clearing document_image_two for document {document_id}")
+                document.document_image_two = None
+                document.save(update_fields=['document_image_two'])
+            
+            # Refresh from database to get updated image URLs
+            document.refresh_from_db()
+            logger.info(f"Document updated - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
+            
             response_serializer = VehicleDocumentSerializer(document)
             return success_response(response_serializer.data, 'Document record updated successfully')
         else:

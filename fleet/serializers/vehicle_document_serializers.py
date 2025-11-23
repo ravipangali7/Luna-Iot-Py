@@ -61,6 +61,7 @@ class VehicleDocumentUpdateSerializer(serializers.ModelSerializer):
     def validate_document_image_two(self, value):
         """Allow None to clear the image"""
         return value
+    
 
 
 class VehicleDocumentListSerializer(serializers.ModelSerializer):
