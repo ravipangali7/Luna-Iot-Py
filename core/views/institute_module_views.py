@@ -376,3 +376,65 @@ def get_school_institutes(request):
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
         )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_garbage_institutes(request):
+    """
+    Get institutes where the current user has access to the garbage module
+    For Super Admin: returns all institutes with garbage module enabled
+    For other users: returns only institutes where user has access
+    """
+    try:
+        # Get the garbage module
+        try:
+            garbage_module = Module.objects.get(slug='garbage')
+        except Module.DoesNotExist:
+            return success_response(
+                data=[],
+                message="Garbage module not found"
+            )
+        
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
+        
+        if is_admin:
+            # Super Admin: Get all institutes with garbage module enabled
+            all_institute_modules = InstituteModule.objects.filter(
+                module=garbage_module
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in all_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_garbage_access': True
+                })
+        else:
+            # Regular users: Get only institutes where user has access to garbage module
+            user_institute_modules = InstituteModule.objects.filter(
+                module=garbage_module,
+                users=request.user
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in user_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_garbage_access': True
+                })
+        
+        return success_response(
+            data=institutes_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Garbage institutes retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'fleet',
     'alert_system',
     'school',
+    'garbage',
     'health',
     'finance',
     'phone_call',

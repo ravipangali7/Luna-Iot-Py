@@ -47,6 +47,9 @@ urlpatterns = [
     # School module URLs
     path('api/school/', include('school.urls')),
     
+    # Garbage module URLs
+    path('api/garbage/', include('garbage.urls')),
+    
     # Phone Call module URLs
     path('api/phone-call/', include('phone_call.urls')),
     
