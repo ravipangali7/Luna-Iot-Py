@@ -196,29 +196,47 @@ def update_vehicle_document(request, imei, document_id):
                 # Image deletion requested
                 pass  # Already set to None
         
+        # Debug: Print what we're about to save
+        print(f"=== UPDATE DOCUMENT {document_id} ===")
+        print(f"Files received: {list(files.keys())}")
+        print(f"Data keys: {list(data.keys())}")
+        print(f"Content-Type: {request.content_type}")
+        
         serializer = VehicleDocumentUpdateSerializer(document, data=data, partial=True)
         if serializer.is_valid():
-            # Debug: Log what we're about to save
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f"Updating document {document_id}: files={list(files.keys())}, data keys={list(data.keys())}")
+            print(f"Serializer is valid")
+            print(f"Validated data keys: {list(serializer.validated_data.keys())}")
             
+            # Save with files - DRF should handle file uploads automatically
             document = serializer.save(**files)
+            print(f"After serializer.save() - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
             
             # Handle image deletion explicitly after save
             # This ensures images are properly cleared when deletion is requested
             if 'document_image_one' in data and data['document_image_one'] is None:
-                logger.info(f"Clearing document_image_one for document {document_id}")
+                print(f"Clearing document_image_one for document {document_id}")
                 document.document_image_one = None
                 document.save(update_fields=['document_image_one'])
             if 'document_image_two' in data and data['document_image_two'] is None:
-                logger.info(f"Clearing document_image_two for document {document_id}")
+                print(f"Clearing document_image_two for document {document_id}")
                 document.document_image_two = None
+                document.save(update_fields=['document_image_two'])
+            
+            # If files were provided, ensure they're saved
+            # Sometimes DRF doesn't update files properly, so we do it manually
+            if 'document_image_one' in files:
+                print(f"Manually updating document_image_one from file")
+                document.document_image_one = files['document_image_one']
+                document.save(update_fields=['document_image_one'])
+            if 'document_image_two' in files:
+                print(f"Manually updating document_image_two from file")
+                document.document_image_two = files['document_image_two']
                 document.save(update_fields=['document_image_two'])
             
             # Refresh from database to get updated image URLs
             document.refresh_from_db()
-            logger.info(f"Document updated - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
+            print(f"Final - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
+            print(f"=== END UPDATE DOCUMENT ===")
             
             response_serializer = VehicleDocumentSerializer(document)
             return success_response(response_serializer.data, 'Document record updated successfully')
