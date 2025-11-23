@@ -173,6 +173,17 @@ class Command(BaseCommand):
                         )
                     continue
 
+                # Create entity identifier for duplicate checking (use IMEI as unique identifier)
+                entity_identifier = vehicle.imei
+
+                # Check if notification was sent for this vehicle in last 24 hours
+                if not self._should_send_notification_for_entity(vehicle.id, 'servicing', entity_identifier):
+                    if verbose:
+                        self.stdout.write(
+                            f'Skipping notification for vehicle {vehicle.name} ({vehicle.imei}) - already sent in last 24 hours'
+                        )
+                    continue
+
                 # Create notification message
                 last_service_info = ''
                 if vehicle_info['last_servicing']:
@@ -183,9 +194,10 @@ class Command(BaseCommand):
                 else:
                     last_service_info = 'No previous service record. '
 
-                title = f'Vehicle Servicing Required: {vehicle.name}'
+                # Include IMEI in title and message for better entity identification
+                title = f'Vehicle Servicing Required: {vehicle.name} ({vehicle.imei})'
                 message = (
-                    f'{vehicle.name} ({vehicle.vehicleNo}) needs servicing. '
+                    f'{vehicle.name} ({vehicle.vehicleNo}) - IMEI: {vehicle.imei} needs servicing. '
                     f'{last_service_info}'
                     f'Current odometer: {vehicle_info["current_odometer"]:.0f} km. '
                     f'Threshold: {vehicle_info["threshold_odometer"]:.0f} km.'
@@ -284,6 +296,17 @@ class Command(BaseCommand):
                         )
                     continue
 
+                # Create entity identifier for duplicate checking (document title + vehicle IMEI)
+                entity_identifier = f'{document.title} {vehicle.imei}'
+
+                # Check if notification was sent for this document in last 24 hours
+                if not self._should_send_notification_for_entity(document.id, 'document', entity_identifier):
+                    if verbose:
+                        self.stdout.write(
+                            f'Skipping notification for document {document.title} ({vehicle.imei}) - already sent in last 24 hours'
+                        )
+                    continue
+
                 # Get expiry date from doc_info (already calculated)
                 expiry_date = doc_info['expiry_date']
                 current_date = doc_info['current_date']
@@ -292,19 +315,20 @@ class Command(BaseCommand):
                 days_until_expiry = (expiry_date - current_date).days
                 
                 # Create notification message based on expiry status
-                title = f'Document Renewal Required: {document.title}'
+                # Include document title and vehicle IMEI for better entity identification
+                title = f'Document Renewal Required: {document.title} ({vehicle.imei})'
                 
                 if days_until_expiry > 0:
                     # Not expired yet - show days remaining
                     message = (
-                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) expires in {days_until_expiry} days. '
+                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) - IMEI: {vehicle.imei} expires in {days_until_expiry} days. '
                         f'Last expire date: {document.last_expire_date}. Please renew soon.'
                     )
                 else:
                     # Already expired - show urgent message
                     expired_days = abs(days_until_expiry)
                     message = (
-                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) has EXPIRED - renew as soon as possible. '
+                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) - IMEI: {vehicle.imei} has EXPIRED - renew as soon as possible. '
                         f'Last expire date: {document.last_expire_date}. '
                         f'Expired {expired_days} day{"s" if expired_days != 1 else ""} ago.'
                     )
@@ -357,6 +381,39 @@ class Command(BaseCommand):
         users.update(main_users)
 
         return list(users)
+
+    def _should_send_notification_for_entity(self, entity_id, entity_type, entity_identifier):
+        """
+        Check if notification was sent for this specific entity in last 24 hours
+        Prevents duplicate notifications for the same vehicle/document
+        
+        Args:
+            entity_id: ID of the entity (vehicle_id or document_id)
+            entity_type: 'servicing' or 'document'
+            entity_identifier: Unique identifier string (vehicle IMEI/name or document title + vehicle)
+        
+        Returns:
+            bool: True if notification should be sent (no recent duplicate), False otherwise
+        """
+        yesterday = timezone.now() - timedelta(hours=24)
+        
+        if entity_type == 'servicing':
+            # Check for notifications with vehicle identifier in message
+            recent_notifications = Notification.objects.filter(
+                title__icontains='Vehicle Servicing Required',
+                message__icontains=entity_identifier,
+                createdAt__gte=yesterday
+            ).exists()
+        else:  # document
+            # Check for notifications with document identifier in message
+            recent_notifications = Notification.objects.filter(
+                title__icontains='Document Renewal Required',
+                message__icontains=entity_identifier,
+                createdAt__gte=yesterday
+            ).exists()
+        
+        # Return True if no recent notification found (should send), False if duplicate exists
+        return not recent_notifications
 
     def _send_notification(self, system_user, target_users, title, message, entity_type, entity_id):
         """Create notification and send push notification"""
