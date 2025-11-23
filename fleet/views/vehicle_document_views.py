@@ -158,7 +158,19 @@ def update_vehicle_document(request, imei, document_id):
         data = {}
         files = {}
         
+        print(f"Request method: {request.method}")
+        print(f"Content-Type: {request.content_type}")
+        print(f"request.POST keys: {list(request.POST.keys())}")
+        print(f"request.FILES keys: {list(request.FILES.keys())}")
+        print(f"request.body length: {len(request.body) if request.body else 0}")
+        
         if request.content_type and 'multipart/form-data' in request.content_type:
+            # For PUT requests, Django might not parse multipart automatically
+            # Check if POST and FILES are populated
+            if not request.POST and not request.FILES:
+                # Try to manually parse if needed (though this is usually automatic)
+                print("WARNING: request.POST and request.FILES are empty for multipart/form-data")
+            
             if 'title' in request.POST:
                 data['title'] = request.POST.get('title')
             if 'last_expire_date' in request.POST:
@@ -175,19 +187,24 @@ def update_vehicle_document(request, imei, document_id):
             
             if 'document_image_one' in request.FILES:
                 files['document_image_one'] = request.FILES['document_image_one']
+                print(f"Found document_image_one in FILES: {request.FILES['document_image_one'].name}")
             elif 'delete_image_one' in request.POST and request.POST.get('delete_image_one') == 'true':
                 # Signal to delete image_one
                 data['document_image_one'] = None
+                print("Setting document_image_one to None for deletion")
                 
             if 'document_image_two' in request.FILES:
                 files['document_image_two'] = request.FILES['document_image_two']
+                print(f"Found document_image_two in FILES: {request.FILES['document_image_two'].name}")
             elif 'delete_image_two' in request.POST and request.POST.get('delete_image_two') == 'true':
                 # Signal to delete image_two
                 data['document_image_two'] = None
+                print("Setting document_image_two to None for deletion")
         else:
             # JSON data
             import json
             data = json.loads(request.body) if request.body else {}
+            print(f"Parsed JSON data: {data}")
             # Handle image deletion in JSON (if document_image_one/document_image_two is explicitly null)
             if 'document_image_one' in data and data['document_image_one'] is None:
                 # Image deletion requested
