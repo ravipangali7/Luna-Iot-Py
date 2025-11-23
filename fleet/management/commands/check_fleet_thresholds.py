@@ -131,9 +131,10 @@ class Command(BaseCommand):
                         )
                     continue
 
-                # Calculate threshold: last_service_odometer + (servicing_distance_period * 0.75)
+                # Calculate threshold: last_service_odometer + (servicing_distance_period * 0.90)
+                # 90% complete means 10% remaining
                 threshold_odometer = float(last_servicing.odometer) + (
-                    float(vehicle.servicing_distance_period) * 0.75
+                    float(vehicle.servicing_distance_period) * 0.90
                 )
                 needs_servicing = float(vehicle.odometer) >= threshold_odometer
 
@@ -169,14 +170,6 @@ class Command(BaseCommand):
                     if verbose:
                         self.stdout.write(
                             f'No users to notify for vehicle {vehicle.name} ({vehicle.imei})'
-                        )
-                    continue
-
-                # Check if notification was sent recently (within 24 hours)
-                if not self._should_send_notification(vehicle.id, 'servicing'):
-                    if verbose:
-                        self.stdout.write(
-                            f'Skipping notification for vehicle {vehicle.name} - already sent recently'
                         )
                     continue
 
@@ -237,23 +230,28 @@ class Command(BaseCommand):
 
         for document in documents:
             try:
-                # Calculate threshold: last_expire_date + (expire_in_month * 0.75 months)
-                months_to_add = int(document.expire_in_month * 0.75)
-                year = document.last_expire_date.year
-                month = document.last_expire_date.month + months_to_add
-                day = document.last_expire_date.day
+                # Calculate actual expiry date: last_expire_date + expire_in_month months
+                expiry_year = document.last_expire_date.year
+                expiry_month = document.last_expire_date.month + document.expire_in_month
+                expiry_day = document.last_expire_date.day
 
                 # Handle year overflow
-                while month > 12:
-                    month -= 12
-                    year += 1
+                while expiry_month > 12:
+                    expiry_month -= 12
+                    expiry_year += 1
 
-                threshold_date = datetime(year, month, day).date()
+                expiry_date = datetime(expiry_year, expiry_month, expiry_day).date()
+
+                # Calculate threshold: 1 week before expiry
+                threshold_date = expiry_date - timedelta(days=7)
+                
+                # Check if needs notification (1 week before expiry OR already expired)
                 needs_renewal = current_date >= threshold_date
 
                 if needs_renewal:
                     documents_needing_renewal.append({
                         'document': document,
+                        'expiry_date': expiry_date,
                         'threshold_date': threshold_date,
                         'current_date': current_date,
                     })
@@ -261,7 +259,7 @@ class Command(BaseCommand):
                     if verbose:
                         self.stdout.write(
                             f'Document {document.title} for {document.vehicle.name} needs renewal: '
-                            f'Threshold: {threshold_date}, Current: {current_date}'
+                            f'Expiry: {expiry_date}, Threshold (1 week before): {threshold_date}, Current: {current_date}'
                         )
 
             except Exception as e:
@@ -286,25 +284,9 @@ class Command(BaseCommand):
                         )
                     continue
 
-                # Check if notification was sent recently (within 24 hours)
-                if not self._should_send_notification(document.id, 'document'):
-                    if verbose:
-                        self.stdout.write(
-                            f'Skipping notification for document {document.title} - already sent recently'
-                        )
-                    continue
-
-                # Calculate actual expiry date: last_expire_date + expire_in_month months
-                expiry_year = document.last_expire_date.year
-                expiry_month = document.last_expire_date.month + document.expire_in_month
-                expiry_day = document.last_expire_date.day
-                
-                # Handle year overflow
-                while expiry_month > 12:
-                    expiry_month -= 12
-                    expiry_year += 1
-                
-                expiry_date = datetime(expiry_year, expiry_month, expiry_day).date()
+                # Get expiry date from doc_info (already calculated)
+                expiry_date = doc_info['expiry_date']
+                current_date = doc_info['current_date']
                 
                 # Calculate days until expiry
                 days_until_expiry = (expiry_date - current_date).days
@@ -375,31 +357,6 @@ class Command(BaseCommand):
         users.update(main_users)
 
         return list(users)
-
-    def _should_send_notification(self, entity_id, entity_type):
-        """Check if notification should be sent (prevent duplicates within 24 hours)"""
-        # Check if a similar notification was sent in the last 24 hours for this specific entity
-        yesterday = timezone.now() - timedelta(hours=24)
-        
-        # Search for recent notifications with similar title pattern
-        # We check the message content to see if it contains the entity identifier
-        if entity_type == 'servicing':
-            # For vehicles, we'll check by IMEI or vehicle name in the message
-            # Since we don't store entity_id in notification, we check by message content
-            # This is a simple approach - in production you might want to store entity_id in notification data
-            recent_notifications = Notification.objects.filter(
-                title__icontains='Vehicle Servicing Required',
-                createdAt__gte=yesterday
-            ).count()
-            # Allow one notification per type per day (can be improved to track per vehicle)
-            return recent_notifications == 0
-        else:  # document
-            recent_notifications = Notification.objects.filter(
-                title__icontains='Document Renewal Required',
-                createdAt__gte=yesterday
-            ).count()
-            # Allow one notification per type per day (can be improved to track per document)
-            return recent_notifications == 0
 
     def _send_notification(self, system_user, target_users, title, message, entity_type, entity_id):
         """Create notification and send push notification"""
