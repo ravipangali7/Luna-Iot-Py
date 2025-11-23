@@ -165,38 +165,84 @@ def update_vehicle_document(request, imei, document_id):
         print(f"request.body length: {len(request.body) if request.body else 0}")
         
         if request.content_type and 'multipart/form-data' in request.content_type:
-            # For PUT requests, Django might not parse multipart automatically
-            # Check if POST and FILES are populated
-            if not request.POST and not request.FILES:
-                # Try to manually parse if needed (though this is usually automatic)
-                print("WARNING: request.POST and request.FILES are empty for multipart/form-data")
+            # For PUT requests, Django doesn't parse multipart automatically
+            # We need to manually parse it
+            parsed_post = {}
+            parsed_files = {}
             
-            if 'title' in request.POST:
-                data['title'] = request.POST.get('title')
-            if 'last_expire_date' in request.POST:
-                data['last_expire_date'] = request.POST.get('last_expire_date')
-            if 'expire_in_month' in request.POST:
-                expire_in_month_str = request.POST.get('expire_in_month')
+            if not request.POST and not request.FILES and request.body:
+                print("Manually parsing multipart/form-data for PUT request")
+                try:
+                    from django.http.multipartparser import MultiPartParser
+                    from io import BytesIO
+                    
+                    # Extract boundary from Content-Type
+                    boundary = None
+                    if 'boundary=' in request.content_type:
+                        boundary = request.content_type.split('boundary=')[1].strip()
+                    
+                    if boundary:
+                        # Use MultiPartParser to parse the body
+                        parser = MultiPartParser(
+                            request.META,
+                            BytesIO(request.body),
+                            [],
+                            boundary.encode('utf-8')
+                        )
+                        parsed_data, parsed_file_dict = parser.parse()
+                        
+                        # Convert parsed data to dict
+                        for key, value in parsed_data.items():
+                            if isinstance(value, list) and len(value) > 0:
+                                parsed_post[key] = value[0]
+                            else:
+                                parsed_post[key] = value
+                        
+                        # Convert parsed files to dict
+                        for key, file_list in parsed_file_dict.items():
+                            if file_list:
+                                parsed_files[key] = file_list[0]
+                        
+                        print(f"Parsed POST keys: {list(parsed_post.keys())}")
+                        print(f"Parsed FILES keys: {list(parsed_files.keys())}")
+                    else:
+                        print("ERROR: Could not extract boundary from Content-Type")
+                except Exception as e:
+                    print(f"ERROR parsing multipart data: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                # Use request.POST and request.FILES if they're populated
+                parsed_post = dict(request.POST)
+                parsed_files = dict(request.FILES)
+            
+            # Use parsed data
+            if 'title' in parsed_post:
+                data['title'] = parsed_post.get('title')
+            if 'last_expire_date' in parsed_post:
+                data['last_expire_date'] = parsed_post.get('last_expire_date')
+            if 'expire_in_month' in parsed_post:
+                expire_in_month_str = parsed_post.get('expire_in_month')
                 if expire_in_month_str:
                     try:
                         data['expire_in_month'] = int(expire_in_month_str)
                     except (ValueError, TypeError):
                         pass  # Let serializer handle validation
-            if 'remarks' in request.POST:
-                data['remarks'] = request.POST.get('remarks')
+            if 'remarks' in parsed_post:
+                data['remarks'] = parsed_post.get('remarks')
             
-            if 'document_image_one' in request.FILES:
-                files['document_image_one'] = request.FILES['document_image_one']
-                print(f"Found document_image_one in FILES: {request.FILES['document_image_one'].name}")
-            elif 'delete_image_one' in request.POST and request.POST.get('delete_image_one') == 'true':
+            if 'document_image_one' in parsed_files:
+                files['document_image_one'] = parsed_files['document_image_one']
+                print(f"Found document_image_one in FILES: {parsed_files['document_image_one'].name}")
+            elif 'delete_image_one' in parsed_post and parsed_post.get('delete_image_one') == 'true':
                 # Signal to delete image_one
                 data['document_image_one'] = None
                 print("Setting document_image_one to None for deletion")
                 
-            if 'document_image_two' in request.FILES:
-                files['document_image_two'] = request.FILES['document_image_two']
-                print(f"Found document_image_two in FILES: {request.FILES['document_image_two'].name}")
-            elif 'delete_image_two' in request.POST and request.POST.get('delete_image_two') == 'true':
+            if 'document_image_two' in parsed_files:
+                files['document_image_two'] = parsed_files['document_image_two']
+                print(f"Found document_image_two in FILES: {parsed_files['document_image_two'].name}")
+            elif 'delete_image_two' in parsed_post and parsed_post.get('delete_image_two') == 'true':
                 # Signal to delete image_two
                 data['document_image_two'] = None
                 print("Setting document_image_two to None for deletion")
