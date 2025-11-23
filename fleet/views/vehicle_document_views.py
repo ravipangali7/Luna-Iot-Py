@@ -158,17 +158,9 @@ def update_vehicle_document(request, imei, document_id):
         data = {}
         files = {}
         
-        print(f"Request method: {request.method}")
-        print(f"Content-Type: {request.content_type}")
-        print(f"request.POST keys: {list(request.POST.keys())}")
-        print(f"request.FILES keys: {list(request.FILES.keys())}")
-        # Note: Can't access request.body after multipart parsing (it's already been read)
-        
         if request.content_type and 'multipart/form-data' in request.content_type:
             # For POST requests, Django automatically parses multipart/form-data
             # For PUT requests, we need to manually parse (but we'll use POST for updates with files)
-            print(f"Processing multipart/form-data - POST keys: {list(request.POST.keys())}, FILES keys: {list(request.FILES.keys())}")
-            
             if 'title' in request.POST:
                 data['title'] = request.POST.get('title')
             if 'last_expire_date' in request.POST:
@@ -185,24 +177,19 @@ def update_vehicle_document(request, imei, document_id):
             
             if 'document_image_one' in request.FILES:
                 files['document_image_one'] = request.FILES['document_image_one']
-                print(f"Found document_image_one in FILES: {request.FILES['document_image_one'].name}")
             elif 'delete_image_one' in request.POST and request.POST.get('delete_image_one') == 'true':
                 # Signal to delete image_one
                 data['document_image_one'] = None
-                print("Setting document_image_one to None for deletion")
                 
             if 'document_image_two' in request.FILES:
                 files['document_image_two'] = request.FILES['document_image_two']
-                print(f"Found document_image_two in FILES: {request.FILES['document_image_two'].name}")
             elif 'delete_image_two' in request.POST and request.POST.get('delete_image_two') == 'true':
                 # Signal to delete image_two
                 data['document_image_two'] = None
-                print("Setting document_image_two to None for deletion")
         else:
             # JSON data
             import json
             data = json.loads(request.body) if request.body else {}
-            print(f"Parsed JSON data: {data}")
             # Handle image deletion in JSON (if document_image_one/document_image_two is explicitly null)
             if 'document_image_one' in data and data['document_image_one'] is None:
                 # Image deletion requested
@@ -211,62 +198,42 @@ def update_vehicle_document(request, imei, document_id):
                 # Image deletion requested
                 pass  # Already set to None
         
-        # Debug: Print what we're about to save
-        print(f"=== UPDATE DOCUMENT {document_id} ===")
-        print(f"Files received: {list(files.keys())}")
-        print(f"Data keys: {list(data.keys())}")
-        print(f"Content-Type: {request.content_type}")
-        
         serializer = VehicleDocumentUpdateSerializer(document, data=data, partial=True)
         if serializer.is_valid():
-            print(f"Serializer is valid")
-            print(f"Validated data keys: {list(serializer.validated_data.keys())}")
-            
             try:
                 # Save the document with validated data first
                 document = serializer.save()
-                print(f"After serializer.save() - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
                 
                 # Manually assign files to the instance and save
                 # This is needed because DRF doesn't always handle files correctly in partial updates
                 if 'document_image_one' in files:
-                    print(f"Assigning document_image_one from file")
                     document.document_image_one = files['document_image_one']
                 if 'document_image_two' in files:
-                    print(f"Assigning document_image_two from file")
                     document.document_image_two = files['document_image_two']
                 
                 # Handle image deletion explicitly
                 if 'document_image_one' in data and data['document_image_one'] is None:
-                    print(f"Clearing document_image_one for document {document_id}")
                     document.document_image_one = None
                 if 'document_image_two' in data and data['document_image_two'] is None:
-                    print(f"Clearing document_image_two for document {document_id}")
                     document.document_image_two = None
                 
                 # Save the document with file changes
                 if files or ('document_image_one' in data and data['document_image_one'] is None) or ('document_image_two' in data and data['document_image_two'] is None):
                     document.save()
-                    print(f"After manual save - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
                 
                 # Refresh from database to get updated image URLs
                 document.refresh_from_db()
-                print(f"Final - image_one: {document.document_image_one}, image_two: {document.document_image_two}")
-                print(f"=== END UPDATE DOCUMENT ===")
                 
                 response_serializer = VehicleDocumentSerializer(document)
                 return success_response(response_serializer.data, 'Document record updated successfully')
             except Exception as save_error:
-                print(f"ERROR during save: {save_error}")
                 import traceback
                 traceback.print_exc()
                 return error_response(f'Error saving document: {str(save_error)}', HTTP_STATUS['INTERNAL_SERVER_ERROR'])
         else:
-            print(f"Serializer errors: {serializer.errors}")
             return error_response(serializer.errors, HTTP_STATUS['BAD_REQUEST'])
     
     except Exception as e:
-        print(f"ERROR in update_vehicle_document: {e}")
         import traceback
         traceback.print_exc()
         return handle_api_exception(e)
