@@ -175,12 +175,26 @@ def update_vehicle_document(request, imei, document_id):
             
             if 'document_image_one' in request.FILES:
                 files['document_image_one'] = request.FILES['document_image_one']
+            elif 'delete_image_one' in request.POST and request.POST.get('delete_image_one') == 'true':
+                # Signal to delete image_one
+                data['document_image_one'] = None
+                
             if 'document_image_two' in request.FILES:
                 files['document_image_two'] = request.FILES['document_image_two']
+            elif 'delete_image_two' in request.POST and request.POST.get('delete_image_two') == 'true':
+                # Signal to delete image_two
+                data['document_image_two'] = None
         else:
             # JSON data
             import json
             data = json.loads(request.body) if request.body else {}
+            # Handle image deletion in JSON (if document_image_one/document_image_two is explicitly null)
+            if 'document_image_one' in data and data['document_image_one'] is None:
+                # Image deletion requested
+                pass  # Already set to None
+            if 'document_image_two' in data and data['document_image_two'] is None:
+                # Image deletion requested
+                pass  # Already set to None
         
         serializer = VehicleDocumentUpdateSerializer(document, data=data, partial=True)
         if serializer.is_valid():

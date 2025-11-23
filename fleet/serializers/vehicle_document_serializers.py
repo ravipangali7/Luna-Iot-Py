@@ -53,6 +53,14 @@ class VehicleDocumentUpdateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("Expire in month must be greater than 0")
         return value
+    
+    def validate_document_image_one(self, value):
+        """Allow None to clear the image"""
+        return value
+    
+    def validate_document_image_two(self, value):
+        """Allow None to clear the image"""
+        return value
 
 
 class VehicleDocumentListSerializer(serializers.ModelSerializer):
