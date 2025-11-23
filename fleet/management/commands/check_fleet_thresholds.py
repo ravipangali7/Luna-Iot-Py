@@ -8,7 +8,7 @@ import logging
 from fleet.models import Vehicle, VehicleServicing, VehicleDocument, UserVehicle
 from core.models import User
 from shared.models import Notification, UserNotification
-from api_common.services.firebase_service import send_push_notification
+from api_common.services.nodejs_notification_service import send_push_notification_via_nodejs
 
 logger = logging.getLogger(__name__)
 
@@ -402,19 +402,18 @@ class Command(BaseCommand):
                     user_ids.append(user.id)
                     notifications_created += 1
 
-                # Send push notification
+                # Send push notification via Node.js
                 try:
-                    send_push_notification(
+                    send_push_notification_via_nodejs(
                         notification_id=notification.id,
                         title=title,
-                        body=message,
-                        notification_type='specific',
+                        message=message,
                         target_user_ids=user_ids
                     )
                     logger.info(f'Sent {notifications_created} notifications for {entity_type} {entity_id}')
-                except Exception as firebase_error:
-                    logger.error(f'Firebase notification error: {firebase_error}')
-                    # Don't fail if Firebase fails, notification is still saved
+                except Exception as nodejs_error:
+                    logger.error(f'Node.js notification error: {nodejs_error}')
+                    # Don't fail if Node.js fails, notification is still saved
 
         except Exception as e:
             logger.error(f'Error creating notification: {e}')
