@@ -294,16 +294,38 @@ class Command(BaseCommand):
                         )
                     continue
 
-                # Create notification message
-                days_until_expiry = (document.last_expire_date + timedelta(days=document.expire_in_month * 30) - current_date).days
+                # Calculate actual expiry date: last_expire_date + expire_in_month months
+                expiry_year = document.last_expire_date.year
+                expiry_month = document.last_expire_date.month + document.expire_in_month
+                expiry_day = document.last_expire_date.day
                 
+                # Handle year overflow
+                while expiry_month > 12:
+                    expiry_month -= 12
+                    expiry_year += 1
+                
+                expiry_date = datetime(expiry_year, expiry_month, expiry_day).date()
+                
+                # Calculate days until expiry
+                days_until_expiry = (expiry_date - current_date).days
+                
+                # Create notification message based on expiry status
                 title = f'Document Renewal Required: {document.title}'
-                message = (
-                    f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) needs renewal. '
-                    f'Last expire date: {document.last_expire_date}. '
-                    f'Expires in: {document.expire_in_month} months. '
-                    f'Threshold reached on: {doc_info["threshold_date"]}.'
-                )
+                
+                if days_until_expiry > 0:
+                    # Not expired yet - show days remaining
+                    message = (
+                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) expires in {days_until_expiry} days. '
+                        f'Last expire date: {document.last_expire_date}. Please renew soon.'
+                    )
+                else:
+                    # Already expired - show urgent message
+                    expired_days = abs(days_until_expiry)
+                    message = (
+                        f'{document.title} for {vehicle.name} ({vehicle.vehicleNo}) has EXPIRED - renew as soon as possible. '
+                        f'Last expire date: {document.last_expire_date}. '
+                        f'Expired {expired_days} day{"s" if expired_days != 1 else ""} ago.'
+                    )
 
                 if not dry_run:
                     notifications_sent += self._send_notification(
