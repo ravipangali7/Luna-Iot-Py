@@ -162,7 +162,7 @@ def update_vehicle_document(request, imei, document_id):
         print(f"Content-Type: {request.content_type}")
         print(f"request.POST keys: {list(request.POST.keys())}")
         print(f"request.FILES keys: {list(request.FILES.keys())}")
-        print(f"request.body length: {len(request.body) if request.body else 0}")
+        # Note: Can't access request.body after multipart parsing (it's already been read)
         
         if request.content_type and 'multipart/form-data' in request.content_type:
             # For POST requests, Django automatically parses multipart/form-data
