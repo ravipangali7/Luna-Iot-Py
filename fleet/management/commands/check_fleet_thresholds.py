@@ -123,17 +123,19 @@ class Command(BaseCommand):
                     vehicle=vehicle
                 ).order_by('-date', '-odometer').first()
 
-                # Calculate threshold
+                # Skip vehicle if no previous servicing record exists
                 if not last_servicing:
-                    # No previous servicing, check if current odometer >= 75% of period
-                    threshold_odometer = float(vehicle.servicing_distance_period) * 0.75
-                    needs_servicing = float(vehicle.odometer) >= threshold_odometer
-                else:
-                    # Calculate threshold: last_service_odometer + (servicing_distance_period * 0.75)
-                    threshold_odometer = float(last_servicing.odometer) + (
-                        float(vehicle.servicing_distance_period) * 0.75
-                    )
-                    needs_servicing = float(vehicle.odometer) >= threshold_odometer
+                    if verbose:
+                        self.stdout.write(
+                            f'Skipping vehicle {vehicle.name} ({vehicle.imei}) - no previous service record'
+                        )
+                    continue
+
+                # Calculate threshold: last_service_odometer + (servicing_distance_period * 0.75)
+                threshold_odometer = float(last_servicing.odometer) + (
+                    float(vehicle.servicing_distance_period) * 0.75
+                )
+                needs_servicing = float(vehicle.odometer) >= threshold_odometer
 
                 if needs_servicing:
                     vehicles_needing_servicing.append({
