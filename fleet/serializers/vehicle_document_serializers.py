@@ -58,14 +58,16 @@ class VehicleDocumentUpdateSerializer(serializers.ModelSerializer):
 class VehicleDocumentListSerializer(serializers.ModelSerializer):
     """Serializer for vehicle document list (minimal data)"""
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
+    vehicle_imei = serializers.CharField(source='vehicle.imei', read_only=True)
     
     class Meta:
         model = VehicleDocument
         fields = [
-            'id', 'vehicle', 'vehicle_name', 'title', 'last_expire_date', 
-            'expire_in_month', 'remarks', 'created_at'
+            'id', 'vehicle', 'vehicle_name', 'vehicle_imei', 'title', 
+            'last_expire_date', 'expire_in_month', 'document_image_one', 
+            'document_image_two', 'remarks', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class VehicleDocumentRenewSerializer(serializers.Serializer):
