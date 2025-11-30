@@ -67,12 +67,27 @@ def require_alert_system_module_access(model_class=None, id_param_name='id'):
                 # For create operations, get institute_id from request.data
                 institute_id = request.data.get('institute')
                 if institute_id:
-                    if isinstance(institute_id, dict):
-                        institute_id = institute_id.get('id') or institute_id.get('pk')
+                    # Handle different formats: number, dict, or object
+                    if isinstance(institute_id, (int, float)):
+                        # Already a number
+                        institute_ids = [int(institute_id)]
+                    elif isinstance(institute_id, dict):
+                        # Dictionary format
+                        extracted_id = institute_id.get('id') or institute_id.get('pk')
+                        if extracted_id:
+                            institute_ids = [int(extracted_id)]
                     elif hasattr(institute_id, 'id'):
-                        institute_id = institute_id.id
-                    if institute_id:
-                        institute_ids = [institute_id]
+                        # Object with id attribute
+                        institute_ids = [int(institute_id.id)]
+                    elif isinstance(institute_id, str) and institute_id.isdigit():
+                        # String representation of number
+                        institute_ids = [int(institute_id)]
+                    else:
+                        # Try to convert to int directly
+                        try:
+                            institute_ids = [int(institute_id)]
+                        except (ValueError, TypeError):
+                            pass
             elif request.method in ['PUT', 'DELETE'] and model_class:
                 # For update/delete operations, get record and extract institute_id
                 record_id = kwargs.get(id_param_name) or kwargs.get('contact_id')
