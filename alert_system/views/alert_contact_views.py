@@ -15,6 +15,103 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError
+from core.models import Module, InstituteModule
+
+
+def require_alert_system_module_access(model_class=None, id_param_name='id'):
+    """
+    Decorator to require Super Admin role OR institute module access for alert-system operations
+    
+    Args:
+        model_class: Optional model class to fetch record for PUT/DELETE operations
+                    Should have 'institute' field (ForeignKey)
+        id_param_name: Name of the URL parameter containing the record ID (default: 'id')
+    
+    For create operations (POST): extracts institute_id from request.data['institute']
+    For update/delete operations (PUT/DELETE): fetches record using model_class and extracts institute_id
+    """
+    def decorator(view_func):
+        from functools import wraps
+        from api_common.utils.response_utils import error_response
+        
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            if not hasattr(request, 'user') or not request.user.is_authenticated:
+                return error_response(
+                    message='Authentication required',
+                    status_code=401
+                )
+            
+            # Check if user is Super Admin - always allow
+            user_groups = request.user.groups.all()
+            user_role_names = [group.name for group in user_groups]
+            is_super_admin = 'Super Admin' in user_role_names
+            
+            if is_super_admin:
+                return view_func(request, *args, **kwargs)
+            
+            # For non-Super Admin users, check institute module access
+            try:
+                # Get the alert-system module
+                alert_system_module = Module.objects.get(slug='alert-system')
+            except Module.DoesNotExist:
+                return error_response(
+                    message='Alert system module not found',
+                    status_code=500
+                )
+            
+            # Get institute_id(s) based on HTTP method
+            institute_ids = []
+            
+            if request.method == 'POST':
+                # For create operations, get institute_id from request.data
+                institute_id = request.data.get('institute')
+                if institute_id:
+                    if isinstance(institute_id, dict):
+                        institute_id = institute_id.get('id') or institute_id.get('pk')
+                    elif hasattr(institute_id, 'id'):
+                        institute_id = institute_id.id
+                    if institute_id:
+                        institute_ids = [institute_id]
+            elif request.method in ['PUT', 'DELETE'] and model_class:
+                # For update/delete operations, get record and extract institute_id
+                record_id = kwargs.get(id_param_name) or kwargs.get('contact_id')
+                if record_id:
+                    try:
+                        record = model_class.objects.get(id=record_id)
+                        
+                        # Check if record has direct institute field
+                        if hasattr(record, 'institute'):
+                            institute = record.institute
+                            if institute:
+                                institute_ids = [institute.id if hasattr(institute, 'id') else institute]
+                    except model_class.DoesNotExist:
+                        # Record doesn't exist - let the view handle the 404
+                        pass
+            
+            # Check if user has access to any of the institutes
+            if institute_ids:
+                has_access = InstituteModule.objects.filter(
+                    module=alert_system_module,
+                    institute_id__in=institute_ids,
+                    users=request.user
+                ).exists()
+                
+                if not has_access:
+                    return error_response(
+                        message='Access denied. Insufficient permissions',
+                        status_code=403
+                    )
+            else:
+                # If no institute_id found and not Super Admin, deny access
+                return error_response(
+                    message='Access denied. Insufficient permissions',
+                    status_code=403
+                )
+            
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
 
 
 @api_view(['GET'])
@@ -87,7 +184,7 @@ def get_alert_contacts_by_institute(request, institute_id):
 
 
 @api_view(['POST'])
-@require_super_admin
+@require_alert_system_module_access(AlertContact, 'contact_id')
 @api_response
 def create_alert_contact(request):
     """Create new alert contact"""
@@ -117,7 +214,7 @@ def create_alert_contact(request):
 
 
 @api_view(['PUT'])
-@require_super_admin
+@require_alert_system_module_access(AlertContact, 'contact_id')
 @api_response
 def update_alert_contact(request, contact_id):
     """Update alert contact"""
@@ -156,7 +253,7 @@ def update_alert_contact(request, contact_id):
 
 
 @api_view(['DELETE'])
-@require_super_admin
+@require_alert_system_module_access(AlertContact, 'contact_id')
 @api_response
 def delete_alert_contact(request, contact_id):
     """Delete alert contact"""
