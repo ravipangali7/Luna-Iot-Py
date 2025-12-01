@@ -383,20 +383,29 @@ def get_all_garbage_vehicles_with_locations(request):
     """
     try:
         user = request.user
+        print(f"=== GARBAGE VEHICLES WITH LOCATIONS API ===")
+        print(f"User: {user.name} (ID: {user.id})")
+        print(f"User phone: {user.phone}")
         
         # Check if user is Super Admin
         user_groups = user.groups.all()
+        user_group_names = [g.name for g in user_groups]
+        print(f"User groups: {user_group_names}")
         is_admin = user_groups.filter(name='Super Admin').exists()
+        print(f"Is Super Admin: {is_admin}")
         
         # Get all IMEIs for bulk location query
         all_imeis = set()
         institute_vehicle_map = {}
         
         if is_admin:
+            print("=== ADMIN PATH ===")
             # Super Admin: Get all garbage vehicles from all institutes
             garbage_vehicles = GarbageVehicle.objects.select_related(
                 'vehicle', 'institute'
             ).order_by('-created_at')
+            
+            print(f"Total garbage vehicles (admin): {garbage_vehicles.count()}")
             
             # Group by institute
             for gv in garbage_vehicles:
@@ -411,7 +420,9 @@ def get_all_garbage_vehicles_with_locations(request):
                 
                 institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
                 all_imeis.add(gv.vehicle.imei)
+                print(f"  Added vehicle {gv.vehicle.imei} ({gv.vehicle.name}) for institute {institute.name}")
         else:
+            print("=== REGULAR USER PATH ===")
             # Regular users: Get vehicles they have access to (via userVehicles or userDevices)
             # Then find which institutes those vehicles belong to
             accessible_vehicles = Vehicle.objects.filter(
@@ -422,14 +433,19 @@ def get_all_garbage_vehicles_with_locations(request):
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').distinct()
             
+            print(f"Accessible garbage vehicles count: {accessible_vehicles.count()}")
+            
             # Get IMEIs of accessible vehicles
             accessible_imeis = set(accessible_vehicles.values_list('imei', flat=True))
+            print(f"Accessible IMEIs: {list(accessible_imeis)}")
             
             if accessible_imeis:
                 # Get garbage vehicles for these IMEIs
                 garbage_vehicles = GarbageVehicle.objects.filter(
                     vehicle__imei__in=accessible_imeis
                 ).select_related('vehicle', 'institute').order_by('-created_at')
+                
+                print(f"Garbage vehicles found for accessible IMEIs: {garbage_vehicles.count()}")
                 
                 # Group by institute
                 for gv in garbage_vehicles:
@@ -444,10 +460,17 @@ def get_all_garbage_vehicles_with_locations(request):
                     
                     institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
                     all_imeis.add(gv.vehicle.imei)
+                    print(f"  Added vehicle {gv.vehicle.imei} ({gv.vehicle.name}) for institute {institute.name}")
+            else:
+                print("No accessible IMEIs found - user may not have vehicle access")
+        
+        print(f"Total institutes in map: {len(institute_vehicle_map)}")
+        print(f"Total IMEIs for location lookup: {len(all_imeis)}")
         
         # Get latest locations for all vehicles in one query
         locations_dict = {}
         if all_imeis:
+            print(f"=== FETCHING LOCATIONS ===")
             # Get latest location for each IMEI
             for imei in all_imeis:
                 latest_location = Location.objects.filter(
@@ -467,12 +490,21 @@ def get_all_garbage_vehicles_with_locations(request):
                         'createdAt': latest_location.createdAt.isoformat(),
                         'updatedAt': latest_location.updatedAt.isoformat()
                     }
+                    print(f"  Location found for {imei}: {latest_location.latitude}, {latest_location.longitude}")
+                else:
+                    print(f"  No location found for {imei}")
+        
+        print(f"Total locations found: {len(locations_dict)}")
         
         # Structure response
         response_data = []
+        print(f"=== STRUCTURING RESPONSE ===")
         for institute_id, data in institute_vehicle_map.items():
             institute = data['institute']
             vehicles_data = []
+            
+            print(f"Processing institute: {institute.name} (ID: {institute_id})")
+            print(f"  Vehicles in institute: {len(data['vehicles'])}")
             
             for vehicle in data['vehicles']:
                 # Get vehicle data
@@ -497,6 +529,7 @@ def get_all_garbage_vehicles_with_locations(request):
                     'vehicle': vehicle_data,
                     'location': location
                 })
+                print(f"    Vehicle {vehicle.imei} - Location: {'Yes' if location else 'No'}")
             
             # Only include institutes that have vehicles
             if vehicles_data:
@@ -511,6 +544,12 @@ def get_all_garbage_vehicles_with_locations(request):
                     },
                     'vehicles': vehicles_data
                 })
+                print(f"  Added institute {institute.name} with {len(vehicles_data)} vehicles to response")
+        
+        print(f"=== FINAL RESPONSE ===")
+        print(f"Total institutes in response: {len(response_data)}")
+        total_vehicles = sum(len(item['vehicles']) for item in response_data)
+        print(f"Total vehicles in response: {total_vehicles}")
         
         return success_response(
             data=response_data,
