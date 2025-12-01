@@ -387,82 +387,31 @@ def get_all_garbage_vehicles_with_locations(request):
         print(f"User: {user.name} (ID: {user.id})")
         print(f"User phone: {user.phone}")
         
-        # Check if user is Super Admin
-        user_groups = user.groups.all()
-        user_group_names = [g.name for g in user_groups]
-        print(f"User groups: {user_group_names}")
-        is_admin = user_groups.filter(name='Super Admin').exists()
-        print(f"Is Super Admin: {is_admin}")
-        
         # Get all IMEIs for bulk location query
         all_imeis = set()
         institute_vehicle_map = {}
         
-        if is_admin:
-            print("=== ADMIN PATH ===")
-            # Super Admin: Get all garbage vehicles from all institutes
-            garbage_vehicles = GarbageVehicle.objects.select_related(
-                'vehicle', 'institute'
-            ).order_by('-created_at')
+        # Get all garbage vehicles from all institutes (no access check - everyone can see all)
+        garbage_vehicles = GarbageVehicle.objects.select_related(
+            'vehicle', 'institute'
+        ).order_by('-created_at')
+        
+        print(f"Total garbage vehicles: {garbage_vehicles.count()}")
+        
+        # Group by institute
+        for gv in garbage_vehicles:
+            institute = gv.institute
+            institute_id = institute.id
             
-            print(f"Total garbage vehicles (admin): {garbage_vehicles.count()}")
+            if institute_id not in institute_vehicle_map:
+                institute_vehicle_map[institute_id] = {
+                    'institute': institute,
+                    'vehicles': []
+                }
             
-            # Group by institute
-            for gv in garbage_vehicles:
-                institute = gv.institute
-                institute_id = institute.id
-                
-                if institute_id not in institute_vehicle_map:
-                    institute_vehicle_map[institute_id] = {
-                        'institute': institute,
-                        'vehicles': []
-                    }
-                
-                institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
-                all_imeis.add(gv.vehicle.imei)
-                print(f"  Added vehicle {gv.vehicle.imei} ({gv.vehicle.name}) for institute {institute.name}")
-        else:
-            print("=== REGULAR USER PATH ===")
-            # Regular users: Get vehicles they have access to (via userVehicles or userDevices)
-            # Then find which institutes those vehicles belong to
-            accessible_vehicles = Vehicle.objects.filter(
-                vehicleType=VehicleType.GARBAGE,
-                is_active=True
-            ).filter(
-                Q(userVehicles__user=user) |  # Direct vehicle access
-                Q(device__userDevices__user=user)  # Device access
-            ).select_related('device').distinct()
-            
-            print(f"Accessible garbage vehicles count: {accessible_vehicles.count()}")
-            
-            # Get IMEIs of accessible vehicles
-            accessible_imeis = set(accessible_vehicles.values_list('imei', flat=True))
-            print(f"Accessible IMEIs: {list(accessible_imeis)}")
-            
-            if accessible_imeis:
-                # Get garbage vehicles for these IMEIs
-                garbage_vehicles = GarbageVehicle.objects.filter(
-                    vehicle__imei__in=accessible_imeis
-                ).select_related('vehicle', 'institute').order_by('-created_at')
-                
-                print(f"Garbage vehicles found for accessible IMEIs: {garbage_vehicles.count()}")
-                
-                # Group by institute
-                for gv in garbage_vehicles:
-                    institute = gv.institute
-                    institute_id = institute.id
-                    
-                    if institute_id not in institute_vehicle_map:
-                        institute_vehicle_map[institute_id] = {
-                            'institute': institute,
-                            'vehicles': []
-                        }
-                    
-                    institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
-                    all_imeis.add(gv.vehicle.imei)
-                    print(f"  Added vehicle {gv.vehicle.imei} ({gv.vehicle.name}) for institute {institute.name}")
-            else:
-                print("No accessible IMEIs found - user may not have vehicle access")
+            institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
+            all_imeis.add(gv.vehicle.imei)
+            print(f"  Added vehicle {gv.vehicle.imei} ({gv.vehicle.name}) for institute {institute.name}")
         
         print(f"Total institutes in map: {len(institute_vehicle_map)}")
         print(f"Total IMEIs for location lookup: {len(all_imeis)}")
