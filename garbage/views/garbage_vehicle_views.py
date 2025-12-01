@@ -379,57 +379,71 @@ def get_all_garbage_vehicles_with_locations(request):
     """
     Get all garbage institutes with their vehicles and latest locations
     Returns structured data for map display
+    No role or InstituteModule access check - everyone can access vehicles they have permission to
     """
     try:
-        # Get the garbage module
-        try:
-            garbage_module = Module.objects.get(slug='garbage')
-        except Module.DoesNotExist:
-            return success_response(
-                data=[],
-                message="Garbage module not found"
-            )
+        user = request.user
         
         # Check if user is Super Admin
-        user_groups = request.user.groups.all()
+        user_groups = user.groups.all()
         is_admin = user_groups.filter(name='Super Admin').exists()
-        
-        # Get institutes with garbage module access
-        if is_admin:
-            # Super Admin: Get all institutes with garbage module enabled
-            institute_modules = InstituteModule.objects.filter(
-                module=garbage_module
-            ).select_related('institute')
-        else:
-            # Regular users: Get only institutes where user has access
-            institute_modules = InstituteModule.objects.filter(
-                module=garbage_module,
-                users=request.user
-            ).select_related('institute')
         
         # Get all IMEIs for bulk location query
         all_imeis = set()
         institute_vehicle_map = {}
         
-        for institute_module in institute_modules:
-            institute = institute_module.institute
-            institute_id = institute.id
+        if is_admin:
+            # Super Admin: Get all garbage vehicles from all institutes
+            garbage_vehicles = GarbageVehicle.objects.select_related(
+                'vehicle', 'institute'
+            ).order_by('-created_at')
             
-            # Get garbage vehicles for this institute
-            garbage_vehicles = GarbageVehicle.objects.filter(
-                institute_id=institute_id
-            ).select_related('vehicle', 'institute').order_by('-created_at')
-            
-            vehicles_list = []
+            # Group by institute
             for gv in garbage_vehicles:
-                vehicles_list.append(gv.vehicle)
+                institute = gv.institute
+                institute_id = institute.id
+                
+                if institute_id not in institute_vehicle_map:
+                    institute_vehicle_map[institute_id] = {
+                        'institute': institute,
+                        'vehicles': []
+                    }
+                
+                institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
                 all_imeis.add(gv.vehicle.imei)
+        else:
+            # Regular users: Get vehicles they have access to (via userVehicles or userDevices)
+            # Then find which institutes those vehicles belong to
+            accessible_vehicles = Vehicle.objects.filter(
+                vehicleType=VehicleType.GARBAGE,
+                is_active=True
+            ).filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            ).select_related('device').distinct()
             
-            if vehicles_list:
-                institute_vehicle_map[institute_id] = {
-                    'institute': institute,
-                    'vehicles': vehicles_list
-                }
+            # Get IMEIs of accessible vehicles
+            accessible_imeis = set(accessible_vehicles.values_list('imei', flat=True))
+            
+            if accessible_imeis:
+                # Get garbage vehicles for these IMEIs
+                garbage_vehicles = GarbageVehicle.objects.filter(
+                    vehicle__imei__in=accessible_imeis
+                ).select_related('vehicle', 'institute').order_by('-created_at')
+                
+                # Group by institute
+                for gv in garbage_vehicles:
+                    institute = gv.institute
+                    institute_id = institute.id
+                    
+                    if institute_id not in institute_vehicle_map:
+                        institute_vehicle_map[institute_id] = {
+                            'institute': institute,
+                            'vehicles': []
+                        }
+                    
+                    institute_vehicle_map[institute_id]['vehicles'].append(gv.vehicle)
+                    all_imeis.add(gv.vehicle.imei)
         
         # Get latest locations for all vehicles in one query
         locations_dict = {}
