@@ -19,6 +19,7 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError
 from core.models import Module, InstituteModule
+from device.models import Location
 
 
 def require_garbage_module_access(model_class=None, id_param_name='id'):
@@ -363,6 +364,143 @@ def delete_garbage_vehicle(request, vehicle_id):
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_all_garbage_vehicles_with_locations(request):
+    """
+    Get all garbage institutes with their vehicles and latest locations
+    Returns structured data for map display
+    """
+    try:
+        # Get the garbage module
+        try:
+            garbage_module = Module.objects.get(slug='garbage')
+        except Module.DoesNotExist:
+            return success_response(
+                data=[],
+                message="Garbage module not found"
+            )
+        
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
+        
+        # Get institutes with garbage module access
+        if is_admin:
+            # Super Admin: Get all institutes with garbage module enabled
+            institute_modules = InstituteModule.objects.filter(
+                module=garbage_module
+            ).select_related('institute')
+        else:
+            # Regular users: Get only institutes where user has access
+            institute_modules = InstituteModule.objects.filter(
+                module=garbage_module,
+                users=request.user
+            ).select_related('institute')
+        
+        # Get all IMEIs for bulk location query
+        all_imeis = set()
+        institute_vehicle_map = {}
+        
+        for institute_module in institute_modules:
+            institute = institute_module.institute
+            institute_id = institute.id
+            
+            # Get garbage vehicles for this institute
+            garbage_vehicles = GarbageVehicle.objects.filter(
+                institute_id=institute_id
+            ).select_related('vehicle', 'institute').order_by('-created_at')
+            
+            vehicles_list = []
+            for gv in garbage_vehicles:
+                vehicles_list.append(gv.vehicle)
+                all_imeis.add(gv.vehicle.imei)
+            
+            if vehicles_list:
+                institute_vehicle_map[institute_id] = {
+                    'institute': institute,
+                    'vehicles': vehicles_list
+                }
+        
+        # Get latest locations for all vehicles in one query
+        locations_dict = {}
+        if all_imeis:
+            # Get latest location for each IMEI
+            for imei in all_imeis:
+                latest_location = Location.objects.filter(
+                    imei=imei
+                ).order_by('-createdAt').first()
+                
+                if latest_location:
+                    locations_dict[imei] = {
+                        'id': latest_location.id,
+                        'imei': latest_location.imei,
+                        'latitude': float(latest_location.latitude),
+                        'longitude': float(latest_location.longitude),
+                        'speed': latest_location.speed,
+                        'course': latest_location.course,
+                        'satellite': latest_location.satellite,
+                        'realTimeGps': latest_location.realTimeGps,
+                        'createdAt': latest_location.createdAt.isoformat(),
+                        'updatedAt': latest_location.updatedAt.isoformat()
+                    }
+        
+        # Structure response
+        response_data = []
+        for institute_id, data in institute_vehicle_map.items():
+            institute = data['institute']
+            vehicles_data = []
+            
+            for vehicle in data['vehicles']:
+                # Get vehicle data
+                vehicle_data = {
+                    'id': vehicle.id,
+                    'imei': vehicle.imei,
+                    'name': vehicle.name,
+                    'vehicleNo': vehicle.vehicleNo,
+                    'vehicleType': vehicle.vehicleType,
+                    'odometer': float(vehicle.odometer) if vehicle.odometer else None,
+                    'mileage': float(vehicle.mileage) if vehicle.mileage else None,
+                    'speedLimit': vehicle.speedLimit,
+                    'minimumFuel': float(vehicle.minimumFuel) if vehicle.minimumFuel else None,
+                    'is_active': vehicle.is_active,
+                    'is_relay': vehicle.is_relay,
+                }
+                
+                # Get location if available
+                location = locations_dict.get(vehicle.imei)
+                
+                vehicles_data.append({
+                    'vehicle': vehicle_data,
+                    'location': location
+                })
+            
+            # Only include institutes that have vehicles
+            if vehicles_data:
+                response_data.append({
+                    'institute': {
+                        'id': institute.id,
+                        'name': institute.name,
+                        'phone': institute.phone or '',
+                        'address': institute.address or '',
+                        'latitude': float(institute.latitude) if institute.latitude else None,
+                        'longitude': float(institute.longitude) if institute.longitude else None,
+                    },
+                    'vehicles': vehicles_data
+                })
+        
+        return success_response(
+            data=response_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Garbage vehicles with locations retrieved successfully')
         )
     except Exception as e:
         return error_response(
