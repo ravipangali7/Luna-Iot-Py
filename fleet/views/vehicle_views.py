@@ -30,6 +30,15 @@ except ImportError:
     SchoolParent = None
     SchoolBus = None
 
+# Import garbage models for garbage vehicle access control
+try:
+    from garbage.models import GarbageVehicle
+    from core.models import Module, InstituteModule
+except ImportError:
+    GarbageVehicle = None
+    Module = None
+    InstituteModule = None
+
 
 def exclude_school_bus_for_parents(queryset, user):
     """
@@ -469,49 +478,102 @@ def get_all_vehicles_detailed(request):
 def get_vehicle_by_imei(request, imei):
     """
     Get vehicle by IMEI with complete data and role-based access
+    Supports garbage=true parameter for garbage vehicle access bypass
     """
     try:
         user = request.user
         
-        # Get vehicle with access check
-        user_group = user.groups.first()
-        if user_group and user_group.name == 'Super Admin':
-            vehicle = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').filter(imei=imei).first()
-        else:
-            # First check if the specific IMEI exists and user has access to it
-            vehicle = Vehicle.objects.filter(
-                imei=imei
-            ).filter(
-                Q(userVehicles__user=user) |  # Direct vehicle access
-                Q(device__userDevices__user=user)  # Device access
-            ).select_related('device').prefetch_related('userVehicles__user').first()
-            
-            # If no direct access found, check school bus relationships
-            if not vehicle and SchoolParent and SchoolBus:
-                try:
-                    # Check if user is a school parent
-                    school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
-                    if school_parents.exists():
-                        # Get vehicle IDs from school buses associated with this parent
-                        school_bus_vehicle_ids = set()
-                        for school_parent in school_parents:
-                            for school_bus in school_parent.school_buses.all():
-                                if school_bus.bus and school_bus.bus.is_active:
-                                    school_bus_vehicle_ids.add(school_bus.bus.id)
-                        
-                        # Check if the requested vehicle is one of the school bus vehicles
-                        if school_bus_vehicle_ids:
-                            vehicle = Vehicle.objects.filter(
-                                imei=imei,
-                                id__in=school_bus_vehicle_ids,
-                                vehicleType=VehicleType.SCHOOL_BUS
-                            ).select_related('device').prefetch_related('userVehicles__user').first()
-                except Exception:
-                    # If there's any error with school models, just continue without school bus access
-                    pass
+        # Check for garbage parameter
+        garbage_param = request.GET.get('garbage', '').lower() == 'true'
         
-        if not vehicle:
-            return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
+        # If garbage parameter is present, validate and bypass access checks
+        if garbage_param:
+            try:
+                # Check if vehicle exists and is garbage type
+                vehicle = Vehicle.objects.filter(
+                    imei=imei,
+                    vehicleType=VehicleType.GARBAGE
+                ).select_related('device').prefetch_related('userVehicles__user').first()
+                
+                if not vehicle:
+                    return error_response('Vehicle not found or is not a garbage vehicle', HTTP_STATUS['NOT_FOUND'])
+                
+                # Check if vehicle belongs to a GarbageVehicle record
+                if GarbageVehicle:
+                    garbage_vehicle = GarbageVehicle.objects.filter(
+                        vehicle__imei=imei
+                    ).select_related('institute', 'vehicle').first()
+                    
+                    if not garbage_vehicle:
+                        return error_response('Vehicle is not associated with any garbage institute', HTTP_STATUS['FORBIDDEN'])
+                    
+                    # Check if the institute has garbage module enabled
+                    if Module and InstituteModule:
+                        try:
+                            garbage_module = Module.objects.get(slug='garbage')
+                            institute_module = InstituteModule.objects.filter(
+                                institute=garbage_vehicle.institute,
+                                module=garbage_module
+                            ).first()
+                            
+                            if not institute_module:
+                                return error_response('Institute does not have garbage module enabled', HTTP_STATUS['FORBIDDEN'])
+                        except Module.DoesNotExist:
+                            return error_response('Garbage module not found', HTTP_STATUS['INTERNAL_ERROR'])
+                    else:
+                        # If models not available, still allow access (for backward compatibility)
+                        pass
+                else:
+                    # If GarbageVehicle model not available, still allow access if vehicle type is garbage
+                    pass
+                
+                # All validations passed - allow access
+                print(f"Garbage vehicle access granted for IMEI: {imei}, User: {user.name}")
+                
+            except Exception as e:
+                print(f"Error validating garbage vehicle access: {e}")
+                return error_response('Error validating garbage vehicle access', HTTP_STATUS['INTERNAL_ERROR'])
+        else:
+            # Normal access check flow
+            # Get vehicle with access check
+            user_group = user.groups.first()
+            if user_group and user_group.name == 'Super Admin':
+                vehicle = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').filter(imei=imei).first()
+            else:
+                # First check if the specific IMEI exists and user has access to it
+                vehicle = Vehicle.objects.filter(
+                    imei=imei
+                ).filter(
+                    Q(userVehicles__user=user) |  # Direct vehicle access
+                    Q(device__userDevices__user=user)  # Device access
+                ).select_related('device').prefetch_related('userVehicles__user').first()
+                
+                # If no direct access found, check school bus relationships
+                if not vehicle and SchoolParent and SchoolBus:
+                    try:
+                        # Check if user is a school parent
+                        school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
+                        if school_parents.exists():
+                            # Get vehicle IDs from school buses associated with this parent
+                            school_bus_vehicle_ids = set()
+                            for school_parent in school_parents:
+                                for school_bus in school_parent.school_buses.all():
+                                    if school_bus.bus and school_bus.bus.is_active:
+                                        school_bus_vehicle_ids.add(school_bus.bus.id)
+                            
+                            # Check if the requested vehicle is one of the school bus vehicles
+                            if school_bus_vehicle_ids:
+                                vehicle = Vehicle.objects.filter(
+                                    imei=imei,
+                                    id__in=school_bus_vehicle_ids,
+                                    vehicleType=VehicleType.SCHOOL_BUS
+                                ).select_related('device').prefetch_related('userVehicles__user').first()
+                    except Exception:
+                        # If there's any error with school models, just continue without school bus access
+                        pass
+            
+            if not vehicle:
+                return error_response('Vehicle not found or access denied', HTTP_STATUS['NOT_FOUND'])
         
         # Check if vehicle is expired and deactivate if needed
         if vehicle.expireDate and vehicle.expireDate <= datetime.now() and vehicle.is_active:
