@@ -12,6 +12,7 @@ from garbage.serializers import (
     GarbageVehicleListSerializer
 )
 from fleet.models import Vehicle
+from shared_utils.constants import VehicleType
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -124,15 +125,16 @@ def get_garbage_vehicle_vehicles(request):
     try:
         user = request.user
         
-        # Get all active vehicles
+        # Filter vehicles where vehicleType = 'Garbage'
         base_query = Vehicle.objects.filter(
+            vehicleType=VehicleType.GARBAGE,
             is_active=True
         ).select_related('device').prefetch_related('userVehicles__user')
         
         # Get vehicles based on user role
         user_group = user.groups.first()
         if user_group and user_group.name == 'Super Admin':
-            # Super Admin: Return all active vehicles
+            # Super Admin: Return all garbage vehicles
             vehicles = base_query.all()
         else:
             # Other roles: Return only vehicles where user has access
