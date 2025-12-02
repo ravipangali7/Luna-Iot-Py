@@ -36,5 +36,6 @@ urlpatterns = [
     path('modules/alert-system-institutes/', institute_module_views.get_alert_system_institutes, name='get_alert_system_institutes'),
     path('modules/school-institutes/', institute_module_views.get_school_institutes, name='get_school_institutes'),
     path('modules/garbage-institutes/', institute_module_views.get_garbage_institutes, name='get_garbage_institutes'),
+    path('modules/public-vehicle-institutes/', institute_module_views.get_public_vehicle_institutes, name='get_public_vehicle_institutes'),
     path('<int:institute_id>/modules/', institute_module_views.get_institute_modules_by_institute, name='get_institute_modules_by_institute'),
 ]

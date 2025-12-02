@@ -50,6 +50,9 @@ urlpatterns = [
     # Garbage module URLs
     path('api/garbage/', include('garbage.urls')),
     
+    # Public Vehicle module URLs
+    path('api/public-vehicle/', include('public_vehicle.urls')),
+    
     # Phone Call module URLs
     path('api/phone-call/', include('phone_call.urls')),
     

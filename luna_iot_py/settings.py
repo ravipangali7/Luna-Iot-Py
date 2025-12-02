@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'alert_system',
     'school',
     'garbage',
+    'public_vehicle',
     'health',
     'finance',
     'phone_call',
