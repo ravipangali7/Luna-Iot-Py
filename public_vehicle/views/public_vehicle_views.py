@@ -11,6 +11,8 @@ from public_vehicle.serializers import (
     PublicVehicleCreateSerializer,
     PublicVehicleListSerializer
 )
+from fleet.models import Vehicle
+from shared_utils.constants import VehicleType
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -118,6 +120,57 @@ def require_public_vehicle_module_access(model_class=None, id_param_name='id'):
 @api_view(['GET'])
 @require_auth
 @api_response
+def get_public_vehicle_vehicles(request):
+    """Get vehicles available for public vehicle assignment with role-based access control"""
+    try:
+        user = request.user
+        
+        # Get all active vehicles (not filtered by type for public vehicles)
+        base_query = Vehicle.objects.filter(
+            is_active=True
+        ).select_related('device').prefetch_related('userVehicles__user')
+        
+        # Get vehicles based on user role
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin: Return all vehicles
+            vehicles = base_query.all()
+        else:
+            # Other roles: Return only vehicles where user has access
+            vehicles = base_query.filter(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            ).distinct()
+        
+        # Order by name for consistency
+        vehicles = vehicles.order_by('name')
+        
+        # Return minimal vehicle data suitable for dropdowns
+        vehicles_data = []
+        for vehicle in vehicles:
+            vehicles_data.append({
+                'id': vehicle.id,
+                'imei': vehicle.imei,
+                'name': vehicle.name,
+                'vehicleNo': vehicle.vehicleNo,
+                'vehicleType': vehicle.vehicleType,
+                'is_active': vehicle.is_active
+            })
+        
+        return success_response(
+            data=vehicles_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Vehicles retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
 def get_all_public_vehicles(request):
     """Get all public vehicles with pagination and filtering"""
     try:
@@ -172,7 +225,7 @@ def get_public_vehicle_by_id(request, vehicle_id):
     """Get public vehicle by ID"""
     try:
         try:
-            public_vehicle = PublicVehicle.objects.select_related('institute').prefetch_related('images').get(id=vehicle_id)
+            public_vehicle = PublicVehicle.objects.select_related('institute', 'vehicle').prefetch_related('images').get(id=vehicle_id)
         except PublicVehicle.DoesNotExist:
             raise NotFoundError("Public vehicle not found")
         
@@ -200,7 +253,7 @@ def get_public_vehicle_by_id(request, vehicle_id):
 def get_public_vehicles_by_institute(request, institute_id):
     """Get public vehicles by institute"""
     try:
-        public_vehicles = PublicVehicle.objects.select_related('institute').prefetch_related('images').filter(
+        public_vehicles = PublicVehicle.objects.select_related('institute', 'vehicle').prefetch_related('images').filter(
             institute_id=institute_id
         ).order_by('-created_at')
         
@@ -236,11 +289,14 @@ def create_public_vehicle(request):
         if serializer.is_valid():
             public_vehicle = serializer.save()
             
-            # Handle image uploads
+            # Handle image uploads with titles
+            image_titles = request.data.getlist('image_titles', [])
             for index, image_file in enumerate(images_data):
+                title = image_titles[index] if index < len(image_titles) else None
                 PublicVehicleImage.objects.create(
                     public_vehicle=public_vehicle,
                     image=image_file,
+                    title=title if title else None,
                     order=index
                 )
             
@@ -281,17 +337,39 @@ def update_public_vehicle(request, vehicle_id):
         new_images = request.FILES.getlist('images')
         images_to_delete = request.data.get('images_to_delete', [])
         
+        # Get existing image titles - handle both dict and QueryDict formats
+        existing_image_titles = {}
+        for key in request.data.keys():
+            if key.startswith('existing_image_titles[') and key.endswith(']'):
+                image_id = int(key.split('[')[1].split(']')[0])
+                title = request.data.get(key, '')
+                existing_image_titles[image_id] = title if title else None
+        
         # Prepare data for serializer (exclude images)
         data = request.data.copy()
         if 'images' in data:
             del data['images']
         if 'images_to_delete' in data:
             del data['images_to_delete']
+        # Remove existing_image_titles keys
+        keys_to_remove = [key for key in data.keys() if key.startswith('existing_image_titles[')]
+        for key in keys_to_remove:
+            del data[key]
         
         serializer = PublicVehicleCreateSerializer(public_vehicle, data=data)
         
         if serializer.is_valid():
             public_vehicle = serializer.save()
+            
+            # Update existing image titles
+            if existing_image_titles:
+                for image_id, title in existing_image_titles.items():
+                    try:
+                        image_obj = PublicVehicleImage.objects.get(id=image_id, public_vehicle=public_vehicle)
+                        image_obj.title = title
+                        image_obj.save()
+                    except PublicVehicleImage.DoesNotExist:
+                        pass
             
             # Delete specified images
             if images_to_delete:
@@ -300,12 +378,15 @@ def update_public_vehicle(request, vehicle_id):
                     public_vehicle=public_vehicle
                 ).delete()
             
-            # Add new images
+            # Add new images with titles
             existing_images_count = public_vehicle.images.count()
+            image_titles = request.data.getlist('image_titles', [])
             for index, image_file in enumerate(new_images):
+                title = image_titles[index] if index < len(image_titles) else None
                 PublicVehicleImage.objects.create(
                     public_vehicle=public_vehicle,
                     image=image_file,
+                    title=title if title else None,
                     order=existing_images_count + index
                 )
             

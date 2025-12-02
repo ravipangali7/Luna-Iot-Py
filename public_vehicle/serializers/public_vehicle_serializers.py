@@ -5,6 +5,7 @@ Handles serialization for public vehicle management endpoints
 from rest_framework import serializers
 from public_vehicle.models import PublicVehicle, PublicVehicleImage
 from core.serializers import InstituteSerializer
+from fleet.serializers import VehicleSerializer
 
 
 class PublicVehicleImageSerializer(serializers.ModelSerializer):
@@ -12,7 +13,7 @@ class PublicVehicleImageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PublicVehicleImage
-        fields = ['id', 'image', 'order', 'created_at', 'updated_at']
+        fields = ['id', 'image', 'title', 'order', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -20,11 +21,13 @@ class PublicVehicleSerializer(serializers.ModelSerializer):
     """Serializer for public vehicle model with images"""
     institute = InstituteSerializer(read_only=True)
     institute_id = serializers.IntegerField(write_only=True, required=False)
+    vehicle = VehicleSerializer(read_only=True)
+    vehicle_id = serializers.IntegerField(write_only=True, required=False)
     images = PublicVehicleImageSerializer(many=True, read_only=True)
     
     class Meta:
         model = PublicVehicle
-        fields = ['id', 'institute', 'institute_id', 'description', 'is_active', 'images', 'created_at', 'updated_at']
+        fields = ['id', 'institute', 'institute_id', 'vehicle', 'vehicle_id', 'description', 'is_active', 'images', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
 
@@ -33,22 +36,38 @@ class PublicVehicleCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = PublicVehicle
-        fields = ['institute', 'description', 'is_active']
+        fields = ['institute', 'vehicle', 'description', 'is_active']
     
     def validate(self, data):
-        """Validate the data"""
+        """Validate that institute and vehicle combination is unique"""
+        institute = data.get('institute')
+        vehicle = data.get('vehicle')
+        
+        if institute and vehicle:
+            # Check for existing public vehicle with same institute and vehicle
+            existing = PublicVehicle.objects.filter(institute=institute, vehicle=vehicle)
+            # Exclude current instance if updating
+            if self.instance:
+                existing = existing.exclude(id=self.instance.id)
+            if existing.exists():
+                raise serializers.ValidationError(
+                    "This vehicle is already assigned to this institute"
+                )
+        
         return data
 
 
 class PublicVehicleListSerializer(serializers.ModelSerializer):
     """Serializer for public vehicle list (minimal data)"""
     institute_name = serializers.CharField(source='institute.name', read_only=True)
+    vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
+    vehicle_vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
     image_count = serializers.SerializerMethodField()
     first_image = serializers.SerializerMethodField()
     
     class Meta:
         model = PublicVehicle
-        fields = ['id', 'institute_name', 'description', 'is_active', 'image_count', 'first_image', 'created_at']
+        fields = ['id', 'institute_name', 'vehicle_name', 'vehicle_vehicle_no', 'description', 'is_active', 'image_count', 'first_image', 'created_at']
         read_only_fields = ['id', 'created_at']
     
     def get_image_count(self, obj):

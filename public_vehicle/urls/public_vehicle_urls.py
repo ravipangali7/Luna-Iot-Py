@@ -5,6 +5,7 @@ from django.urls import path
 from public_vehicle.views import public_vehicle_views
 
 urlpatterns = [
+    path('vehicles/', public_vehicle_views.get_public_vehicle_vehicles, name='get_public_vehicle_vehicles'),
     path('', public_vehicle_views.get_all_public_vehicles, name='get_all_public_vehicles'),
     path('<int:vehicle_id>/', public_vehicle_views.get_public_vehicle_by_id, name='get_public_vehicle_by_id'),
     path('by-institute/<int:institute_id>/', public_vehicle_views.get_public_vehicles_by_institute, name='get_public_vehicles_by_institute'),

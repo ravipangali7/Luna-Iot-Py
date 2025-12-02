@@ -15,6 +15,7 @@ class PublicVehicleImage(models.Model):
         upload_to='public_vehicles/images/',
         help_text="Vehicle image"
     )
+    title = models.CharField(max_length=255, blank=True, null=True, help_text="Title for the image")
     order = models.IntegerField(default=0, help_text="Order of the image for display")
     
     # Timestamps
