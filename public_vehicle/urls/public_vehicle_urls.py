@@ -11,6 +11,7 @@ urlpatterns = [
     path('by-institute/<int:institute_id>/', public_vehicle_views.get_public_vehicles_by_institute, name='get_public_vehicles_by_institute'),
     path('create/', public_vehicle_views.create_public_vehicle, name='create_public_vehicle'),
     path('<int:vehicle_id>/update/', public_vehicle_views.update_public_vehicle, name='update_public_vehicle'),
+    path('<int:vehicle_id>/toggle-active/', public_vehicle_views.toggle_public_vehicle_active, name='toggle_public_vehicle_active'),
     path('<int:vehicle_id>/delete/', public_vehicle_views.delete_public_vehicle, name='delete_public_vehicle'),
 ]
 

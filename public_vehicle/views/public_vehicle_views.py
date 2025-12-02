@@ -416,6 +416,44 @@ def update_public_vehicle(request, vehicle_id):
         )
 
 
+@api_view(['PATCH'])
+@require_public_vehicle_module_access(model_class=PublicVehicle, id_param_name='vehicle_id')
+@api_response
+def toggle_public_vehicle_active(request, vehicle_id):
+    """Toggle is_active status of public vehicle"""
+    try:
+        try:
+            public_vehicle = PublicVehicle.objects.get(id=vehicle_id)
+        except PublicVehicle.DoesNotExist:
+            raise NotFoundError("Public vehicle not found")
+        
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            # Toggle if not provided
+            public_vehicle.is_active = not public_vehicle.is_active
+        else:
+            public_vehicle.is_active = bool(is_active)
+        
+        public_vehicle.save()
+        
+        response_serializer = PublicVehicleSerializer(public_vehicle, context={'request': request})
+        
+        return success_response(
+            data=response_serializer.data,
+            message=f"Public vehicle {'activated' if public_vehicle.is_active else 'deactivated'} successfully"
+        )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
 @api_view(['DELETE'])
 @require_public_vehicle_module_access(model_class=PublicVehicle, id_param_name='vehicle_id')
 @api_response
