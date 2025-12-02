@@ -73,12 +73,14 @@ class PublicVehicleListSerializer(serializers.ModelSerializer):
     institute_name = serializers.CharField(source='institute.name', read_only=True)
     vehicle_name = serializers.CharField(source='vehicle.name', read_only=True)
     vehicle_vehicle_no = serializers.CharField(source='vehicle.vehicleNo', read_only=True)
+    vehicle = VehicleSerializer(read_only=True)
+    images = PublicVehicleImageSerializer(many=True, read_only=True)
     image_count = serializers.SerializerMethodField()
     first_image = serializers.SerializerMethodField()
     
     class Meta:
         model = PublicVehicle
-        fields = ['id', 'institute_name', 'vehicle_name', 'vehicle_vehicle_no', 'description', 'is_active', 'image_count', 'first_image', 'created_at']
+        fields = ['id', 'institute_name', 'vehicle_name', 'vehicle_vehicle_no', 'vehicle', 'description', 'is_active', 'images', 'image_count', 'first_image', 'created_at']
         read_only_fields = ['id', 'created_at']
     
     def get_image_count(self, obj):

@@ -76,7 +76,24 @@ def require_public_vehicle_module_access(model_class=None, id_param_name='id'):
                         institute_id = institute_id.id
                     if institute_id:
                         institute_ids = [institute_id]
-            elif request.method in ['PUT', 'DELETE'] and model_class:
+            elif request.method == 'GET':
+                # For GET operations, check URL parameters for institute_id
+                institute_id = kwargs.get('institute_id')
+                if not institute_id:
+                    # Also check if there's a record ID and we need to get institute from it
+                    record_id = kwargs.get(id_param_name) or kwargs.get('vehicle_id')
+                    if record_id and model_class:
+                        try:
+                            record = model_class.objects.get(id=record_id)
+                            if hasattr(record, 'institute'):
+                                institute = record.institute
+                                if institute:
+                                    institute_ids = [institute.id if hasattr(institute, 'id') else institute]
+                        except model_class.DoesNotExist:
+                            pass
+                else:
+                    institute_ids = [institute_id]
+            elif request.method in ['PUT', 'DELETE', 'PATCH'] and model_class:
                 # For update/delete operations, get record and extract institute_id
                 record_id = kwargs.get(id_param_name) or kwargs.get('vehicle_id')
                 if record_id:
@@ -219,7 +236,7 @@ def get_all_public_vehicles(request):
 
 
 @api_view(['GET'])
-@require_auth
+@require_public_vehicle_module_access(model_class=PublicVehicle, id_param_name='vehicle_id')
 @api_response
 def get_public_vehicle_by_id(request, vehicle_id):
     """Get public vehicle by ID"""
@@ -248,7 +265,7 @@ def get_public_vehicle_by_id(request, vehicle_id):
 
 
 @api_view(['GET'])
-@require_auth
+@require_public_vehicle_module_access()
 @api_response
 def get_public_vehicles_by_institute(request, institute_id):
     """Get public vehicles by institute"""
