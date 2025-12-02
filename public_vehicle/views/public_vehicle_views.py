@@ -19,6 +19,7 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth
 from api_common.exceptions.api_exceptions import NotFoundError
 from core.models import Module, InstituteModule
+from device.models import Location
 
 
 def require_public_vehicle_module_access(model_class=None, id_param_name='id'):
@@ -463,6 +464,152 @@ def toggle_public_vehicle_active(request, vehicle_id):
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_all_public_vehicles_with_locations(request):
+    """
+    Get all public vehicle institutes with their active vehicles and latest locations
+    Returns structured data for map display
+    Only returns vehicles where is_active=True
+    """
+    try:
+        user = request.user
+        print(f"=== PUBLIC VEHICLES WITH LOCATIONS API ===")
+        print(f"User: {user.name} (ID: {user.id})")
+        print(f"User phone: {user.phone}")
+        
+        # Get all IMEIs for bulk location query
+        all_imeis = set()
+        institute_vehicle_map = {}
+        
+        # Get all public vehicles that are active, grouped by institute
+        public_vehicles = PublicVehicle.objects.select_related(
+            'vehicle', 'institute'
+        ).filter(
+            is_active=True,
+            vehicle__isnull=False
+        ).order_by('-created_at')
+        
+        print(f"Total active public vehicles: {public_vehicles.count()}")
+        
+        # Group by institute
+        for pv in public_vehicles:
+            if not pv.vehicle:
+                continue
+                
+            institute = pv.institute
+            institute_id = institute.id
+            vehicle = pv.vehicle
+            
+            if institute_id not in institute_vehicle_map:
+                institute_vehicle_map[institute_id] = {
+                    'institute': institute,
+                    'vehicles': []
+                }
+            
+            institute_vehicle_map[institute_id]['vehicles'].append(vehicle)
+            all_imeis.add(vehicle.imei)
+            print(f"  Added vehicle {vehicle.imei} ({vehicle.name}) for institute {institute.name}")
+        
+        print(f"Total institutes in map: {len(institute_vehicle_map)}")
+        print(f"Total IMEIs for location lookup: {len(all_imeis)}")
+        
+        # Get latest locations for all vehicles in one query
+        locations_dict = {}
+        if all_imeis:
+            print(f"=== FETCHING LOCATIONS ===")
+            # Get latest location for each IMEI
+            for imei in all_imeis:
+                latest_location = Location.objects.filter(
+                    imei=imei
+                ).order_by('-createdAt').first()
+                
+                if latest_location:
+                    locations_dict[imei] = {
+                        'id': latest_location.id,
+                        'imei': latest_location.imei,
+                        'latitude': float(latest_location.latitude),
+                        'longitude': float(latest_location.longitude),
+                        'speed': latest_location.speed,
+                        'course': latest_location.course,
+                        'satellite': latest_location.satellite,
+                        'realTimeGps': latest_location.realTimeGps,
+                        'createdAt': latest_location.createdAt.isoformat(),
+                        'updatedAt': latest_location.updatedAt.isoformat()
+                    }
+                    print(f"  Location found for {imei}: {latest_location.latitude}, {latest_location.longitude}")
+                else:
+                    print(f"  No location found for {imei}")
+        
+        print(f"Total locations found: {len(locations_dict)}")
+        
+        # Structure response
+        response_data = []
+        print(f"=== STRUCTURING RESPONSE ===")
+        for institute_id, data in institute_vehicle_map.items():
+            institute = data['institute']
+            vehicles_data = []
+            
+            print(f"Processing institute: {institute.name} (ID: {institute_id})")
+            print(f"  Vehicles in institute: {len(data['vehicles'])}")
+            
+            for vehicle in data['vehicles']:
+                # Get vehicle data
+                vehicle_data = {
+                    'id': vehicle.id,
+                    'imei': vehicle.imei,
+                    'name': vehicle.name,
+                    'vehicleNo': vehicle.vehicleNo,
+                    'vehicleType': vehicle.vehicleType,
+                    'odometer': float(vehicle.odometer) if vehicle.odometer else None,
+                    'mileage': float(vehicle.mileage) if vehicle.mileage else None,
+                    'speedLimit': vehicle.speedLimit,
+                    'minimumFuel': float(vehicle.minimumFuel) if vehicle.minimumFuel else None,
+                    'is_active': vehicle.is_active,
+                    'is_relay': vehicle.is_relay,
+                }
+                
+                # Get location if available
+                location = locations_dict.get(vehicle.imei)
+                
+                vehicles_data.append({
+                    'vehicle': vehicle_data,
+                    'location': location
+                })
+                print(f"    Vehicle {vehicle.imei} - Location: {'Yes' if location else 'No'}")
+            
+            # Only include institutes that have vehicles
+            if vehicles_data:
+                response_data.append({
+                    'institute': {
+                        'id': institute.id,
+                        'name': institute.name,
+                        'phone': institute.phone or '',
+                        'address': institute.address or '',
+                        'latitude': float(institute.latitude) if institute.latitude else None,
+                        'longitude': float(institute.longitude) if institute.longitude else None,
+                    },
+                    'vehicles': vehicles_data
+                })
+                print(f"  Added institute {institute.name} with {len(vehicles_data)} vehicles to response")
+        
+        print(f"=== FINAL RESPONSE ===")
+        print(f"Total institutes in response: {len(response_data)}")
+        total_vehicles = sum(len(item['vehicles']) for item in response_data)
+        print(f"Total vehicles in response: {total_vehicles}")
+        
+        return success_response(
+            data=response_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Public vehicles with locations retrieved successfully')
         )
     except Exception as e:
         return error_response(

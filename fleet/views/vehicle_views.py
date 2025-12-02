@@ -36,6 +36,12 @@ try:
     from core.models import Module, InstituteModule
 except ImportError:
     GarbageVehicle = None
+
+# Import public vehicle models for public vehicle access control
+try:
+    from public_vehicle.models import PublicVehicle
+except ImportError:
+    PublicVehicle = None
     Module = None
     InstituteModule = None
 
@@ -478,13 +484,16 @@ def get_all_vehicles_detailed(request):
 def get_vehicle_by_imei(request, imei):
     """
     Get vehicle by IMEI with complete data and role-based access
-    Supports garbage=true parameter for garbage vehicle access bypass
+    Supports garbage=true and public-vehicle=true parameters for vehicle access bypass
     """
     try:
         user = request.user
         
         # Check for garbage parameter
         garbage_param = request.GET.get('garbage', '').lower() == 'true'
+        
+        # Check for public-vehicle parameter
+        public_vehicle_param = request.GET.get('public-vehicle', '').lower() == 'true'
         
         # If garbage parameter is present, validate and bypass access checks
         if garbage_param:
@@ -533,6 +542,54 @@ def get_vehicle_by_imei(request, imei):
             except Exception as e:
                 print(f"Error validating garbage vehicle access: {e}")
                 return error_response('Error validating garbage vehicle access', HTTP_STATUS['INTERNAL_ERROR'])
+        
+        # If public-vehicle parameter is present, validate and bypass access checks
+        elif public_vehicle_param:
+            try:
+                # Check if vehicle exists
+                vehicle = Vehicle.objects.filter(
+                    imei=imei
+                ).select_related('device').prefetch_related('userVehicles__user').first()
+                
+                if not vehicle:
+                    return error_response('Vehicle not found', HTTP_STATUS['NOT_FOUND'])
+                
+                # Check if vehicle belongs to a PublicVehicle record
+                if PublicVehicle:
+                    public_vehicle = PublicVehicle.objects.filter(
+                        vehicle__imei=imei,
+                        is_active=True
+                    ).select_related('institute', 'vehicle').first()
+                    
+                    if not public_vehicle:
+                        return error_response('Vehicle is not associated with any active public vehicle institute', HTTP_STATUS['FORBIDDEN'])
+                    
+                    # Check if the institute has public-vehicle module enabled
+                    if Module and InstituteModule:
+                        try:
+                            public_vehicle_module = Module.objects.get(slug='public-vehicle')
+                            institute_module = InstituteModule.objects.filter(
+                                institute=public_vehicle.institute,
+                                module=public_vehicle_module
+                            ).first()
+                            
+                            if not institute_module:
+                                return error_response('Institute does not have public-vehicle module enabled', HTTP_STATUS['FORBIDDEN'])
+                        except Module.DoesNotExist:
+                            return error_response('Public vehicle module not found', HTTP_STATUS['INTERNAL_ERROR'])
+                    else:
+                        # If models not available, still allow access (for backward compatibility)
+                        pass
+                else:
+                    # If PublicVehicle model not available, deny access
+                    return error_response('Public vehicle model not available', HTTP_STATUS['INTERNAL_ERROR'])
+                
+                # All validations passed - allow access
+                print(f"Public vehicle access granted for IMEI: {imei}, User: {user.name}")
+                
+            except Exception as e:
+                print(f"Error validating public vehicle access: {e}")
+                return error_response('Error validating public vehicle access', HTTP_STATUS['INTERNAL_ERROR'])
         else:
             # Normal access check flow
             # Get vehicle with access check
