@@ -15,6 +15,17 @@ class PublicVehicleImageSerializer(serializers.ModelSerializer):
         model = PublicVehicleImage
         fields = ['id', 'image', 'title', 'order', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def to_representation(self, instance):
+        """Convert image field to absolute URL"""
+        representation = super().to_representation(instance)
+        if instance.image:
+            request = self.context.get('request')
+            if request:
+                representation['image'] = request.build_absolute_uri(instance.image.url)
+            else:
+                representation['image'] = instance.image.url
+        return representation
 
 
 class PublicVehicleSerializer(serializers.ModelSerializer):
