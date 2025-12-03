@@ -20,6 +20,7 @@ from device.models.status import Status
 from core.models import User
 from shared.models.recharge import Recharge
 from shared_utils.constants import VehicleType
+from shared_utils.numeral_utils import get_search_variants
 from datetime import datetime, timedelta
 import math
 
@@ -1688,16 +1689,21 @@ def search_vehicles_with_access(request):
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
         
-        # Build search filter
-        search_filter = (
-            Q(name__icontains=search_query) |
-            Q(vehicleNo__icontains=search_query) |
-            Q(imei__icontains=search_query) |
-            Q(vehicleType__icontains=search_query) |
-            Q(userVehicles__user__name__icontains=search_query) |
-            Q(userVehicles__user__phone__icontains=search_query) |
-            Q(device__phone__icontains=search_query)
-        )
+        # Get search variants for numeral normalization (English, Nepali, original)
+        search_variants = get_search_variants(search_query)
+        
+        # Build search filter with numeral normalization support
+        search_filter = Q()
+        for variant in search_variants:
+            search_filter |= (
+                Q(name__icontains=variant) |
+                Q(vehicleNo__icontains=variant) |
+                Q(imei__icontains=variant) |
+                Q(vehicleType__icontains=variant) |
+                Q(userVehicles__user__name__icontains=variant) |
+                Q(userVehicles__user__phone__icontains=variant) |
+                Q(device__phone__icontains=variant)
+            )
         
         # Get vehicles based on user role and apply search
         user_group = user.groups.first()
@@ -2048,26 +2054,29 @@ def search_vehicles(request):
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
         
-        # Build search filters first
+        # Get search variants for numeral normalization (English, Nepali, original)
+        search_variants = get_search_variants(search_query)
+        
+        # Build search filters with numeral normalization support
         search_filter = Q()
-        
-        # Search in vehicle fields
-        search_filter |= Q(name__icontains=search_query)
-        search_filter |= Q(vehicleNo__icontains=search_query)
-        search_filter |= Q(imei__icontains=search_query)
-        
-        # Search in device fields
-        search_filter |= Q(device__imei__icontains=search_query)
-        search_filter |= Q(device__phone__icontains=search_query)
-        search_filter |= Q(device__sim__icontains=search_query)
-        
-        # Search in related users (name and phone)
-        search_filter |= Q(userVehicles__user__name__icontains=search_query)
-        search_filter |= Q(userVehicles__user__phone__icontains=search_query)
-        
-        # Search in device-related users (name and phone)
-        search_filter |= Q(device__userDevices__user__name__icontains=search_query)
-        search_filter |= Q(device__userDevices__user__phone__icontains=search_query)
+        for variant in search_variants:
+            # Search in vehicle fields
+            search_filter |= Q(name__icontains=variant)
+            search_filter |= Q(vehicleNo__icontains=variant)
+            search_filter |= Q(imei__icontains=variant)
+            
+            # Search in device fields
+            search_filter |= Q(device__imei__icontains=variant)
+            search_filter |= Q(device__phone__icontains=variant)
+            search_filter |= Q(device__sim__icontains=variant)
+            
+            # Search in related users (name and phone)
+            search_filter |= Q(userVehicles__user__name__icontains=variant)
+            search_filter |= Q(userVehicles__user__phone__icontains=variant)
+            
+            # Search in device-related users (name and phone)
+            search_filter |= Q(device__userDevices__user__name__icontains=variant)
+            search_filter |= Q(device__userDevices__user__phone__icontains=variant)
         
         # Get vehicles based on user role and apply search
         user_group = user.groups.first()
@@ -2089,9 +2098,13 @@ def search_vehicles(request):
             
             # Also include vehicles that match search through device-related users
             # even if current user doesn't have direct access
+            additional_search_filter = Q()
+            for variant in search_variants:
+                additional_search_filter |= Q(device__userDevices__user__name__icontains=variant)
+                additional_search_filter |= Q(device__userDevices__user__phone__icontains=variant)
+            
             additional_vehicles = Vehicle.objects.filter(
-                Q(device__userDevices__user__name__icontains=search_query) |
-                Q(device__userDevices__user__phone__icontains=search_query)
+                additional_search_filter
             ).exclude(
                 Q(userVehicles__user=user) |  # Exclude vehicles user already has access to
                 Q(device__userDevices__user=user)

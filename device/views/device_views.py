@@ -32,6 +32,7 @@ from api_common.decorators.auth_decorators import require_auth, require_super_ad
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 from api_common.utils.sms_service import sms_service
 from api_common.utils.tcp_service import tcp_service
+from shared_utils.numeral_utils import get_search_variants
 
 
 @api_view(['GET'])
@@ -1137,6 +1138,9 @@ def search_devices(request):
         if not search_query:
             return error_response('Search query is required', HTTP_STATUS['BAD_REQUEST'])
         
+        # Get search variants for numeral normalization (English, Nepali, original)
+        search_variants = get_search_variants(search_query)
+        
         # Get user groups (Django's role system)
         user_groups = user.groups.all()
         is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
@@ -1168,28 +1172,28 @@ def search_devices(request):
                 'subscription_plan'
             ).distinct()
         
-        # Apply search filters
+        # Apply search filters with numeral normalization support
         search_filter = Q()
-        
-        # Search in device fields
-        search_filter |= Q(imei__icontains=search_query)
-        search_filter |= Q(phone__icontains=search_query)
-        search_filter |= Q(protocol__icontains=search_query)
-        search_filter |= Q(sim__icontains=search_query)
-        search_filter |= Q(model__icontains=search_query)
-        search_filter |= Q(iccid__icontains=search_query)
-        
-        # Search in related users (name and phone)
-        search_filter |= Q(userDevices__user__name__icontains=search_query)
-        search_filter |= Q(userDevices__user__phone__icontains=search_query)
-        
-        # Search in related vehicles (vehicle no and vehicle name)
-        search_filter |= Q(vehicles__vehicleNo__icontains=search_query)
-        search_filter |= Q(vehicles__name__icontains=search_query)
-        
-        # Search in users related to vehicles (name and phone)
-        search_filter |= Q(vehicles__userVehicles__user__name__icontains=search_query)
-        search_filter |= Q(vehicles__userVehicles__user__phone__icontains=search_query)
+        for variant in search_variants:
+            # Search in device fields
+            search_filter |= Q(imei__icontains=variant)
+            search_filter |= Q(phone__icontains=variant)
+            search_filter |= Q(protocol__icontains=variant)
+            search_filter |= Q(sim__icontains=variant)
+            search_filter |= Q(model__icontains=variant)
+            search_filter |= Q(iccid__icontains=variant)
+            
+            # Search in related users (name and phone)
+            search_filter |= Q(userDevices__user__name__icontains=variant)
+            search_filter |= Q(userDevices__user__phone__icontains=variant)
+            
+            # Search in related vehicles (vehicle no and vehicle name)
+            search_filter |= Q(vehicles__vehicleNo__icontains=variant)
+            search_filter |= Q(vehicles__name__icontains=variant)
+            
+            # Search in users related to vehicles (name and phone)
+            search_filter |= Q(vehicles__userVehicles__user__name__icontains=variant)
+            search_filter |= Q(vehicles__userVehicles__user__phone__icontains=variant)
         
         # Apply the search filter
         devices = devices.filter(search_filter).distinct()
