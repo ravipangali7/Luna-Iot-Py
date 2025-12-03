@@ -5,11 +5,13 @@ Handles public vehicle management endpoints
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
-from public_vehicle.models import PublicVehicle, PublicVehicleImage
+from public_vehicle.models import PublicVehicle, PublicVehicleImage, PublicVehicleSubscription
 from public_vehicle.serializers import (
     PublicVehicleSerializer,
     PublicVehicleCreateSerializer,
-    PublicVehicleListSerializer
+    PublicVehicleListSerializer,
+    PublicVehicleSubscriptionSerializer,
+    PublicVehicleSubscriptionCreateSerializer
 )
 from fleet.models import Vehicle
 from shared_utils.constants import VehicleType
@@ -636,6 +638,145 @@ def delete_public_vehicle(request, vehicle_id):
             data={'id': vehicle_id},
             message=f"Public vehicle '{vehicle_name}' deleted successfully"
         )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def subscribe_to_public_vehicle(request):
+    """Subscribe to public vehicle notifications"""
+    try:
+        serializer = PublicVehicleSubscriptionCreateSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            subscription = serializer.save()
+            response_serializer = PublicVehicleSubscriptionSerializer(subscription)
+            
+            return success_response(
+                data=response_serializer.data,
+                message=SUCCESS_MESSAGES.get('DATA_CREATED', 'Subscribed to public vehicle successfully'),
+                status_code=HTTP_STATUS['CREATED']
+            )
+        else:
+            return error_response(
+                message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['DELETE'])
+@require_auth
+@api_response
+def unsubscribe_from_public_vehicle(request):
+    """Unsubscribe from public vehicle notifications"""
+    try:
+        imei = request.data.get('imei')
+        
+        if not imei:
+            return error_response(
+                message='IMEI is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response(
+                message='Vehicle not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        try:
+            subscription = PublicVehicleSubscription.objects.get(user=request.user, vehicle=vehicle)
+            subscription.delete()
+            
+            return success_response(
+                data={'imei': imei},
+                message='Unsubscribed from public vehicle successfully'
+            )
+        except PublicVehicleSubscription.DoesNotExist:
+            return error_response(
+                message='Subscription not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_my_public_vehicle_subscriptions(request):
+    """Get all public vehicle subscriptions for current user"""
+    try:
+        subscriptions = PublicVehicleSubscription.objects.filter(
+            user=request.user
+        ).select_related('vehicle', 'user').order_by('-created_at')
+        
+        serializer = PublicVehicleSubscriptionSerializer(subscriptions, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Subscriptions retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['PUT'])
+@require_auth
+@api_response
+def update_public_vehicle_subscription_location(request, subscription_id):
+    """Update subscription location"""
+    try:
+        try:
+            subscription = PublicVehicleSubscription.objects.get(id=subscription_id, user=request.user)
+        except PublicVehicleSubscription.DoesNotExist:
+            raise NotFoundError("Subscription not found")
+        
+        serializer = PublicVehicleSubscriptionCreateSerializer(
+            subscription,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            subscription = serializer.save()
+            response_serializer = PublicVehicleSubscriptionSerializer(subscription)
+            
+            return success_response(
+                data=response_serializer.data,
+                message=SUCCESS_MESSAGES.get('DATA_UPDATED', 'Subscription location updated successfully')
+            )
+        else:
+            return error_response(
+                message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
     except NotFoundError as e:
         return error_response(
             message=str(e),

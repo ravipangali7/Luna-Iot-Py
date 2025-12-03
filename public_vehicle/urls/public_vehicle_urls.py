@@ -14,5 +14,10 @@ urlpatterns = [
     path('<int:vehicle_id>/update/', public_vehicle_views.update_public_vehicle, name='update_public_vehicle'),
     path('<int:vehicle_id>/toggle-active/', public_vehicle_views.toggle_public_vehicle_active, name='toggle_public_vehicle_active'),
     path('<int:vehicle_id>/delete/', public_vehicle_views.delete_public_vehicle, name='delete_public_vehicle'),
+    # Subscription endpoints
+    path('subscribe/', public_vehicle_views.subscribe_to_public_vehicle, name='subscribe_to_public_vehicle'),
+    path('unsubscribe/', public_vehicle_views.unsubscribe_from_public_vehicle, name='unsubscribe_from_public_vehicle'),
+    path('my-subscriptions/', public_vehicle_views.get_my_public_vehicle_subscriptions, name='get_my_public_vehicle_subscriptions'),
+    path('subscription/<int:subscription_id>/update-location/', public_vehicle_views.update_public_vehicle_subscription_location, name='update_public_vehicle_subscription_location'),
 ]
 

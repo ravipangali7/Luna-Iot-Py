@@ -13,5 +13,10 @@ urlpatterns = [
     path('create/', garbage_vehicle_views.create_garbage_vehicle, name='create_garbage_vehicle'),
     path('<int:vehicle_id>/update/', garbage_vehicle_views.update_garbage_vehicle, name='update_garbage_vehicle'),
     path('<int:vehicle_id>/delete/', garbage_vehicle_views.delete_garbage_vehicle, name='delete_garbage_vehicle'),
+    # Subscription endpoints
+    path('subscribe/', garbage_vehicle_views.subscribe_to_garbage_vehicle, name='subscribe_to_garbage_vehicle'),
+    path('unsubscribe/', garbage_vehicle_views.unsubscribe_from_garbage_vehicle, name='unsubscribe_from_garbage_vehicle'),
+    path('my-subscriptions/', garbage_vehicle_views.get_my_garbage_vehicle_subscriptions, name='get_my_garbage_vehicle_subscriptions'),
+    path('subscription/<int:subscription_id>/update-location/', garbage_vehicle_views.update_garbage_vehicle_subscription_location, name='update_garbage_vehicle_subscription_location'),
 ]
 

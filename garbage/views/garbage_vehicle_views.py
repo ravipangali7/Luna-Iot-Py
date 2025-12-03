@@ -5,11 +5,13 @@ Handles garbage vehicle management endpoints
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
-from garbage.models import GarbageVehicle
+from garbage.models import GarbageVehicle, GarbageVehicleSubscription
 from garbage.serializers import (
     GarbageVehicleSerializer,
     GarbageVehicleCreateSerializer,
-    GarbageVehicleListSerializer
+    GarbageVehicleListSerializer,
+    GarbageVehicleSubscriptionSerializer,
+    GarbageVehicleSubscriptionCreateSerializer
 )
 from fleet.models import Vehicle
 from shared_utils.constants import VehicleType
@@ -503,6 +505,145 @@ def get_all_garbage_vehicles_with_locations(request):
         return success_response(
             data=response_data,
             message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Garbage vehicles with locations retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def subscribe_to_garbage_vehicle(request):
+    """Subscribe to garbage vehicle notifications"""
+    try:
+        serializer = GarbageVehicleSubscriptionCreateSerializer(data=request.data, context={'request': request})
+        
+        if serializer.is_valid():
+            subscription = serializer.save()
+            response_serializer = GarbageVehicleSubscriptionSerializer(subscription)
+            
+            return success_response(
+                data=response_serializer.data,
+                message=SUCCESS_MESSAGES.get('DATA_CREATED', 'Subscribed to garbage vehicle successfully'),
+                status_code=HTTP_STATUS['CREATED']
+            )
+        else:
+            return error_response(
+                message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['DELETE'])
+@require_auth
+@api_response
+def unsubscribe_from_garbage_vehicle(request):
+    """Unsubscribe from garbage vehicle notifications"""
+    try:
+        imei = request.data.get('imei')
+        
+        if not imei:
+            return error_response(
+                message='IMEI is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        try:
+            vehicle = Vehicle.objects.get(imei=imei)
+        except Vehicle.DoesNotExist:
+            return error_response(
+                message='Vehicle not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        try:
+            subscription = GarbageVehicleSubscription.objects.get(user=request.user, vehicle=vehicle)
+            subscription.delete()
+            
+            return success_response(
+                data={'imei': imei},
+                message='Unsubscribed from garbage vehicle successfully'
+            )
+        except GarbageVehicleSubscription.DoesNotExist:
+            return error_response(
+                message='Subscription not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_my_garbage_vehicle_subscriptions(request):
+    """Get all garbage vehicle subscriptions for current user"""
+    try:
+        subscriptions = GarbageVehicleSubscription.objects.filter(
+            user=request.user
+        ).select_related('vehicle', 'user').order_by('-created_at')
+        
+        serializer = GarbageVehicleSubscriptionSerializer(subscriptions, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Subscriptions retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@api_view(['PUT'])
+@require_auth
+@api_response
+def update_garbage_vehicle_subscription_location(request, subscription_id):
+    """Update subscription location"""
+    try:
+        try:
+            subscription = GarbageVehicleSubscription.objects.get(id=subscription_id, user=request.user)
+        except GarbageVehicleSubscription.DoesNotExist:
+            raise NotFoundError("Subscription not found")
+        
+        serializer = GarbageVehicleSubscriptionCreateSerializer(
+            subscription,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            subscription = serializer.save()
+            response_serializer = GarbageVehicleSubscriptionSerializer(subscription)
+            
+            return success_response(
+                data=response_serializer.data,
+                message=SUCCESS_MESSAGES.get('DATA_UPDATED', 'Subscription location updated successfully')
+            )
+        else:
+            return error_response(
+                message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
+                data=serializer.errors,
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
         )
     except Exception as e:
         return error_response(
