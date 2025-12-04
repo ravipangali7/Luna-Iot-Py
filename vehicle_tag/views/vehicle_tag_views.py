@@ -40,14 +40,16 @@ def generate_vehicle_tags(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # Generate tags
+        # Generate tags - let database auto-assign IDs
         created_tags = []
         for _ in range(count):
-            tag = VehicleTag.objects.create(
+            # Create tag without specifying id - let database handle it
+            tag = VehicleTag(
                 is_active=True,
                 is_downloaded=False
             )
-            # vtid is auto-generated in save() method
+            # Save will auto-generate vtid based on auto-assigned id
+            tag.save()
             created_tags.append(tag)
         
         # Serialize response

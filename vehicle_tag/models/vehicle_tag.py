@@ -111,13 +111,20 @@ class VehicleTag(models.Model):
     def save(self, *args, **kwargs):
         # Auto-generate vtid if not set
         if not self.vtid:
-            # If this is a new object (no id yet), save first to get id
+            # If this is a new object (no id yet), save first to get id from database
             if not self.id:
+                # Save without vtid first to get auto-generated id
+                # Remove update_fields from kwargs if present to allow full save
+                update_fields = kwargs.pop('update_fields', None)
                 super().save(*args, **kwargs)
-            # Now set vtid
-            self.vtid = f"VTID{self.id}"
-            # Save again to persist vtid
-            super().save(*args, **kwargs)
+                # Now set vtid based on the auto-generated id
+                self.vtid = f"VTID{self.id}"
+                # Update only vtid field
+                super().save(update_fields=['vtid'])
+            else:
+                # Object already has id, just set vtid and save
+                self.vtid = f"VTID{self.id}"
+                super().save(*args, **kwargs)
         else:
             # vtid already set, just save normally
             super().save(*args, **kwargs)
