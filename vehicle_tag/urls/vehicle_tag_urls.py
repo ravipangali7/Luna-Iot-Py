@@ -13,6 +13,10 @@ urlpatterns = [
     # Bulk print
     path('bulk-print/', vehicle_tag_views.get_vehicle_tags_for_bulk_print, name='get_vehicle_tags_for_bulk_print'),
     
+    # Update and delete by ID (must come before <str:vtid> pattern)
+    path('update/<int:id>/', vehicle_tag_views.update_vehicle_tag, name='update_vehicle_tag'),
+    path('delete/<int:id>/', vehicle_tag_views.delete_vehicle_tag, name='delete_vehicle_tag'),
+    
     # Get QR code image (must come before generic vtid pattern)
     path('<str:vtid>/qr/', vehicle_tag_views.get_vehicle_tag_qr_image, name='get_vehicle_tag_qr_image'),
     

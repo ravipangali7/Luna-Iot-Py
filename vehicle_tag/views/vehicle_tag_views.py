@@ -10,6 +10,7 @@ from vehicle_tag.serializers import (
     VehicleTagSerializer,
     VehicleTagListSerializer,
     VehicleTagAlertCreateSerializer,
+    VehicleTagCreateSerializer,
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import HTTP_STATUS
@@ -266,6 +267,86 @@ def get_vehicle_tag_qr_image(request, vtid):
         
     except Exception as e:
         # For errors, return JSON error response
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['PUT', 'PATCH'])
+@require_super_admin
+@api_response
+def update_vehicle_tag(request, id):
+    """
+    Update vehicle tag by ID
+    Only Super Admin can update
+    Accepts all editable fields: user, vehicle_model, registration_no, register_type,
+    vehicle_category, sos_number, sms_number, is_active, is_downloaded
+    """
+    try:
+        try:
+            tag = VehicleTag.objects.get(id=id)
+        except VehicleTag.DoesNotExist:
+            return error_response(
+                message=f'Vehicle tag with ID {id} not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Use serializer for validation and update
+        serializer = VehicleTagCreateSerializer(tag, data=request.data, partial=True)
+        
+        if not serializer.is_valid():
+            return error_response(
+                message='Validation error',
+                status_code=HTTP_STATUS['BAD_REQUEST'],
+                data=serializer.errors
+            )
+        
+        # Save the tag (serializer handles user_id via update method)
+        serializer.save()
+        
+        # Return updated tag with full serializer
+        updated_tag = VehicleTag.objects.get(id=id)
+        response_serializer = VehicleTagSerializer(updated_tag, context={'request': request})
+        
+        return success_response(
+            data=response_serializer.data,
+            message='Vehicle tag updated successfully'
+        )
+        
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['DELETE'])
+@require_super_admin
+@api_response
+def delete_vehicle_tag(request, id):
+    """
+    Delete vehicle tag by ID
+    Only Super Admin can delete
+    """
+    try:
+        try:
+            tag = VehicleTag.objects.get(id=id)
+        except VehicleTag.DoesNotExist:
+            return error_response(
+                message=f'Vehicle tag with ID {id} not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        vtid = tag.vtid
+        tag.delete()
+        
+        return success_response(
+            data=None,
+            message=f'Vehicle tag {vtid} deleted successfully'
+        )
+        
+    except Exception as e:
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
