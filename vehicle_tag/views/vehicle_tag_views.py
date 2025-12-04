@@ -117,12 +117,12 @@ def get_all_vehicle_tags(request):
 
 
 @api_view(['GET'])
-@require_auth
 @api_response
 def get_vehicle_tag_by_vtid(request, vtid):
     """
     Get vehicle tag details by vtid
     Used for alert page
+    Public access - no authentication required
     """
     try:
         try:
@@ -148,13 +148,13 @@ def get_vehicle_tag_by_vtid(request, vtid):
 
 
 @api_view(['POST'])
-@require_auth
 @api_response
 def create_vehicle_tag_alert(request):
     """
     Create vehicle tag alert
     Accepts vtid, latitude, longitude, person_image (optional), alert type
     Sends FCM notification if vehicle tag has user
+    Public access - no authentication required
     """
     try:
         serializer = VehicleTagAlertCreateSerializer(data=request.data)
@@ -240,11 +240,11 @@ def get_vehicle_tags_for_bulk_print(request):
 
 
 @api_view(['GET'])
-@require_super_admin
 def get_vehicle_tag_qr_image(request, vtid):
     """
     Get QR code image for a vehicle tag
     Returns PNG image
+    Public access - no authentication required (needed for QR code scanning)
     Note: No @api_response decorator as this returns HttpResponse, not JSON
     """
     try:
