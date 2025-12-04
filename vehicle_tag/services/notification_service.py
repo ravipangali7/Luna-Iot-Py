@@ -4,7 +4,6 @@ Sends FCM notifications when vehicle tag alerts are created
 """
 import logging
 from vehicle_tag.models import VehicleTag, VehicleTagAlert
-from api_common.services.firebase_service import send_push_notification_to_specific_user
 from shared.models import Notification, UserNotification
 
 logger = logging.getLogger(__name__)

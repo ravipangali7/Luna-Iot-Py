@@ -1,0 +1,6 @@
+ERROR 2025-12-05 00:33:17,680 firebase_service 11268 7116 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-12-05 00:33:17,680 firebase_service 11268 7116 Please ensure firebase-service.json is in the project root directory.
+ERROR 2025-12-05 00:35:19,798 firebase_service 11732 4772 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-12-05 00:35:19,798 firebase_service 11732 4772 Please ensure firebase-service.json is in the project root directory.
+ERROR 2025-12-05 00:35:34,495 firebase_service 10388 3256 Firebase service account key not found at: C:\Mine\Projects\Luna_IOT\Luna-Iot-Py\firebase-service.json
+ERROR 2025-12-05 00:35:34,505 firebase_service 10388 3256 Please ensure firebase-service.json is in the project root directory.
