@@ -47,6 +47,19 @@ class AuthMiddleware(MiddlewareMixin):
         if request.path.startswith('/api/alert-system/alert-history/create/') and request.method == 'POST':
             return None
         
+        # Skip authentication for vehicle tag alert endpoints (public access)
+        if request.path.startswith('/api/vehicle-tag/alert/'):
+            return None
+        
+        # Skip authentication for vehicle tag get by VTID (public access for alert page)
+        import re
+        if re.match(r'^/api/vehicle-tag/VTID\d+/$', request.path):
+            return None
+        
+        # Skip authentication for vehicle tag QR image (public access for QR scanning)
+        if re.match(r'^/api/vehicle-tag/VTID\d+/qr/$', request.path):
+            return None
+        
         # Skip authentication for media files
         if request.path.startswith('/media/'):
             return None
