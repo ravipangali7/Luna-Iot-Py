@@ -9,12 +9,15 @@ from vehicle_tag.models import VehicleTagAlert
 class VehicleTagAlertSerializer(serializers.ModelSerializer):
     """Serializer for vehicle tag alert model"""
     vehicle_tag_vtid = serializers.CharField(source='vehicle_tag.vtid', read_only=True)
+    vehicle_tag_registration_no = serializers.CharField(source='vehicle_tag.registration_no', read_only=True)
+    alert_display = serializers.CharField(source='get_alert_display', read_only=True)
     
     class Meta:
         model = VehicleTagAlert
         fields = [
-            'id', 'vehicle_tag', 'vehicle_tag_vtid', 'latitude', 'longitude',
-            'person_image', 'alert', 'created_at', 'updated_at'
+            'id', 'vehicle_tag', 'vehicle_tag_vtid', 'vehicle_tag_registration_no',
+            'latitude', 'longitude', 'person_image', 'alert', 'alert_display',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     

@@ -11,6 +11,7 @@ from vehicle_tag.serializers import (
     VehicleTagListSerializer,
     VehicleTagAlertCreateSerializer,
     VehicleTagCreateSerializer,
+    VehicleTagAlertSerializer,
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import HTTP_STATUS
@@ -344,6 +345,61 @@ def delete_vehicle_tag(request, id):
         return success_response(
             data=None,
             message=f'Vehicle tag {vtid} deleted successfully'
+        )
+        
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@require_super_admin
+@api_response
+def get_vehicle_tag_alerts(request):
+    """
+    Get all vehicle tag alerts (history)
+    Paginated, optionally filterable by VTID
+    Only Super Admin can access
+    """
+    try:
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 25))
+        vtid_filter = request.GET.get('vtid', None)
+        
+        # Get all alerts
+        alerts = VehicleTagAlert.objects.select_related('vehicle_tag').order_by('-created_at')
+        
+        # Filter by VTID if provided
+        if vtid_filter:
+            alerts = alerts.filter(vehicle_tag__vtid=vtid_filter)
+        
+        # Paginate
+        paginator = Paginator(alerts, page_size)
+        page_obj = paginator.get_page(page)
+        
+        # Serialize
+        serializer = VehicleTagAlertSerializer(page_obj.object_list, many=True, context={'request': request})
+        
+        # Build pagination response
+        pagination_data = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None,
+        }
+        
+        return success_response(
+            data={
+                'alerts': serializer.data,
+                'pagination': pagination_data
+            },
+            message='Vehicle tag alerts retrieved successfully'
         )
         
     except Exception as e:
