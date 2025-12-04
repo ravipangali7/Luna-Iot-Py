@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'health',
     'finance',
     'phone_call',
+    'vehicle_tag',
     
     
     # Third party

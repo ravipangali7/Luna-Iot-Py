@@ -56,6 +56,9 @@ urlpatterns = [
     # Phone Call module URLs
     path('api/phone-call/', include('phone_call.urls')),
     
+    # Vehicle Tag module URLs
+    path('api/vehicle-tag/', include('vehicle_tag.urls')),
+    
     # Admin URLs
     path('admin/', admin.site.urls),
 ]
