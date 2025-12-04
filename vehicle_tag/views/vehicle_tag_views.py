@@ -241,11 +241,11 @@ def get_vehicle_tags_for_bulk_print(request):
 
 @api_view(['GET'])
 @require_super_admin
-@api_response
 def get_vehicle_tag_qr_image(request, vtid):
     """
     Get QR code image for a vehicle tag
     Returns PNG image
+    Note: No @api_response decorator as this returns HttpResponse, not JSON
     """
     try:
         try:
@@ -259,12 +259,13 @@ def get_vehicle_tag_qr_image(request, vtid):
         # Generate QR code image
         img_io = generate_tag_image(tag.vtid)
         
-        # Return image response
+        # Return image response directly (not JSON)
         response = HttpResponse(img_io.getvalue(), content_type='image/png')
         response['Content-Disposition'] = f'inline; filename="vehicle_tag_{vtid}.png"'
         return response
         
     except Exception as e:
+        # For errors, return JSON error response
         return error_response(
             message=str(e),
             status_code=HTTP_STATUS['INTERNAL_ERROR']
