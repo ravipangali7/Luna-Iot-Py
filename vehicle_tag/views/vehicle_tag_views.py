@@ -76,13 +76,19 @@ def get_all_vehicle_tags(request):
     """
     Get all vehicle tags (paginated)
     Include user info (name, phone) if assigned, else "unassigned"
+    Include visit_count, alert_count, and sms_alert_count
     """
     try:
+        from django.db.models import Count, Q
+        
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 25))
         
-        # Get all tags
-        tags = VehicleTag.objects.all().select_related('user').order_by('-created_at')
+        # Get all tags with optimized queries for counts
+        tags = VehicleTag.objects.all().select_related('user').annotate(
+            alert_count=Count('alerts'),
+            sms_alert_count=Count('alerts', filter=Q(alerts__sms_sent=True))
+        ).order_by('-created_at')
         
         # Paginate
         paginator = Paginator(tags, page_size)

@@ -51,6 +51,11 @@ class VehicleTagAlert(models.Model):
         db_column='alert',
         help_text="Type of alert"
     )
+    sms_sent = models.BooleanField(
+        default=False,
+        db_column='sms_sent',
+        help_text="Whether SMS was sent for this alert"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')

@@ -36,6 +36,22 @@ class VehicleTagAlertSerializer(serializers.ModelSerializer):
 class VehicleTagAlertCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating vehicle tag alerts"""
     vtid = serializers.CharField(write_only=True, help_text="Vehicle Tag ID (VTID)")
+    latitude = serializers.DecimalField(
+        max_digits=18,
+        decimal_places=15,
+        required=True,
+        help_text="Latitude where alert was reported (required)"
+    )
+    longitude = serializers.DecimalField(
+        max_digits=19,
+        decimal_places=15,
+        required=True,
+        help_text="Longitude where alert was reported (required)"
+    )
+    person_image = serializers.ImageField(
+        required=True,
+        help_text="Image of person reporting the alert (required)"
+    )
     
     class Meta:
         model = VehicleTagAlert

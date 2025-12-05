@@ -91,6 +91,11 @@ class VehicleTag(models.Model):
         db_column='is_downloaded',
         help_text="Whether the tag has been downloaded"
     )
+    visit_count = models.IntegerField(
+        default=0,
+        db_column='visit_count',
+        help_text="Number of times the vehicle tag has been accessed/viewed"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')

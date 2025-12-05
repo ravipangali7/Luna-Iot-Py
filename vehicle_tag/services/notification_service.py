@@ -1,17 +1,18 @@
 """
 Notification Service for Vehicle Tag Alerts
-Sends FCM notifications when vehicle tag alerts are created
+Sends FCM notifications and SMS when vehicle tag alerts are created
 """
 import logging
 from vehicle_tag.models import VehicleTag, VehicleTagAlert
 from shared.models import Notification, UserNotification
+from api_common.utils.sms_service import sms_service
 
 logger = logging.getLogger(__name__)
 
 
 def send_vehicle_tag_alert_notification(vehicle_tag_alert):
     """
-    Send FCM notification to vehicle tag owner when alert is created
+    Send FCM notification and SMS to vehicle tag owner when alert is created
     
     Args:
         vehicle_tag_alert: VehicleTagAlert instance
@@ -28,11 +29,6 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
             return False
         
         user = vehicle_tag.user
-        
-        # Check if user has FCM token
-        if not user.fcm_token:
-            logger.info(f"User {user.id} has no FCM token, skipping notification")
-            return False
         
         # Get alert type display name
         alert_display = vehicle_tag_alert.get_alert_display()
@@ -60,16 +56,48 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
                 is_read=False
             )
             
-            # Send FCM notification
-            from api_common.services.firebase_service import send_notification_to_user_notifications
-            send_result = send_notification_to_user_notifications(notification)
-            
-            if send_result:
-                logger.info(f"Successfully sent notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
-                return True
+            # Send FCM notification - use send_push_notification for direct control
+            fcm_sent = False
+            if user.fcm_token and user.fcm_token.strip():  # Check for both None and empty string
+                try:
+                    from api_common.services.firebase_service import send_push_notification
+                    fcm_sent = send_push_notification(
+                        notification_id=notification.id,
+                        title=title,
+                        body=message,
+                        notification_type='specific',
+                        target_user_ids=[user.id]
+                    )
+                    if fcm_sent:
+                        logger.info(f"Successfully sent FCM notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
+                    else:
+                        logger.warning(f"Failed to send FCM notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
+                except Exception as fcm_error:
+                    logger.error(f"Error sending FCM notification to user {user.id}: {fcm_error}")
             else:
-                logger.warning(f"Failed to send FCM notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
-                return False
+                logger.info(f"User {user.id} has no valid FCM token, skipping FCM notification")
+            
+            # Send SMS to sms_number if present
+            sms_sent = False
+            if vehicle_tag.sms_number and vehicle_tag.sms_number.strip():
+                try:
+                    sms_message = f"{alert_display} Alert: {message}"
+                    sms_result = sms_service.send_sms(vehicle_tag.sms_number, sms_message)
+                    sms_sent = sms_result.get('success', False)
+                    if sms_sent:
+                        # Update alert to mark SMS as sent
+                        vehicle_tag_alert.sms_sent = True
+                        vehicle_tag_alert.save(update_fields=['sms_sent'])
+                        logger.info(f"Successfully sent SMS to {vehicle_tag.sms_number} for vehicle tag alert {vehicle_tag_alert.id}")
+                    else:
+                        logger.warning(f"Failed to send SMS to {vehicle_tag.sms_number}: {sms_result.get('message', 'Unknown error')}")
+                except Exception as sms_error:
+                    logger.error(f"Error sending SMS to {vehicle_tag.sms_number}: {sms_error}")
+            else:
+                logger.info(f"Vehicle tag {vehicle_tag.vtid} has no SMS number configured, skipping SMS")
+            
+            # Return True if at least one notification method succeeded
+            return fcm_sent or sms_sent
                 
         except Exception as e:
             logger.error(f"Error creating notification for vehicle tag alert {vehicle_tag_alert.id}: {e}")

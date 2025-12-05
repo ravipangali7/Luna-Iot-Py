@@ -12,13 +12,16 @@ class VehicleTagSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     user_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     user_info = serializers.SerializerMethodField()
+    alert_count = serializers.SerializerMethodField()
+    sms_alert_count = serializers.SerializerMethodField()
     
     class Meta:
         model = VehicleTag
         fields = [
             'id', 'user', 'user_id', 'user_info', 'vtid', 'vehicle_model',
             'registration_no', 'register_type', 'vehicle_category', 'sos_number',
-            'sms_number', 'is_active', 'is_downloaded', 'created_at', 'updated_at'
+            'sms_number', 'is_active', 'is_downloaded', 'visit_count',
+            'alert_count', 'sms_alert_count', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'vtid', 'created_at', 'updated_at']
     
@@ -31,6 +34,20 @@ class VehicleTagSerializer(serializers.ModelSerializer):
                 'phone': obj.user.phone
             }
         return None
+    
+    def get_alert_count(self, obj):
+        """Get total number of alerts for this vehicle tag"""
+        # Use annotated field if available (from optimized query), otherwise count
+        if hasattr(obj, 'alert_count'):
+            return obj.alert_count
+        return obj.alerts.count()
+    
+    def get_sms_alert_count(self, obj):
+        """Get count of alerts where SMS was sent to sms_number"""
+        # Use annotated field if available (from optimized query), otherwise count
+        if hasattr(obj, 'sms_alert_count'):
+            return obj.sms_alert_count
+        return obj.alerts.filter(sms_sent=True).count()
 
 
 class VehicleTagCreateSerializer(serializers.ModelSerializer):
@@ -76,13 +93,16 @@ class VehicleTagCreateSerializer(serializers.ModelSerializer):
 class VehicleTagListSerializer(serializers.ModelSerializer):
     """Serializer for vehicle tag list (with user info)"""
     user_info = serializers.SerializerMethodField()
+    alert_count = serializers.SerializerMethodField()
+    sms_alert_count = serializers.SerializerMethodField()
     
     class Meta:
         model = VehicleTag
         fields = [
             'id', 'vtid', 'user_info', 'vehicle_model', 'registration_no',
             'register_type', 'vehicle_category', 'sos_number', 'sms_number',
-            'is_active', 'is_downloaded', 'created_at'
+            'is_active', 'is_downloaded', 'visit_count', 'alert_count',
+            'sms_alert_count', 'created_at'
         ]
         read_only_fields = ['id', 'vtid', 'created_at']
     
@@ -95,4 +115,18 @@ class VehicleTagListSerializer(serializers.ModelSerializer):
                 'phone': obj.user.phone
             }
         return 'unassigned'
+    
+    def get_alert_count(self, obj):
+        """Get total number of alerts for this vehicle tag"""
+        # Use annotated field if available (from optimized query), otherwise count
+        if hasattr(obj, 'alert_count'):
+            return obj.alert_count
+        return obj.alerts.count()
+    
+    def get_sms_alert_count(self, obj):
+        """Get count of alerts where SMS was sent to sms_number"""
+        # Use annotated field if available (from optimized query), otherwise count
+        if hasattr(obj, 'sms_alert_count'):
+            return obj.sms_alert_count
+        return obj.alerts.filter(sms_sent=True).count()
 
