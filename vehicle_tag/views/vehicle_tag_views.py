@@ -345,7 +345,7 @@ def update_vehicle_tag(request, id):
         )
 
 
-@api_view(['PUT', 'PATCH'])
+@api_view(['POST'])
 @require_auth
 @api_response
 def assign_vehicle_tag_by_vtid(request, vtid):
