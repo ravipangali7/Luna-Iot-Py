@@ -345,6 +345,62 @@ def update_vehicle_tag(request, id):
         )
 
 
+@api_view(['PUT', 'PATCH'])
+@require_auth
+@api_response
+def assign_vehicle_tag_by_vtid(request, vtid):
+    """
+    Assign vehicle tag to logged-in user by VTID
+    Allows authenticated users to assign tags to themselves and update tag fields
+    Accepts all editable fields: vehicle_model, registration_no, register_type,
+    vehicle_category, sos_number, sms_number, is_active, is_downloaded
+    Automatically assigns tag to logged-in user
+    """
+    try:
+        try:
+            tag = VehicleTag.objects.get(vtid=vtid)
+        except VehicleTag.DoesNotExist:
+            return error_response(
+                message=f'Vehicle tag with VTID {vtid} not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Get logged-in user
+        user = request.user
+        
+        # Prepare update data - automatically assign to logged-in user
+        update_data = request.data.copy()
+        update_data['user_id'] = user.id
+        
+        # Use serializer for validation and update
+        serializer = VehicleTagCreateSerializer(tag, data=update_data, partial=True)
+        
+        if not serializer.is_valid():
+            return error_response(
+                message='Validation error',
+                status_code=HTTP_STATUS['BAD_REQUEST'],
+                data=serializer.errors
+            )
+        
+        # Save the tag (serializer handles user_id via update method)
+        serializer.save()
+        
+        # Return updated tag with full serializer
+        updated_tag = VehicleTag.objects.get(vtid=vtid)
+        response_serializer = VehicleTagSerializer(updated_tag, context={'request': request})
+        
+        return success_response(
+            data=response_serializer.data,
+            message='Vehicle tag assigned and updated successfully'
+        )
+        
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
 @api_view(['DELETE'])
 @require_super_admin
 @api_response
