@@ -56,24 +56,23 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
                 is_read=False
             )
             
-            # Send FCM notification - use send_push_notification for direct control
+            # Send FCM notification via Node.js API
             fcm_sent = False
             if user.fcm_token and user.fcm_token.strip():  # Check for both None and empty string
                 try:
-                    from api_common.services.firebase_service import send_push_notification
-                    fcm_sent = send_push_notification(
+                    from api_common.services.nodejs_notification_service import send_push_notification_via_nodejs
+                    fcm_sent = send_push_notification_via_nodejs(
                         notification_id=notification.id,
                         title=title,
-                        body=message,
-                        notification_type='specific',
+                        message=message,
                         target_user_ids=[user.id]
                     )
                     if fcm_sent:
-                        logger.info(f"Successfully sent FCM notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
+                        logger.info(f"Successfully sent FCM notification via Node.js API to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
                     else:
-                        logger.warning(f"Failed to send FCM notification to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
+                        logger.warning(f"Failed to send FCM notification via Node.js API to user {user.id} for vehicle tag alert {vehicle_tag_alert.id}")
                 except Exception as fcm_error:
-                    logger.error(f"Error sending FCM notification to user {user.id}: {fcm_error}")
+                    logger.error(f"Error sending FCM notification via Node.js API to user {user.id}: {fcm_error}")
             else:
                 logger.info(f"User {user.id} has no valid FCM token, skipping FCM notification")
             
