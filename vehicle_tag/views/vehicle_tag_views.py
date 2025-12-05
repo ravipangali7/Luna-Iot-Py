@@ -78,6 +78,9 @@ def get_all_vehicle_tags(request):
     Include user info (name, phone) if assigned, else "unassigned"
     Include visit_count, alert_count, and sms_alert_count
     Available to all authenticated users
+    
+    For non-super-admin users: Only show tags assigned to them OR unassigned tags
+    For super-admin users: Show all tags
     """
     try:
         from django.db.models import Count, Q
@@ -85,11 +88,24 @@ def get_all_vehicle_tags(request):
         page = int(request.GET.get('page', 1))
         page_size = int(request.GET.get('page_size', 25))
         
-        # Get all tags with optimized queries for counts
+        # Check if user is super admin
+        user = request.user
+        user_groups = user.groups.all()
+        user_role_names = [group.name for group in user_groups]
+        is_super_admin = 'Super Admin' in user_role_names
+        
+        # Get tags with optimized queries for counts
         tags = VehicleTag.objects.all().select_related('user').annotate(
             alert_count=Count('alerts'),
             sms_alert_count=Count('alerts', filter=Q(alerts__sms_sent=True))
-        ).order_by('-created_at')
+        )
+        
+        # Filter by user if not super admin
+        # Non-super-admin users see: tags assigned to them OR unassigned tags (user is null)
+        if not is_super_admin:
+            tags = tags.filter(Q(user=user) | Q(user__isnull=True))
+        
+        tags = tags.order_by('-created_at')
         
         # Paginate
         paginator = Paginator(tags, page_size)
