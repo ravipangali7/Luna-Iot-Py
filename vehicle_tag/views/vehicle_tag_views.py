@@ -70,13 +70,14 @@ def generate_vehicle_tags(request):
 
 
 @api_view(['GET'])
-@require_super_admin
+@require_auth
 @api_response
 def get_all_vehicle_tags(request):
     """
     Get all vehicle tags (paginated)
     Include user info (name, phone) if assigned, else "unassigned"
     Include visit_count, alert_count, and sms_alert_count
+    Available to all authenticated users
     """
     try:
         from django.db.models import Count, Q
