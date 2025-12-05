@@ -42,11 +42,13 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
         
         # Create notification in database
         try:
+            # For vehicle tag alerts, use the vehicle tag owner as sentBy
+            # If no user is assigned, we can't create notification
             notification = Notification.objects.create(
                 title=title,
                 message=message,
                 type='specific',
-                source='vehicle_tag'
+                sentBy=user  # Use vehicle tag owner as the sender
             )
             
             # Create user notification
