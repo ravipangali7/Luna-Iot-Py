@@ -55,7 +55,7 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
             UserNotification.objects.create(
                 notification=notification,
                 user=user,
-                is_read=False
+                isRead=False
             )
             
             # Send FCM notification via Node.js API
