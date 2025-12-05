@@ -79,8 +79,8 @@ def get_all_vehicle_tags(request):
     Include visit_count, alert_count, and sms_alert_count
     Available to all authenticated users
     
-    For non-super-admin users: Only show tags assigned to them OR unassigned tags
-    For super-admin users: Show all tags
+    For non-super-admin users: Only show tags assigned to them (exclude unassigned tags)
+    For super-admin users: Show all tags (including unassigned)
     """
     try:
         from django.db.models import Count, Q
@@ -101,9 +101,9 @@ def get_all_vehicle_tags(request):
         )
         
         # Filter by user if not super admin
-        # Non-super-admin users see: tags assigned to them OR unassigned tags (user is null)
+        # Non-super-admin users see: only tags assigned to them (exclude unassigned tags)
         if not is_super_admin:
-            tags = tags.filter(Q(user=user) | Q(user__isnull=True))
+            tags = tags.filter(user=user)
         
         tags = tags.order_by('-created_at')
         
