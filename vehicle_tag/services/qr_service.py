@@ -64,70 +64,75 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     draw.rectangle([(0, footer_start), (width, height)], fill=white)
     
     # Try to load fonts with Unicode support for Nepali text
-    # Try multiple font paths for better compatibility, prioritizing fonts that support Devanagari
-    font_paths = [
-        # Windows fonts that support Nepali/Devanagari
-        "C:/Windows/Fonts/mangal.ttf",  # Mangal - supports Devanagari
-        "C:/Windows/Fonts/MANGAL.TTF",
-        "C:/Windows/Fonts/kalapi.ttf",  # Kalapi - supports Devanagari
-        "C:/Windows/Fonts/KALAPI.TTF",
-        "C:/Windows/Fonts/notosansdevanagari.ttf",  # Noto Sans Devanagari
-        "C:/Windows/Fonts/Nirmala.ttf",  # Nirmala - supports Devanagari
-        "C:/Windows/Fonts/NIRMALA.TTF",
+    # Separate fonts for English and Nepali text to ensure proper rendering
+    english_font_paths = [
+        # Linux fonts that support English well
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        # Windows fonts
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/ARIAL.TTF",
+        "C:/Windows/Fonts/arialbd.ttf",  # Arial Bold
+        # macOS fonts
+        "/System/Library/Fonts/Helvetica.ttc",
+        # Fallback
+        "arial.ttf",
+        "Arial.ttf",
+    ]
+
+    nepali_font_paths = [
         # Linux fonts that support Devanagari
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
         "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Good Unicode support
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
         "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+        # Windows fonts
+        "C:/Windows/Fonts/mangal.ttf",
+        "C:/Windows/Fonts/MANGAL.TTF",
+        "C:/Windows/Fonts/kalapi.ttf",
+        "C:/Windows/Fonts/KALAPI.TTF",
+        "C:/Windows/Fonts/notosansdevanagari.ttf",
+        "C:/Windows/Fonts/Nirmala.ttf",
+        "C:/Windows/Fonts/NIRMALA.TTF",
         # macOS fonts
         "/System/Library/Fonts/Supplemental/Devanagari.ttc",
-        "/System/Library/Fonts/Helvetica.ttc",
-        # Fallback fonts
-        "arial.ttf",
-        "Arial.ttf",
-        "C:/Windows/Fonts/arial.ttf",
-        "C:/Windows/Fonts/ARIAL.TTF",
     ]
-    
+
     title_font = None
     subtitle_font = None
     text_font = None
     small_font = None
     nepali_font = None  # Separate font for Nepali text
-    
-    # Try to load fonts - prioritize Devanagari-supporting fonts
-    for font_path in font_paths:
+
+    # First, load English fonts for English text
+    for font_path in english_font_paths:
         try:
-            # Try to load the font
             test_font = ImageFont.truetype(font_path, 20)
-            
-            # Load fonts for English text
             if title_font is None:
                 title_font = ImageFont.truetype(font_path, 42)  # Bigger and bold
             if text_font is None:
                 text_font = ImageFont.truetype(font_path, 22)  # Bigger
             if small_font is None:
                 small_font = ImageFont.truetype(font_path, 18)  # Bigger
-            
-            # For Nepali text, prioritize Devanagari-supporting fonts
-            # Check if this is a Devanagari-supporting font
-            is_devanagari_font = any(keyword in font_path.lower() for keyword in [
-                'mangal', 'kalapi', 'nirmala', 'noto', 'devanagari', 'lohit'
-            ])
-            
-            if is_devanagari_font or nepali_font is None:
-                if subtitle_font is None:
-                    subtitle_font = ImageFont.truetype(font_path, 28)  # Bigger
-                if nepali_font is None:
-                    nepali_font = ImageFont.truetype(font_path, 18)  # For footer Nepali text
-            
-            # If we have all fonts, we can break
-            if title_font and subtitle_font and text_font and small_font:
+            if title_font and text_font and small_font:
                 break
         except:
             continue
-    
+
+    # Then, load Devanagari fonts specifically for Nepali text
+    for font_path in nepali_font_paths:
+        try:
+            test_font = ImageFont.truetype(font_path, 20)
+            if subtitle_font is None:
+                subtitle_font = ImageFont.truetype(font_path, 28)  # For body Nepali text
+            if nepali_font is None:
+                nepali_font = ImageFont.truetype(font_path, 18)  # For footer Nepali text
+            if subtitle_font and nepali_font:
+                break
+        except:
+            continue
+
     # Fallback to default font if all attempts fail
     if title_font is None:
         title_font = ImageFont.load_default()
