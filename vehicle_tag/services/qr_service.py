@@ -310,6 +310,22 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
             bbox = draw.textbbox((0, 0), word + " ", font=font)
             x_pos += bbox[2] - bbox[0]
     
+    # Add grey border around the entire design
+    # Create a frame by making a slightly larger image with grey background
+    border_width = 3  # Thin border width in pixels
+    grey_color = (200, 200, 200)  # Light grey color
+    
+    # Create new image with border space
+    bordered_width = width + (border_width * 2)
+    bordered_height = height + (border_width * 2)
+    bordered_img = Image.new('RGB', (bordered_width, bordered_height), color=grey_color)
+    
+    # Paste the original image on top of the grey background (centered)
+    bordered_img.paste(img, (border_width, border_width))
+    
+    # Use the bordered image for final output
+    img = bordered_img
+    
     # Ensure image is in RGB mode for proper PNG encoding
     if img.mode != 'RGB':
         img = img.convert('RGB')
