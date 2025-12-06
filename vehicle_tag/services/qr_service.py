@@ -38,29 +38,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     if qr_img.mode != 'RGB':
         qr_img = qr_img.convert('RGB')
     
-    # Add actual logo in the center of QR code
-    logo_size = 60
-    try:
-        # Get the path to static files
-        static_dir = os.path.join(settings.BASE_DIR, 'static', 'vehicle_tag', 'images')
-        logo_path = os.path.join(static_dir, 'logo.png')
-        
-        if os.path.exists(logo_path):
-            logo_img = Image.open(logo_path)
-            # Resize logo to fit in QR code center
-            logo_img = logo_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-            
-            # Convert to RGBA if needed for transparency
-            if logo_img.mode != 'RGBA':
-                logo_img = logo_img.convert('RGBA')
-            
-            # Paste logo in center of QR code
-            qr_center_x = qr_img.width // 2 - logo_size // 2
-            qr_center_y = qr_img.height // 2 - logo_size // 2
-            qr_img.paste(logo_img, (qr_center_x, qr_center_y), logo_img)
-    except Exception as e:
-        # If logo fails to load, continue without it
-        print(f"Warning: Could not load logo for QR code: {e}")
+    # No logo in center of QR code - clean QR code only
     
     # Create main image (matching the design from the image description)
     # Dimensions: approximately 600x900 pixels (portrait orientation)
@@ -167,11 +145,14 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     
     # Footer section - First row: Icons
     footer_y = footer_start + 20
-    icon_size = 60  # Size for each icon
+    icon_size = 60  # Size for shield and google lens icons
+    logo_width = 120  # Wider width for Luna IOT logo
+    logo_height = 60  # Height for Luna IOT logo
     icon_spacing = 30  # Space between icons
     
     # Calculate positions for three icons centered horizontally
-    total_icons_width = (icon_size * 3) + (icon_spacing * 2)
+    # Logo is wider, so we need to account for that
+    total_icons_width = logo_width + icon_size + icon_size + (icon_spacing * 2)
     start_x = (width - total_icons_width) // 2
     
     # Load and paste the three images
@@ -179,11 +160,12 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         # Get the path to static files
         static_dir = os.path.join(settings.BASE_DIR, 'static', 'vehicle_tag', 'images')
         
-        # Load logo (left icon)
+        # Load logo (left icon) - make it wider for better visibility
         logo_path = os.path.join(static_dir, 'logo.png')
         if os.path.exists(logo_path):
             logo_icon = Image.open(logo_path)
-            logo_icon = logo_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+            # Resize logo to be wider (maintain aspect ratio or use fixed wider size)
+            logo_icon = logo_icon.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
             if logo_icon.mode == 'RGBA':
                 img.paste(logo_icon, (start_x, footer_y), logo_icon)
             else:
@@ -194,7 +176,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         if os.path.exists(shield_path):
             shield_icon = Image.open(shield_path)
             shield_icon = shield_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
-            shield_x = start_x + icon_size + icon_spacing
+            shield_x = start_x + logo_width + icon_spacing
             if shield_icon.mode == 'RGBA':
                 img.paste(shield_icon, (shield_x, footer_y), shield_icon)
             else:
@@ -205,7 +187,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         if os.path.exists(google_lens_path):
             google_lens_icon = Image.open(google_lens_path)
             google_lens_icon = google_lens_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
-            google_lens_x = start_x + (icon_size + icon_spacing) * 2
+            google_lens_x = start_x + logo_width + icon_spacing + icon_size + icon_spacing
             if google_lens_icon.mode == 'RGBA':
                 img.paste(google_lens_icon, (google_lens_x, footer_y), google_lens_icon)
             else:
