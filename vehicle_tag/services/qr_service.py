@@ -41,18 +41,18 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     logo_img = Image.new('RGBA', (logo_size, logo_size), (0, 0, 0, 0))
     logo_draw = ImageDraw.Draw(logo_img)
     
-    # Light green color for logo (matching the body background)
-    light_green = (144, 238, 144)
+    # Dark green color for logo (matching the body background)
+    dark_green = (34, 139, 34)
     
     # Draw location pin shape (teardrop/pin shape)
     # Top circle
-    logo_draw.ellipse([(logo_size//2 - 15, 5), (logo_size//2 + 15, 35)], fill=light_green)
+    logo_draw.ellipse([(logo_size//2 - 15, 5), (logo_size//2 + 15, 35)], fill=dark_green)
     # Bottom triangle/point
     logo_draw.polygon([
         (logo_size//2, 35),
         (logo_size//2 - 12, 45),
         (logo_size//2 + 12, 45)
-    ], fill=light_green)
+    ], fill=dark_green)
     
     # Draw white "G" letter in the center
     try:
@@ -76,13 +76,8 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     qr_center_y = qr_img.height // 2 - logo_size // 2
     qr_img.paste(logo_img, (qr_center_x, qr_center_y), logo_img)
     
-    # Add white border around QR code
-    bordered_qr = Image.new('RGB', (qr_img.width + 20, qr_img.height + 20), 'white')
-    bordered_qr.paste(qr_img, (10, 10))
-    qr_img = bordered_qr
-    
     # Create main image (matching the design from the image description)
-    # Dimensions: approximately 600x800 pixels (portrait orientation)
+    # Dimensions: approximately 600x900 pixels (portrait orientation)
     width = 600
     height = 900
     
@@ -91,22 +86,16 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     draw = ImageDraw.Draw(img)
     
     # Colors (matching the design)
-    dark_green = (34, 139, 34)  # Dark green for header
-    light_green = (144, 238, 144)  # Light green for body
+    dark_green = (34, 139, 34)  # Dark green for body
     white = (255, 255, 255)
     black = (0, 0, 0)
     
-    # Header section (dark green)
-    header_height = 120
-    draw.rectangle([(0, 0), (width, header_height)], fill=dark_green)
-    
-    # Main body section (light green)
-    body_start = header_height
-    body_height = 600
-    draw.rectangle([(0, body_start), (width, body_start + body_height)], fill=light_green)
+    # Body section (dark green) - starts from top
+    body_height = 650
+    draw.rectangle([(0, 0), (width, body_height)], fill=dark_green)
     
     # Footer section (white)
-    footer_start = body_start + body_height
+    footer_start = body_height
     footer_height = height - footer_start
     draw.rectangle([(0, footer_start), (width, height)], fill=white)
     
@@ -124,64 +113,93 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         text_font = ImageFont.load_default()
         small_font = ImageFont.load_default()
     
-    # Header text
-    header_text = "Contact Vehicle Owner"
-    header_nepali = "सवारीधनी लाई सम्पर्क गर्नुहोस्।"
+    # Body section - Title at top
+    body_y = 30
+    title_text = "Contact Vehicle Owner"
+    subtitle_text = "सवारीधनी लाई सम्पर्क गर्नुहोस् ।"
     
     # Calculate text positions (centered)
-    bbox = draw.textbbox((0, 0), header_text, font=title_font)
+    bbox = draw.textbbox((0, 0), title_text, font=title_font)
     text_width = bbox[2] - bbox[0]
     text_x = (width - text_width) // 2
-    draw.text((text_x, 20), header_text, fill=white, font=title_font)
+    draw.text((text_x, body_y), title_text, fill=white, font=title_font)
     
-    bbox = draw.textbbox((0, 0), header_nepali, font=subtitle_font)
+    bbox = draw.textbbox((0, 0), subtitle_text, font=subtitle_font)
     text_width = bbox[2] - bbox[0]
     text_x = (width - text_width) // 2
-    draw.text((text_x, 65), header_nepali, fill=white, font=subtitle_font)
+    draw.text((text_x, body_y + 45), subtitle_text, fill=white, font=subtitle_font)
     
-    # Body section text
-    body_y = body_start + 20
-    draw.text((width // 2 - 100, body_y), "Scan with QR Scanner", fill=white, font=text_font)
-    
-    # Place QR code in center of body (accounting for border)
+    # Place QR code in center of body
     qr_x = (width - qr_img.width) // 2
-    qr_y = body_y + 40
+    qr_y = body_y + 100
     img.paste(qr_img, (qr_x, qr_y))
     
-    # Tag ID below QR code (adjust for bordered QR code)
+    # Tag ID below QR code
     tag_id_text = f"TAG ID: {vtid}"
     bbox = draw.textbbox((0, 0), tag_id_text, font=text_font)
     text_width = bbox[2] - bbox[0]
     text_x = (width - text_width) // 2
     draw.text((text_x, qr_y + qr_img.height + 20), tag_id_text, fill=white, font=text_font)
     
-    # SMS instructions
-    sms_text = f'SEND SMS: "LUNATAG {vtid}" TO 31064'
-    bbox = draw.textbbox((0, 0), sms_text, font=small_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, qr_y + qr_img.height + 60), sms_text, fill=white, font=small_font)
-    
     # Download app text
-    app_text = "Download Luna GPS App Now"
+    app_text = "Download Luna IOT App Now"
     bbox = draw.textbbox((0, 0), app_text, font=text_font)
     text_width = bbox[2] - bbox[0]
     text_x = (width - text_width) // 2
-    draw.text((text_x, qr_y + qr_img.height + 100), app_text, fill=white, font=text_font)
+    draw.text((text_x, qr_y + qr_img.height + 50), app_text, fill=white, font=text_font)
     
-    # Footer separator line
-    line_y = footer_start
-    draw.rectangle([(0, line_y), (width, line_y + 5)], fill=light_green)
+    # Footer section - First row: Icons
+    footer_y = footer_start + 20
+    icon_size = 60  # Size for each icon
+    icon_spacing = 30  # Space between icons
     
-    # Footer branding
-    footer_text = "LUNA GPS"
-    bbox = draw.textbbox((0, 0), footer_text, font=text_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, line_y + 20), footer_text, fill=dark_green, font=text_font)
+    # Calculate positions for three icons centered horizontally
+    total_icons_width = (icon_size * 3) + (icon_spacing * 2)
+    start_x = (width - total_icons_width) // 2
     
-    # Emergency message in Nepali
-    emergency_text = "यदि यो सवारी साधन कुनै आपतकालीन अवस्थामा छ भने माथिको QR स्क्यन गरि सम्बन्धित ब्यक्ति लाई खबर गरिदिनु होला"
+    # Load and paste the three images
+    try:
+        # Get the path to static files
+        static_dir = os.path.join(settings.BASE_DIR, 'static', 'vehicle_tag', 'images')
+        
+        # Load logo (left icon)
+        logo_path = os.path.join(static_dir, 'logo.png')
+        if os.path.exists(logo_path):
+            logo_icon = Image.open(logo_path)
+            logo_icon = logo_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+            if logo_icon.mode == 'RGBA':
+                img.paste(logo_icon, (start_x, footer_y), logo_icon)
+            else:
+                img.paste(logo_icon, (start_x, footer_y))
+        
+        # Load shield icon (center icon)
+        shield_path = os.path.join(static_dir, 'shield.png')
+        if os.path.exists(shield_path):
+            shield_icon = Image.open(shield_path)
+            shield_icon = shield_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+            shield_x = start_x + icon_size + icon_spacing
+            if shield_icon.mode == 'RGBA':
+                img.paste(shield_icon, (shield_x, footer_y), shield_icon)
+            else:
+                img.paste(shield_icon, (shield_x, footer_y))
+        
+        # Load Google Lens icon (right icon)
+        google_lens_path = os.path.join(static_dir, 'google_lens.png')
+        if os.path.exists(google_lens_path):
+            google_lens_icon = Image.open(google_lens_path)
+            google_lens_icon = google_lens_icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
+            google_lens_x = start_x + (icon_size + icon_spacing) * 2
+            if google_lens_icon.mode == 'RGBA':
+                img.paste(google_lens_icon, (google_lens_x, footer_y), google_lens_icon)
+            else:
+                img.paste(google_lens_icon, (google_lens_x, footer_y))
+    except Exception as e:
+        # If images fail to load, continue without them
+        print(f"Warning: Could not load footer images: {e}")
+    
+    # Footer section - Second row: Nepali text
+    emergency_text = "यदि यो सवारी साधन कुनै आपत्कालीन अवस्थामा छ भने माथिको QR स्क्यान गरी सम्बन्धित व्यक्तिलाई खबर गरिदिनुहोला।"
+    
     # Wrap text if needed
     words = emergency_text.split()
     lines = []
@@ -206,13 +224,13 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     if current_line:
         lines.append(" ".join(current_line))
     
-    # Draw emergency message
-    emergency_y = line_y + 60
+    # Draw emergency message in dark green
+    emergency_y = footer_y + icon_size + 20
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=small_font)
         text_width = bbox[2] - bbox[0]
         text_x = (width - text_width) // 2
-        draw.text((text_x, emergency_y + i * 20), line, fill=black, font=small_font)
+        draw.text((text_x, emergency_y + i * 20), line, fill=dark_green, font=small_font)
     
     # Convert to bytes
     img_io = io.BytesIO()
