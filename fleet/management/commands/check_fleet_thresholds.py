@@ -194,8 +194,8 @@ class Command(BaseCommand):
                 else:
                     last_service_info = 'No previous service record. '
 
-                # Include IMEI in title and message for better entity identification
-                title = f'Vehicle Servicing Required: {vehicle.name} ({vehicle.imei})'
+                # Include vehicle number in title and message for better entity identification
+                title = f'Vehicle Servicing Required: {vehicle.name} ({vehicle.vehicleNo})'
                 message = (
                     f'{vehicle.name} ({vehicle.vehicleNo}) - IMEI: {vehicle.imei} needs servicing. '
                     f'{last_service_info}'
@@ -315,8 +315,8 @@ class Command(BaseCommand):
                 days_until_expiry = (expiry_date - current_date).days
                 
                 # Create notification message based on expiry status
-                # Include document title and vehicle IMEI for better entity identification
-                title = f'Document Renewal Required: {document.title} ({vehicle.imei})'
+                # Include document title and vehicle number for better entity identification
+                title = f'Document Renewal Required: {document.title} ({vehicle.vehicleNo})'
                 
                 if days_until_expiry > 0:
                     # Not expired yet - show days remaining
