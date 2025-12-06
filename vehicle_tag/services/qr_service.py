@@ -181,7 +181,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     # Footer section - First row: Icons
     footer_y = footer_start + 20
     icon_size = 60  # Size for shield and google lens icons
-    logo_width = 160  # Wider width for Luna IOT logo (increased from 120)
+    logo_width = 200  # Wider width for Luna IOT logo (increased from 120)
     logo_height = 60  # Height for Luna IOT logo
     icon_spacing = 30  # Space between icons
     
