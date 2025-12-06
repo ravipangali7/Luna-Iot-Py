@@ -239,39 +239,76 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     # Footer section - Second row: Nepali text
     emergency_text = "यदि यो सवारी साधन कुनै आपत्कालीन अवस्थामा छ भने माथिको QR स्क्यान गरी सम्बन्धित व्यक्तिलाई खबर गरिदिनुहोला।"
     
-    # Wrap text if needed
-    words = emergency_text.split()
-    lines = []
-    current_line = []
-    current_width = 0
+    # Split text into segments to handle mixed English/Nepali text
+    # Split by "QR" to render it with English font
+    text_segments = emergency_text.split("QR")
     
-    for word in words:
-        bbox = draw.textbbox((0, 0), word + " ", font=small_font)
-        word_width = bbox[2] - bbox[0]
-        if current_width + word_width > width - 40:
-            if current_line:
-                lines.append(" ".join(current_line))
-                current_line = [word]
-                current_width = word_width
-            else:
-                lines.append(word)
-                current_width = 0
-        else:
-            current_line.append(word)
-            current_width += word_width
+    # Wrap text if needed and handle mixed fonts
+    def wrap_text_with_mixed_fonts(text_segments, nepali_font, english_font, max_width):
+        """Wrap text handling mixed Nepali and English fonts"""
+        lines = []
+        current_line_parts = []
+        current_width = 0
+        
+        for segment_idx, segment in enumerate(text_segments):
+            words = segment.split()
+            for word in words:
+                # Determine font based on whether it's English or Nepali
+                # Simple check: if word contains only ASCII, use English font
+                is_english = all(ord(c) < 128 for c in word)
+                font_to_use = english_font if is_english else nepali_font
+                
+                bbox = draw.textbbox((0, 0), word + " ", font=font_to_use)
+                word_width = bbox[2] - bbox[0]
+                
+                if current_width + word_width > max_width:
+                    if current_line_parts:
+                        lines.append(current_line_parts)
+                        current_line_parts = []
+                        current_width = 0
+                
+                current_line_parts.append((word, font_to_use))
+                current_width += word_width
+            
+            # Add "QR" between segments (except after last segment)
+            if segment_idx < len(text_segments) - 1:
+                bbox = draw.textbbox((0, 0), "QR ", font=english_font)
+                qr_width = bbox[2] - bbox[0]
+                if current_width + qr_width > max_width:
+                    if current_line_parts:
+                        lines.append(current_line_parts)
+                        current_line_parts = []
+                        current_width = 0
+                current_line_parts.append(("QR", english_font))
+                current_width += qr_width
+        
+        if current_line_parts:
+            lines.append(current_line_parts)
+        
+        return lines
     
-    if current_line:
-        lines.append(" ".join(current_line))
+    wrapped_lines = wrap_text_with_mixed_fonts(text_segments, nepali_font, small_font, width - 40)
     
     # Draw emergency message in dark green (with larger spacing for bigger font)
-    # Use nepali_font for Nepali text to ensure proper rendering
+    # Handle mixed English/Nepali text rendering
     emergency_y = footer_y + icon_size + 30
     line_spacing = 25  # Increased spacing for larger font
-    for i, line in enumerate(lines):
-        bbox = draw.textbbox((0, 0), line, font=nepali_font)
-        text_width = bbox[2] - bbox[0]
-        text_x = (width - text_width) // 2
-        draw.text((text_x, emergency_y + i * line_spacing), line, fill=dark_green, font=nepali_font)
+    
+    for i, line_parts in enumerate(wrapped_lines):
+        # Calculate total width of the line
+        total_width = 0
+        for word, font in line_parts:
+            bbox = draw.textbbox((0, 0), word + " ", font=font)
+            total_width += bbox[2] - bbox[0]
+        
+        # Start position (centered)
+        x_pos = (width - total_width) // 2
+        
+        # Draw each word with its appropriate font
+        for word, font in line_parts:
+            draw.text((x_pos, emergency_y + i * line_spacing), word + " ", fill=dark_green, font=font)
+            bbox = draw.textbbox((0, 0), word + " ", font=font)
+            x_pos += bbox[2] - bbox[0]
     
     # Ensure image is in RGB mode for proper PNG encoding
     if img.mode != 'RGB':
