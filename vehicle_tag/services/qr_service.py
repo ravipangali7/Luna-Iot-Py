@@ -294,12 +294,20 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     emergency_y = footer_y + icon_size + 30
     line_spacing = 25  # Increased spacing for larger font
     
+    # Calculate the height of the last text line to determine final image height
+    last_line_y = 0
+    last_line_height = 0
+    
     for i, line_parts in enumerate(wrapped_lines):
         # Calculate total width of the line
         total_width = 0
+        max_line_height = 0
         for word, font in line_parts:
             bbox = draw.textbbox((0, 0), word + " ", font=font)
             total_width += bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
+            if line_height > max_line_height:
+                max_line_height = line_height
         
         # Start position (centered)
         x_pos = (width - total_width) // 2
@@ -309,6 +317,23 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
             draw.text((x_pos, emergency_y + i * line_spacing), word + " ", fill=dark_green, font=font)
             bbox = draw.textbbox((0, 0), word + " ", font=font)
             x_pos += bbox[2] - bbox[0]
+        
+        # Track last line position and height
+        if i == len(wrapped_lines) - 1:
+            last_line_y = emergency_y + i * line_spacing
+            last_line_height = max_line_height
+    
+    # Calculate new height: last text line + text height + spacing (same as top spacing: 20px)
+    # Top spacing from body line to icons is 20px, so use same for bottom
+    bottom_spacing = 20  # Match the spacing from body line to icons (footer_y - footer_start = 20)
+    new_height = last_line_y + last_line_height + bottom_spacing
+    
+    # Crop the image to the new height (remove excess white space at bottom)
+    img = img.crop((0, 0, width, new_height))
+    draw = ImageDraw.Draw(img)  # Recreate draw object for the cropped image
+    
+    # Ensure footer white background extends to the new height
+    draw.rectangle([(0, footer_start), (width, new_height)], fill=white)
     
     # Add grey border around the entire design
     # Create a frame by making a slightly larger image with grey background
