@@ -515,6 +515,19 @@ def get_all_garbage_vehicles_with_locations(request):
             
             # Only include institutes that have vehicles
             if vehicles_data:
+                # Build institute logo URL if available
+                institute_logo_url = None
+                if institute.logo:
+                    try:
+                        from django.conf import settings
+                        if request:
+                            institute_logo_url = request.build_absolute_uri(institute.logo.url)
+                        else:
+                            institute_logo_url = f"{settings.MEDIA_URL}{institute.logo.url}" if hasattr(settings, 'MEDIA_URL') else institute.logo.url
+                    except Exception as e:
+                        print(f"Error building logo URL: {e}")
+                        institute_logo_url = None
+                
                 response_data.append({
                     'institute': {
                         'id': institute.id,
@@ -523,6 +536,7 @@ def get_all_garbage_vehicles_with_locations(request):
                         'address': institute.address or '',
                         'latitude': float(institute.latitude) if institute.latitude else None,
                         'longitude': float(institute.longitude) if institute.longitude else None,
+                        'logo': institute_logo_url,
                     },
                     'vehicles': vehicles_data
                 })

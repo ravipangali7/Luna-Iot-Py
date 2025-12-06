@@ -497,14 +497,14 @@ def get_all_public_vehicles_with_locations(request):
         # Get all public vehicles that are active, grouped by institute
         public_vehicles = PublicVehicle.objects.select_related(
             'vehicle', 'institute'
-        ).filter(
+        ).prefetch_related('images').filter(
             is_active=True,
             vehicle__isnull=False
         ).order_by('-created_at')
         
         print(f"Total active public vehicles: {public_vehicles.count()}")
         
-        # Group by institute
+        # Group by institute - store PublicVehicle objects to access description and images
         for pv in public_vehicles:
             if not pv.vehicle:
                 continue
@@ -516,10 +516,10 @@ def get_all_public_vehicles_with_locations(request):
             if institute_id not in institute_vehicle_map:
                 institute_vehicle_map[institute_id] = {
                     'institute': institute,
-                    'vehicles': []
+                    'public_vehicles': []  # Store PublicVehicle objects
                 }
             
-            institute_vehicle_map[institute_id]['vehicles'].append(vehicle)
+            institute_vehicle_map[institute_id]['public_vehicles'].append(pv)
             all_imeis.add(vehicle.imei)
             print(f"  Added vehicle {vehicle.imei} ({vehicle.name}) for institute {institute.name}")
         
@@ -589,9 +589,11 @@ def get_all_public_vehicles_with_locations(request):
             vehicles_data = []
             
             print(f"Processing institute: {institute.name} (ID: {institute_id})")
-            print(f"  Vehicles in institute: {len(data['vehicles'])}")
+            print(f"  Public vehicles in institute: {len(data['public_vehicles'])}")
             
-            for vehicle in data['vehicles']:
+            for pv in data['public_vehicles']:
+                vehicle = pv.vehicle
+                
                 # Get vehicle data
                 vehicle_data = {
                     'id': vehicle.id,
@@ -613,15 +615,56 @@ def get_all_public_vehicles_with_locations(request):
                 # Get status if available
                 status = statuses_dict.get(vehicle.imei)
                 
+                # Get public vehicle description and images
+                public_vehicle_data = {
+                    'description': pv.description,
+                    'images': []
+                }
+                
+                # Serialize images
+                for img in pv.images.all().order_by('order', 'created_at'):
+                    image_url = None
+                    if img.image:
+                        try:
+                            if request:
+                                image_url = request.build_absolute_uri(img.image.url)
+                            else:
+                                from django.conf import settings
+                                image_url = f"{settings.MEDIA_URL}{img.image.url}" if hasattr(settings, 'MEDIA_URL') else img.image.url
+                        except Exception as e:
+                            print(f"Error building image URL: {e}")
+                            image_url = None
+                    
+                    public_vehicle_data['images'].append({
+                        'id': img.id,
+                        'image': image_url,
+                        'title': img.title,
+                        'order': img.order
+                    })
+                
                 vehicles_data.append({
                     'vehicle': vehicle_data,
                     'location': location,
-                    'status': status
+                    'status': status,
+                    'public_vehicle': public_vehicle_data
                 })
-                print(f"    Vehicle {vehicle.imei} - Location: {'Yes' if location else 'No'}")
+                print(f"    Vehicle {vehicle.imei} - Location: {'Yes' if location else 'No'}, Images: {len(public_vehicle_data['images'])}")
             
             # Only include institutes that have vehicles
             if vehicles_data:
+                # Build institute logo URL if available
+                institute_logo_url = None
+                if institute.logo:
+                    try:
+                        from django.conf import settings
+                        if request:
+                            institute_logo_url = request.build_absolute_uri(institute.logo.url)
+                        else:
+                            institute_logo_url = f"{settings.MEDIA_URL}{institute.logo.url}" if hasattr(settings, 'MEDIA_URL') else institute.logo.url
+                    except Exception as e:
+                        print(f"Error building logo URL: {e}")
+                        institute_logo_url = None
+                
                 response_data.append({
                     'institute': {
                         'id': institute.id,
@@ -630,6 +673,7 @@ def get_all_public_vehicles_with_locations(request):
                         'address': institute.address or '',
                         'latitude': float(institute.latitude) if institute.latitude else None,
                         'longitude': float(institute.longitude) if institute.longitude else None,
+                        'logo': institute_logo_url,
                     },
                     'vehicles': vehicles_data
                 })
