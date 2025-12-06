@@ -34,47 +34,33 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     # Create QR code image
     qr_img = qr.make_image(fill_color="black", back_color="white")
     qr_img = qr_img.resize((300, 300))  # Resize QR code
+    # Ensure QR code is in RGB mode for proper pasting
+    if qr_img.mode != 'RGB':
+        qr_img = qr_img.convert('RGB')
     
-    # Add green "G" logo in the center of QR code (GPS icon style - location pin)
-    # Create a location pin style logo with "G"
-    logo_size = 50
-    logo_img = Image.new('RGBA', (logo_size, logo_size), (0, 0, 0, 0))
-    logo_draw = ImageDraw.Draw(logo_img)
-    
-    # Dark green color for logo (matching the body background)
-    dark_green = (34, 139, 34)
-    
-    # Draw location pin shape (teardrop/pin shape)
-    # Top circle
-    logo_draw.ellipse([(logo_size//2 - 15, 5), (logo_size//2 + 15, 35)], fill=dark_green)
-    # Bottom triangle/point
-    logo_draw.polygon([
-        (logo_size//2, 35),
-        (logo_size//2 - 12, 45),
-        (logo_size//2 + 12, 45)
-    ], fill=dark_green)
-    
-    # Draw white "G" letter in the center
+    # Add actual logo in the center of QR code
+    logo_size = 60
     try:
-        logo_font = ImageFont.truetype("arial.ttf", 28)
-    except:
-        try:
-            logo_font = ImageFont.truetype("arial.ttf", 24)
-        except:
-            logo_font = ImageFont.load_default()
-    
-    # Draw "G" text in white, centered
-    g_bbox = logo_draw.textbbox((0, 0), "G", font=logo_font)
-    g_width = g_bbox[2] - g_bbox[0]
-    g_height = g_bbox[3] - g_bbox[1]
-    g_x = (logo_size - g_width) // 2
-    g_y = (logo_size - g_height) // 2 - 5  # Slightly above center
-    logo_draw.text((g_x, g_y), "G", fill=(255, 255, 255), font=logo_font)
-    
-    # Paste logo in center of QR code
-    qr_center_x = qr_img.width // 2 - logo_size // 2
-    qr_center_y = qr_img.height // 2 - logo_size // 2
-    qr_img.paste(logo_img, (qr_center_x, qr_center_y), logo_img)
+        # Get the path to static files
+        static_dir = os.path.join(settings.BASE_DIR, 'static', 'vehicle_tag', 'images')
+        logo_path = os.path.join(static_dir, 'logo.png')
+        
+        if os.path.exists(logo_path):
+            logo_img = Image.open(logo_path)
+            # Resize logo to fit in QR code center
+            logo_img = logo_img.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
+            
+            # Convert to RGBA if needed for transparency
+            if logo_img.mode != 'RGBA':
+                logo_img = logo_img.convert('RGBA')
+            
+            # Paste logo in center of QR code
+            qr_center_x = qr_img.width // 2 - logo_size // 2
+            qr_center_y = qr_img.height // 2 - logo_size // 2
+            qr_img.paste(logo_img, (qr_center_x, qr_center_y), logo_img)
+    except Exception as e:
+        # If logo fails to load, continue without it
+        print(f"Warning: Could not load logo for QR code: {e}")
     
     # Create main image (matching the design from the image description)
     # Dimensions: approximately 600x900 pixels (portrait orientation)
@@ -99,54 +85,85 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     footer_height = height - footer_start
     draw.rectangle([(0, footer_start), (width, height)], fill=white)
     
-    # Try to load a font, fallback to default if not available
-    try:
-        # Try to use a system font
-        title_font = ImageFont.truetype("arial.ttf", 32)
-        subtitle_font = ImageFont.truetype("arial.ttf", 20)
-        text_font = ImageFont.truetype("arial.ttf", 16)
-        small_font = ImageFont.truetype("arial.ttf", 14)
-    except:
-        # Fallback to default font
+    # Try to load fonts with Unicode support for Nepali text
+    # Try multiple font paths for better compatibility
+    font_paths = [
+        "arial.ttf",
+        "Arial.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/ARIAL.TTF",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ]
+    
+    title_font = None
+    subtitle_font = None
+    text_font = None
+    small_font = None
+    
+    # Try to load bold fonts for better visibility
+    for font_path in font_paths:
+        try:
+            if title_font is None:
+                title_font = ImageFont.truetype(font_path, 42)  # Bigger and bold
+            if subtitle_font is None:
+                subtitle_font = ImageFont.truetype(font_path, 28)  # Bigger
+            if text_font is None:
+                text_font = ImageFont.truetype(font_path, 22)  # Bigger
+            if small_font is None:
+                small_font = ImageFont.truetype(font_path, 18)  # Bigger
+            break
+        except:
+            continue
+    
+    # Fallback to default font if all attempts fail
+    if title_font is None:
         title_font = ImageFont.load_default()
+    if subtitle_font is None:
         subtitle_font = ImageFont.load_default()
+    if text_font is None:
         text_font = ImageFont.load_default()
+    if small_font is None:
         small_font = ImageFont.load_default()
     
     # Body section - Title at top
-    body_y = 30
+    body_y = 40
     title_text = "Contact Vehicle Owner"
     subtitle_text = "सवारीधनी लाई सम्पर्क गर्नुहोस् ।"
     
-    # Calculate text positions (centered)
+    # Calculate text positions (centered) - with larger spacing for bigger fonts
     bbox = draw.textbbox((0, 0), title_text, font=title_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, body_y), title_text, fill=white, font=title_font)
+    title_width = bbox[2] - bbox[0]
+    title_height = bbox[3] - bbox[1]
+    title_x = (width - title_width) // 2
+    draw.text((title_x, body_y), title_text, fill=white, font=title_font)
     
     bbox = draw.textbbox((0, 0), subtitle_text, font=subtitle_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, body_y + 45), subtitle_text, fill=white, font=subtitle_font)
+    subtitle_width = bbox[2] - bbox[0]
+    subtitle_height = bbox[3] - bbox[1]
+    subtitle_x = (width - subtitle_width) // 2
+    draw.text((subtitle_x, body_y + title_height + 20), subtitle_text, fill=white, font=subtitle_font)
     
-    # Place QR code in center of body
+    # Place QR code in center of body (with more spacing)
     qr_x = (width - qr_img.width) // 2
-    qr_y = body_y + 100
+    qr_y = body_y + title_height + subtitle_height + 80
     img.paste(qr_img, (qr_x, qr_y))
     
     # Tag ID below QR code
     tag_id_text = f"TAG ID: {vtid}"
     bbox = draw.textbbox((0, 0), tag_id_text, font=text_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, qr_y + qr_img.height + 20), tag_id_text, fill=white, font=text_font)
+    tag_id_width = bbox[2] - bbox[0]
+    tag_id_height = bbox[3] - bbox[1]
+    tag_id_x = (width - tag_id_width) // 2
+    draw.text((tag_id_x, qr_y + qr_img.height + 30), tag_id_text, fill=white, font=text_font)
     
     # Download app text
     app_text = "Download Luna IOT App Now"
     bbox = draw.textbbox((0, 0), app_text, font=text_font)
-    text_width = bbox[2] - bbox[0]
-    text_x = (width - text_width) // 2
-    draw.text((text_x, qr_y + qr_img.height + 50), app_text, fill=white, font=text_font)
+    app_width = bbox[2] - bbox[0]
+    app_x = (width - app_width) // 2
+    draw.text((app_x, qr_y + qr_img.height + tag_id_height + 50), app_text, fill=white, font=text_font)
     
     # Footer section - First row: Icons
     footer_y = footer_start + 20
@@ -224,18 +241,41 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     if current_line:
         lines.append(" ".join(current_line))
     
-    # Draw emergency message in dark green
-    emergency_y = footer_y + icon_size + 20
+    # Draw emergency message in dark green (with larger spacing for bigger font)
+    emergency_y = footer_y + icon_size + 30
+    line_spacing = 25  # Increased spacing for larger font
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=small_font)
         text_width = bbox[2] - bbox[0]
         text_x = (width - text_width) // 2
-        draw.text((text_x, emergency_y + i * 20), line, fill=dark_green, font=small_font)
+        draw.text((text_x, emergency_y + i * line_spacing), line, fill=dark_green, font=small_font)
     
-    # Convert to bytes
+    # Ensure image is in RGB mode for proper PNG encoding
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    
+    # Convert to bytes - ensure proper PNG encoding
     img_io = io.BytesIO()
-    img.save(img_io, format='PNG')
+    # Save with explicit parameters to ensure proper encoding
+    try:
+        img.save(img_io, format='PNG', optimize=False)
+    except Exception as e:
+        # If save fails, try with default settings
+        img_io = io.BytesIO()
+        img.save(img_io, format='PNG')
+    
+    # Reset to beginning of stream
     img_io.seek(0)
+    
+    # Verify the image was saved properly (check if stream has content)
+    if img_io.getvalue() == b'':
+        # If stream is empty, there was an error - create a simple error image
+        error_img = Image.new('RGB', (600, 900), color='white')
+        error_draw = ImageDraw.Draw(error_img)
+        error_draw.text((200, 400), 'Error generating image', fill='black')
+        img_io = io.BytesIO()
+        error_img.save(img_io, format='PNG')
+        img_io.seek(0)
     
     return img_io
 
