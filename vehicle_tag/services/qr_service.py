@@ -55,7 +55,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     black = (0, 0, 0)
     
     # Body section (dark green) - starts from top
-    body_height = 650
+    body_height = 720  # Increased to make footer smaller
     draw.rectangle([(0, 0), (width, body_height)], fill=dark_green)
     
     # Footer section (white)
@@ -110,11 +110,11 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         try:
             test_font = ImageFont.truetype(font_path, 20)
             if title_font is None:
-                title_font = ImageFont.truetype(font_path, 42)  # Bigger and bold
+                title_font = ImageFont.truetype(font_path, 38)  # Slightly smaller (was 42)
             if text_font is None:
-                text_font = ImageFont.truetype(font_path, 22)  # Bigger
+                text_font = ImageFont.truetype(font_path, 20)  # Slightly smaller (was 22)
             if small_font is None:
-                small_font = ImageFont.truetype(font_path, 18)  # Bigger
+                small_font = ImageFont.truetype(font_path, 16)  # Slightly smaller (was 18)
             if title_font and text_font and small_font:
                 break
         except:
@@ -125,9 +125,9 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         try:
             test_font = ImageFont.truetype(font_path, 20)
             if subtitle_font is None:
-                subtitle_font = ImageFont.truetype(font_path, 28)  # For body Nepali text
+                subtitle_font = ImageFont.truetype(font_path, 26)  # Slightly smaller (was 28)
             if nepali_font is None:
-                nepali_font = ImageFont.truetype(font_path, 18)  # For footer Nepali text
+                nepali_font = ImageFont.truetype(font_path, 16)  # Slightly smaller (was 18)
             if subtitle_font and nepali_font:
                 break
         except:
@@ -184,11 +184,11 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     draw.text((app_x, qr_y + qr_img.height + tag_id_height + 50), app_text, fill=white, font=text_font)
     
     # Footer section - First row: Icons
-    footer_y = footer_start + 20
-    icon_size = 60  # Size for shield and google lens icons
-    logo_width = 260  # Wider width for Luna IOT logo (increased from 120)
-    logo_height = 60  # Height for Luna IOT logo
-    icon_spacing = 30  # Space between icons
+    footer_y = footer_start + 15  # Reduced spacing (was 20)
+    icon_size = 55  # Slightly smaller icons (was 60)
+    logo_width = 240  # Slightly smaller logo width (was 260)
+    logo_height = 55  # Slightly smaller logo height (was 60)
+    icon_spacing = 25  # Reduced spacing (was 30)
     
     # Calculate positions for three icons centered horizontally
     # Logo is wider, so we need to account for that
@@ -291,23 +291,15 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     
     # Draw emergency message in dark green (with larger spacing for bigger font)
     # Handle mixed English/Nepali text rendering
-    emergency_y = footer_y + icon_size + 30
-    line_spacing = 25  # Increased spacing for larger font
-    
-    # Calculate the height of the last text line to determine final image height
-    last_line_y = 0
-    last_line_height = 0
+    emergency_y = footer_y + icon_size + 20  # Reduced spacing (was 30)
+    line_spacing = 22  # Slightly reduced spacing (was 25)
     
     for i, line_parts in enumerate(wrapped_lines):
         # Calculate total width of the line
         total_width = 0
-        max_line_height = 0
         for word, font in line_parts:
             bbox = draw.textbbox((0, 0), word + " ", font=font)
             total_width += bbox[2] - bbox[0]
-            line_height = bbox[3] - bbox[1]
-            if line_height > max_line_height:
-                max_line_height = line_height
         
         # Start position (centered)
         x_pos = (width - total_width) // 2
@@ -317,23 +309,6 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
             draw.text((x_pos, emergency_y + i * line_spacing), word + " ", fill=dark_green, font=font)
             bbox = draw.textbbox((0, 0), word + " ", font=font)
             x_pos += bbox[2] - bbox[0]
-        
-        # Track last line position and height
-        if i == len(wrapped_lines) - 1:
-            last_line_y = emergency_y + i * line_spacing
-            last_line_height = max_line_height
-    
-    # Calculate new height: last text line + text height + spacing (same as top spacing: 20px)
-    # Top spacing from body line to icons is 20px, so use same for bottom
-    bottom_spacing = 20  # Match the spacing from body line to icons (footer_y - footer_start = 20)
-    new_height = last_line_y + last_line_height + bottom_spacing
-    
-    # Crop the image to the new height (remove excess white space at bottom)
-    img = img.crop((0, 0, width, new_height))
-    draw = ImageDraw.Draw(img)  # Recreate draw object for the cropped image
-    
-    # Ensure footer white background extends to the new height
-    draw.rectangle([(0, footer_start), (width, new_height)], fill=white)
     
     # Add grey border around the entire design
     # Create a frame by making a slightly larger image with grey background
