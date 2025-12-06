@@ -82,7 +82,8 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
             sms_sent = False
             if vehicle_tag.sms_number and vehicle_tag.sms_number.strip():
                 try:
-                    sms_message = f"{alert_display} Alert: {message}"
+                    sms_message = f"""Vehicle Tag Alert: 
+                    {message}"""
                     sms_result = sms_service.send_sms(vehicle_tag.sms_number, sms_message)
                     sms_sent = sms_result.get('success', False)
                     if sms_sent:
