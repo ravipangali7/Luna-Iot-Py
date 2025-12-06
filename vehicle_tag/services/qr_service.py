@@ -64,34 +64,67 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     draw.rectangle([(0, footer_start), (width, height)], fill=white)
     
     # Try to load fonts with Unicode support for Nepali text
-    # Try multiple font paths for better compatibility
+    # Try multiple font paths for better compatibility, prioritizing fonts that support Devanagari
     font_paths = [
+        # Windows fonts that support Nepali/Devanagari
+        "C:/Windows/Fonts/mangal.ttf",  # Mangal - supports Devanagari
+        "C:/Windows/Fonts/MANGAL.TTF",
+        "C:/Windows/Fonts/kalapi.ttf",  # Kalapi - supports Devanagari
+        "C:/Windows/Fonts/KALAPI.TTF",
+        "C:/Windows/Fonts/notosansdevanagari.ttf",  # Noto Sans Devanagari
+        "C:/Windows/Fonts/Nirmala.ttf",  # Nirmala - supports Devanagari
+        "C:/Windows/Fonts/NIRMALA.TTF",
+        # Linux fonts that support Devanagari
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Good Unicode support
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf",
+        # macOS fonts
+        "/System/Library/Fonts/Supplemental/Devanagari.ttc",
+        "/System/Library/Fonts/Helvetica.ttc",
+        # Fallback fonts
         "arial.ttf",
         "Arial.ttf",
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/ARIAL.TTF",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
     ]
     
     title_font = None
     subtitle_font = None
     text_font = None
     small_font = None
+    nepali_font = None  # Separate font for Nepali text
     
-    # Try to load bold fonts for better visibility
+    # Try to load fonts - prioritize Devanagari-supporting fonts
     for font_path in font_paths:
         try:
+            # Try to load the font
+            test_font = ImageFont.truetype(font_path, 20)
+            
+            # Load fonts for English text
             if title_font is None:
                 title_font = ImageFont.truetype(font_path, 42)  # Bigger and bold
-            if subtitle_font is None:
-                subtitle_font = ImageFont.truetype(font_path, 28)  # Bigger
             if text_font is None:
                 text_font = ImageFont.truetype(font_path, 22)  # Bigger
             if small_font is None:
                 small_font = ImageFont.truetype(font_path, 18)  # Bigger
-            break
+            
+            # For Nepali text, prioritize Devanagari-supporting fonts
+            # Check if this is a Devanagari-supporting font
+            is_devanagari_font = any(keyword in font_path.lower() for keyword in [
+                'mangal', 'kalapi', 'nirmala', 'noto', 'devanagari', 'lohit'
+            ])
+            
+            if is_devanagari_font or nepali_font is None:
+                if subtitle_font is None:
+                    subtitle_font = ImageFont.truetype(font_path, 28)  # Bigger
+                if nepali_font is None:
+                    nepali_font = ImageFont.truetype(font_path, 18)  # For footer Nepali text
+            
+            # If we have all fonts, we can break
+            if title_font and subtitle_font and text_font and small_font:
+                break
         except:
             continue
     
@@ -104,6 +137,8 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         text_font = ImageFont.load_default()
     if small_font is None:
         small_font = ImageFont.load_default()
+    if nepali_font is None:
+        nepali_font = small_font  # Use small_font as fallback for Nepali
     
     # Body section - Title at top
     body_y = 40
@@ -146,7 +181,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     # Footer section - First row: Icons
     footer_y = footer_start + 20
     icon_size = 60  # Size for shield and google lens icons
-    logo_width = 120  # Wider width for Luna IOT logo
+    logo_width = 160  # Wider width for Luna IOT logo (increased from 120)
     logo_height = 60  # Height for Luna IOT logo
     icon_spacing = 30  # Space between icons
     
@@ -224,13 +259,14 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         lines.append(" ".join(current_line))
     
     # Draw emergency message in dark green (with larger spacing for bigger font)
+    # Use nepali_font for Nepali text to ensure proper rendering
     emergency_y = footer_y + icon_size + 30
     line_spacing = 25  # Increased spacing for larger font
     for i, line in enumerate(lines):
-        bbox = draw.textbbox((0, 0), line, font=small_font)
+        bbox = draw.textbbox((0, 0), line, font=nepali_font)
         text_width = bbox[2] - bbox[0]
         text_x = (width - text_width) // 2
-        draw.text((text_x, emergency_y + i * line_spacing), line, fill=dark_green, font=small_font)
+        draw.text((text_x, emergency_y + i * line_spacing), line, fill=dark_green, font=nepali_font)
     
     # Ensure image is in RGB mode for proper PNG encoding
     if img.mode != 'RGB':
