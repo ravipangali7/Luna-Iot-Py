@@ -22,6 +22,7 @@ from api_common.decorators.auth_decorators import require_auth, require_super_ad
 from api_common.exceptions.api_exceptions import NotFoundError
 from core.models import Module, InstituteModule
 from device.models import Location
+from device.models.status import Status
 
 
 def require_garbage_module_access(model_class=None, id_param_name='id'):
@@ -447,6 +448,32 @@ def get_all_garbage_vehicles_with_locations(request):
         
         print(f"Total locations found: {len(locations_dict)}")
         
+        # Get latest statuses for all vehicles
+        statuses_dict = {}
+        if all_imeis:
+            print(f"=== FETCHING STATUSES ===")
+            # Get latest status for each IMEI
+            for imei in all_imeis:
+                latest_status = Status.objects.filter(imei=imei).order_by('-createdAt').first()
+                
+                if latest_status:
+                    statuses_dict[imei] = {
+                        'id': latest_status.id,
+                        'imei': latest_status.imei,
+                        'battery': latest_status.battery,
+                        'signal': latest_status.signal,
+                        'ignition': latest_status.ignition,
+                        'charging': latest_status.charging,
+                        'relay': latest_status.relay,
+                        'createdAt': latest_status.createdAt.isoformat(),
+                        'updatedAt': latest_status.updatedAt.isoformat()
+                    }
+                    print(f"  Status found for {imei}: ignition={latest_status.ignition}, battery={latest_status.battery}")
+                else:
+                    print(f"  No status found for {imei}")
+        
+        print(f"Total statuses found: {len(statuses_dict)}")
+        
         # Structure response
         response_data = []
         print(f"=== STRUCTURING RESPONSE ===")
@@ -476,9 +503,13 @@ def get_all_garbage_vehicles_with_locations(request):
                 # Get location if available
                 location = locations_dict.get(vehicle.imei)
                 
+                # Get status if available
+                status = statuses_dict.get(vehicle.imei)
+                
                 vehicles_data.append({
                     'vehicle': vehicle_data,
-                    'location': location
+                    'location': location,
+                    'status': status
                 })
                 print(f"    Vehicle {vehicle.imei} - Location: {'Yes' if location else 'No'}")
             
