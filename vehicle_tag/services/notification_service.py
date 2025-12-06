@@ -35,10 +35,10 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
         
         # Create notification title and message
         title = f"Vehicle Tag Alert"
-        message = f"Alert: {alert_display} reported for vehicle tag {vehicle_tag.vtid}"
+        message = f"{alert_display} reported for vehicle tag {vehicle_tag.vtid}"
         
         if vehicle_tag.registration_no:
-            message = f"Alert: {alert_display} reported for vehicle {vehicle_tag.registration_no}   - Luna IOT"
+            message = f"{alert_display} reported for vehicle {vehicle_tag.registration_no}   - Luna IOT"
         
         # Create notification in database
         try:
