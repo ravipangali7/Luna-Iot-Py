@@ -5,6 +5,7 @@ Handles vehicle tag management endpoints
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.http import HttpResponse
+from django.db.models import F
 from vehicle_tag.models import VehicleTag, VehicleTagAlert
 from vehicle_tag.serializers import (
     VehicleTagSerializer,
@@ -157,6 +158,12 @@ def get_vehicle_tag_by_vtid(request, vtid):
                 message=f'Vehicle tag with VTID {vtid} not found',
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
+        
+        # Increment visit count atomically
+        VehicleTag.objects.filter(vtid=vtid).update(visit_count=F('visit_count') + 1)
+        
+        # Refresh the tag object to get the updated visit_count
+        tag.refresh_from_db()
         
         serializer = VehicleTagSerializer(tag, context={'request': request})
         
