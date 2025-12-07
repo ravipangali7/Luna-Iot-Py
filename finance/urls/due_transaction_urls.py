@@ -15,6 +15,8 @@ from finance.views.due_transaction_views import (
     delete_due_transaction,
     download_due_transaction_invoice,
     update_due_transaction,
+    get_vehicle_renewal_price,
+    create_vehicle_due_transaction,
 )
 
 urlpatterns = [
@@ -53,5 +55,11 @@ urlpatterns = [
     
     # Get user's due transactions
     path('user/<int:user_id>/', get_user_due_transactions, name='get_user_due_transactions'),
+    
+    # Get vehicle renewal price
+    path('vehicle/<int:vehicle_id>/price/', get_vehicle_renewal_price, name='get_vehicle_renewal_price'),
+    
+    # Create vehicle due transaction (User/Dealer)
+    path('vehicle/<int:vehicle_id>/create/', create_vehicle_due_transaction, name='create_vehicle_due_transaction'),
 ]
 

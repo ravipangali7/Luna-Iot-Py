@@ -893,6 +893,290 @@ def delete_due_transaction(request, due_transaction_id):
 
 @api_view(['GET'])
 @require_auth
+@api_response
+def get_vehicle_renewal_price(request, vehicle_id):
+    """
+    Get renewal price for a vehicle based on user role (dealer or customer)
+    """
+    try:
+        # Get vehicle
+        try:
+            vehicle = Vehicle.objects.select_related('device', 'device__subscription_plan').get(id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return error_response(
+                message="Vehicle not found",
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if user has access to this vehicle
+        user = request.user
+        is_super_admin = user.groups.filter(name='Super Admin').exists()
+        is_dealer = user.groups.filter(name='Dealer').exists()
+        
+        # Check vehicle access: user must own vehicle OR be Super Admin OR dealer with device access
+        has_access = False
+        if is_super_admin:
+            has_access = True
+        else:
+            # Check if user owns vehicle
+            from fleet.models import UserVehicle
+            user_vehicle = UserVehicle.objects.filter(vehicle=vehicle, user=user).first()
+            if user_vehicle:
+                has_access = True
+            elif is_dealer:
+                # Check if dealer has device access
+                if vehicle.device:
+                    device_access = UserDevice.objects.filter(device=vehicle.device, user=user).exists()
+                    if device_access:
+                        has_access = True
+        
+        if not has_access:
+            return error_response(
+                message="Access denied. You don't have access to this vehicle.",
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        # Calculate price from device subscription plan (same logic as generate_due_transactions)
+        customer_price = Decimal('0.00')
+        dealer_price = None
+        
+        if vehicle.device and vehicle.device.subscription_plan:
+            subscription_plan = vehicle.device.subscription_plan
+            customer_price = Decimal(str(subscription_plan.price))
+            # Get dealer price if available
+            if subscription_plan.dealer_price:
+                dealer_price = Decimal(str(subscription_plan.dealer_price))
+            else:
+                dealer_price = customer_price  # Fallback to customer price
+        else:
+            # Fallback: use default from MySetting
+            try:
+                from core.models import MySetting
+                my_setting = MySetting.objects.first()
+                if my_setting and hasattr(my_setting, 'vehicle_price'):
+                    customer_price = Decimal(str(my_setting.vehicle_price)) if my_setting.vehicle_price else Decimal('0.00')
+                    dealer_price = customer_price
+                else:
+                    customer_price = Decimal('0.00')
+                    dealer_price = Decimal('0.00')
+            except:
+                customer_price = Decimal('0.00')
+                dealer_price = Decimal('0.00')
+        
+        # Determine display price based on user role
+        if is_dealer and dealer_price is not None:
+            display_price = float(dealer_price)
+        else:
+            display_price = float(customer_price)
+        
+        # Calculate VAT and total
+        try:
+            from core.models import MySetting
+            my_setting = MySetting.objects.first()
+            vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+        except:
+            vat_percent = Decimal('0.00')
+        
+        vat_amount = (Decimal(str(display_price)) * vat_percent) / Decimal('100')
+        total_amount = Decimal(str(display_price)) + vat_amount
+        
+        return success_response(
+            data={
+                'customer_price': float(customer_price),
+                'dealer_price': float(dealer_price) if dealer_price else None,
+                'display_price': display_price,
+                'vat_percent': float(vat_percent),
+                'vat_amount': float(vat_amount),
+                'total_amount': float(total_amount),
+            },
+            message="Vehicle renewal price retrieved successfully"
+        )
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return error_response(
+            message=f"Error getting vehicle renewal price: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['POST'])
+@require_auth
+@api_response
+def create_vehicle_due_transaction(request, vehicle_id):
+    """
+    Create due transaction for a vehicle (User/Dealer can create for their own vehicles)
+    """
+    try:
+        # Get vehicle
+        try:
+            vehicle = Vehicle.objects.select_related('device', 'device__subscription_plan').get(id=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return error_response(
+                message="Vehicle not found",
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Check if user has access to this vehicle
+        user = request.user
+        is_super_admin = user.groups.filter(name='Super Admin').exists()
+        is_dealer = user.groups.filter(name='Dealer').exists()
+        
+        # Check vehicle access: user must own vehicle OR be Super Admin OR dealer with device access
+        has_access = False
+        vehicle_owner = None
+        
+        if is_super_admin:
+            has_access = True
+            # For Super Admin, get the vehicle owner
+            from fleet.models import UserVehicle
+            user_vehicle = UserVehicle.objects.filter(vehicle=vehicle).order_by('id').first()
+            if user_vehicle:
+                vehicle_owner = user_vehicle.user
+            else:
+                return error_response(
+                    message="Vehicle has no owner assigned",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        else:
+            # Check if user owns vehicle
+            from fleet.models import UserVehicle
+            user_vehicle = UserVehicle.objects.filter(vehicle=vehicle, user=user).first()
+            if user_vehicle:
+                has_access = True
+                vehicle_owner = user
+            elif is_dealer:
+                # Check if dealer has device access
+                if vehicle.device:
+                    device_access = UserDevice.objects.filter(device=vehicle.device, user=user).exists()
+                    if device_access:
+                        has_access = True
+                        # For dealer, use vehicle owner (not dealer)
+                        owner_vehicle = UserVehicle.objects.filter(vehicle=vehicle).order_by('id').first()
+                        if owner_vehicle:
+                            vehicle_owner = owner_vehicle.user
+                        else:
+                            return error_response(
+                                message="Vehicle has no owner assigned",
+                                status_code=HTTP_STATUS['BAD_REQUEST']
+                            )
+        
+        if not has_access:
+            return error_response(
+                message="Access denied. You can only create due transactions for your own vehicles.",
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        # Check if unpaid due transaction already exists for this vehicle
+        vehicle_particular_exists = DueTransactionParticular.objects.filter(
+            vehicle=vehicle,
+            due_transaction__is_paid=False
+        ).exists()
+        
+        if vehicle_particular_exists:
+            return error_response(
+                message="An unpaid due transaction already exists for this vehicle. Please pay the existing one.",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Calculate price (same logic as generate_due_transactions)
+        customer_price = Decimal('0.00')
+        dealer_price = None
+        
+        if vehicle.device and vehicle.device.subscription_plan:
+            subscription_plan = vehicle.device.subscription_plan
+            customer_price = Decimal(str(subscription_plan.price))
+            if subscription_plan.dealer_price:
+                dealer_price = Decimal(str(subscription_plan.dealer_price))
+            else:
+                dealer_price = customer_price
+        else:
+            try:
+                from core.models import MySetting
+                my_setting = MySetting.objects.first()
+                if my_setting and hasattr(my_setting, 'vehicle_price'):
+                    customer_price = Decimal(str(my_setting.vehicle_price)) if my_setting.vehicle_price else Decimal('0.00')
+                    dealer_price = customer_price
+                else:
+                    customer_price = Decimal('0.00')
+                    dealer_price = Decimal('0.00')
+            except:
+                customer_price = Decimal('0.00')
+                dealer_price = Decimal('0.00')
+        
+        if customer_price == Decimal('0.00'):
+            return error_response(
+                message="Vehicle has no subscription plan and no default price. Cannot create due transaction.",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Use customer_price for transaction totals
+        vehicle_price = customer_price
+        
+        # Calculate dates
+        now = timezone.now()
+        if vehicle.expireDate:
+            renew_date = vehicle.expireDate - timedelta(days=365)
+            if renew_date > now:
+                renew_date = now
+            expire_date = vehicle.expireDate
+        else:
+            # If no expire date, set to 1 year from now
+            renew_date = now
+            expire_date = now + timedelta(days=365)
+        
+        # Calculate VAT and total
+        try:
+            from core.models import MySetting
+            my_setting = MySetting.objects.first()
+            vat_percent = Decimal(str(my_setting.vat_percent)) if my_setting and my_setting.vat_percent else Decimal('0.00')
+        except:
+            vat_percent = Decimal('0.00')
+        
+        vat_amount = (vehicle_price * vat_percent) / Decimal('100')
+        total_amount = vehicle_price + vat_amount
+        
+        # Create due transaction
+        with db_transaction.atomic():
+            new_due = DueTransaction.objects.create(
+                user=vehicle_owner,
+                subtotal=vehicle_price,
+                vat=vat_amount,
+                total=total_amount,
+                renew_date=renew_date,
+                expire_date=expire_date
+            )
+            
+            # Create particular linked to vehicle
+            DueTransactionParticular.objects.create(
+                due_transaction=new_due,
+                particular=f"Vehicle {vehicle.id} - {vehicle.name} ({vehicle.vehicleNo}) - Renewal",
+                type='vehicle',
+                vehicle=vehicle,
+                amount=customer_price,
+                dealer_amount=dealer_price if dealer_price else None,
+                quantity=1
+            )
+        
+        # Serialize and return
+        serializer = DueTransactionSerializer(new_due, context={'request': request})
+        return success_response(
+            data=serializer.data,
+            message="Due transaction created successfully"
+        )
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return error_response(
+            message=f"Error creating vehicle due transaction: {str(e)}",
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@require_auth
 def download_due_transaction_invoice(request, due_transaction_id):
     """
     Download due transaction invoice as PDF
