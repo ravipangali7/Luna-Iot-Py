@@ -8,6 +8,7 @@ urlpatterns = [
     path('vehicle/paginated', vehicle_views.get_vehicles_paginated, name='get_vehicles_paginated'),
     path('vehicle/search', vehicle_views.search_vehicles, name='search_vehicles'),
     path('vehicle/expire-search', vehicle_views.search_vehicles_by_expire, name='search_vehicles_by_expire'),
+    path('vehicle/vehicle-type-search', vehicle_views.search_vehicles_by_vehicle_type, name='search_vehicles_by_vehicle_type'),
     path('vehicle/create', vehicle_views.create_vehicle, name='create_vehicle'),
     path('vehicle/update/<str:imei>', vehicle_views.update_vehicle, name='update_vehicle'),
     path('vehicle/delete/<str:imei>', vehicle_views.delete_vehicle, name='delete_vehicle'),
