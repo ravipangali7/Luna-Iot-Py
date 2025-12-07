@@ -159,6 +159,13 @@ def get_vehicle_tag_by_vtid(request, vtid):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
+        # Check if vehicle tag is active
+        if not tag.is_active:
+            return error_response(
+                message='Vehicle Tag is inactive',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
         # Increment visit count atomically
         VehicleTag.objects.filter(vtid=vtid).update(visit_count=F('visit_count') + 1)
         
