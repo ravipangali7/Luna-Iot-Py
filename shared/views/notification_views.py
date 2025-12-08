@@ -77,6 +77,10 @@ def create_notification(request):
         user = request.user
         data = json.loads(request.body)
         
+        # Remove any id field from data to prevent AutoField errors
+        if 'id' in data:
+            del data['id']
+        
         # Validate required fields
         required_fields = ['title', 'message', 'type']
         validation_result = validate_required_fields(data, required_fields)
@@ -110,6 +114,7 @@ def create_notification(request):
         
         # Create notification
         with transaction.atomic():
+            # Explicitly exclude id and other AutoField fields to prevent setting them to 0
             notification = Notification.objects.create(
                 title=title,
                 message=message,
@@ -121,22 +126,24 @@ def create_notification(request):
             target_users = []
             
             if notification_type == 'all':
-                # Get all active users
-                target_users = User.objects.filter(is_active=True)
+                # Get all active users (exclude id=0 to be safe)
+                target_users = User.objects.filter(is_active=True).exclude(id=0)
             elif notification_type == 'specific' and target_user_ids:
-                # Get specific users
-                target_users = User.objects.filter(id__in=target_user_ids, is_active=True)
+                # Get specific users (exclude id=0 to be safe)
+                target_users = User.objects.filter(id__in=target_user_ids, is_active=True).exclude(id=0)
             elif notification_type == 'role' and target_role_ids:
-                # Get users with specific roles
-                target_users = User.objects.filter(groups__id__in=target_role_ids, is_active=True)
+                # Get users with specific roles (exclude id=0 to be safe)
+                target_users = User.objects.filter(groups__id__in=target_role_ids, is_active=True).exclude(id=0)
             
             # Create notification-user relationships
             for target_user in target_users:
-                UserNotification.objects.create(
-                    notification=notification,
-                    user=target_user,
-                    isRead=False
-                )
+                # Double-check user id is valid before creating
+                if target_user and target_user.id and target_user.id > 0:
+                    UserNotification.objects.create(
+                        notification=notification,
+                        user=target_user,
+                        isRead=False
+                    )
         
         # Send push notifications using Firebase service
         try:
@@ -182,7 +189,17 @@ def create_notification(request):
     
     except json.JSONDecodeError:
         return error_response('Invalid JSON data', HTTP_STATUS['BAD_REQUEST'])
+    except ValueError as ve:
+        # Catch AutoField errors specifically
+        error_msg = str(ve)
+        if 'AutoField' in error_msg or '0 as a value' in error_msg:
+            return error_response('Invalid ID value in request. Please ensure all ID fields are valid positive integers.', HTTP_STATUS['BAD_REQUEST'])
+        return error_response(f'Validation error: {error_msg}', HTTP_STATUS['BAD_REQUEST'])
     except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        print(f'Notification creation error: {str(e)}')
+        print(traceback.format_exc())
         return handle_api_exception(e)
 
 
