@@ -160,7 +160,7 @@ def create_notification(request):
                 if batch:
                     UserNotification.objects.bulk_create(batch, ignore_conflicts=True)
         
-        # Prepare response data first (before sending notifications)
+        # Prepare response data
         notification_data = {
             'id': notification.id,
             'title': notification.title,
@@ -174,34 +174,6 @@ def create_notification(request):
             'createdAt': notification.createdAt.isoformat() if notification.createdAt else None,
             'updatedAt': notification.updatedAt.isoformat() if notification.updatedAt else None
         }
-        
-        # Send push notifications using Firebase service (async - don't wait for it)
-        # This is done after preparing the response to avoid blocking the HTTP response
-        try:
-            from api_common.services.firebase_service import send_push_notification
-            
-            # Send push notification based on type
-            # Only pass target_user_ids/target_role_ids if they are valid and match the notification type
-            firebase_target_user_ids = None
-            firebase_target_role_ids = None
-            
-            if notification_type == 'specific' and target_user_ids and len(target_user_ids) > 0:
-                firebase_target_user_ids = target_user_ids
-            elif notification_type == 'role' and target_role_ids and len(target_role_ids) > 0:
-                firebase_target_role_ids = target_role_ids
-            
-            # Send notification asynchronously (don't wait for completion)
-            send_push_notification(
-                notification_id=notification.id,
-                title=title,
-                body=message,
-                notification_type=notification_type,
-                target_user_ids=firebase_target_user_ids,
-                target_role_ids=firebase_target_role_ids
-            )
-        except Exception as firebase_error:
-            print(f'Firebase notification error: {firebase_error}')
-            # Don't fail the request if Firebase fails
         
         return success_response(notification_data, 'Notification created successfully', HTTP_STATUS['CREATED'])
     
@@ -240,6 +212,69 @@ def delete_notification(request, id):
         notification.delete()
         
         return success_response(None, 'Notification deleted successfully')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@require_auth
+@require_role(['Super Admin'])
+def send_notification(request, id):
+    """
+    Send push notification for an existing notification (Super Admin only)
+    """
+    try:
+        # Get notification
+        try:
+            notification = Notification.objects.get(id=id)
+        except Notification.DoesNotExist:
+            return error_response('Notification not found', HTTP_STATUS['NOT_FOUND'])
+        
+        # Determine target users based on notification type
+        # For 'all' type, send to all current active users
+        # For 'specific' and 'role' types, send to users who have UserNotification records (original targets)
+        if notification.type == 'all':
+            # Get all current active users (exclude id=0 to be safe)
+            target_user_ids = list(User.objects.filter(is_active=True).exclude(id=0).values_list('id', flat=True))
+        else:
+            # For 'specific' and 'role' types, get users who have this notification assigned
+            target_user_ids = list(UserNotification.objects.filter(
+                notification=notification
+            ).values_list('user_id', flat=True))
+        
+        # Filter out invalid IDs
+        target_user_ids = [uid for uid in target_user_ids if uid and uid > 0]
+        
+        if not target_user_ids:
+            return error_response('No target users found for this notification', HTTP_STATUS['BAD_REQUEST'])
+        
+        # Send push notifications using Firebase service
+        try:
+            from api_common.services.firebase_service import send_push_notification
+            
+            # Send push notification
+            # For 'all' type, pass target_user_ids directly
+            # For 'specific' type, pass target_user_ids
+            # For 'role' type, we'll pass target_user_ids (since we can't determine original roles)
+            send_push_notification(
+                notification_id=notification.id,
+                title=notification.title,
+                body=notification.message,
+                notification_type=notification.type,
+                target_user_ids=target_user_ids if notification.type in ['all', 'specific'] else None,
+                target_role_ids=None  # Role-based sending would require storing original role IDs
+            )
+            
+            return success_response(
+                {'sent_to_count': len(target_user_ids)}, 
+                f'Push notification sent successfully to {len(target_user_ids)} user(s)',
+                HTTP_STATUS['OK']
+            )
+        except Exception as firebase_error:
+            print(f'Firebase notification error: {firebase_error}')
+            return error_response(f'Failed to send push notification: {str(firebase_error)}', HTTP_STATUS['INTERNAL_ERROR'])
     
     except Exception as e:
         return handle_api_exception(e)
