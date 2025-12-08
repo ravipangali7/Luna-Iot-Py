@@ -93,13 +93,20 @@ def create_notification(request):
         if notification_type not in ['all', 'specific', 'role']:
             return error_response('Type must be all, specific, or role', HTTP_STATUS['BAD_REQUEST'])
         
+        # Filter out invalid IDs (0, negative, or non-integer values)
+        if target_user_ids and isinstance(target_user_ids, list):
+            target_user_ids = [uid for uid in target_user_ids if isinstance(uid, int) and uid > 0]
+        
+        if target_role_ids and isinstance(target_role_ids, list):
+            target_role_ids = [rid for rid in target_role_ids if isinstance(rid, int) and rid > 0]
+        
         # Validate targetUserIds for specific type
-        if notification_type == 'specific' and (not target_user_ids or not isinstance(target_user_ids, list)):
-            return error_response('targetUserIds array is required for specific type', HTTP_STATUS['BAD_REQUEST'])
+        if notification_type == 'specific' and (not target_user_ids or not isinstance(target_user_ids, list) or len(target_user_ids) == 0):
+            return error_response('targetUserIds array with valid user IDs is required for specific type', HTTP_STATUS['BAD_REQUEST'])
         
         # Validate targetRoleIds for role type
-        if notification_type == 'role' and (not target_role_ids or not isinstance(target_role_ids, list)):
-            return error_response('targetRoleIds array is required for role type', HTTP_STATUS['BAD_REQUEST'])
+        if notification_type == 'role' and (not target_role_ids or not isinstance(target_role_ids, list) or len(target_role_ids) == 0):
+            return error_response('targetRoleIds array with valid role IDs is required for role type', HTTP_STATUS['BAD_REQUEST'])
         
         # Create notification
         with transaction.atomic():
@@ -136,13 +143,22 @@ def create_notification(request):
             from api_common.services.firebase_service import send_push_notification
             
             # Send push notification based on type
+            # Only pass target_user_ids/target_role_ids if they are valid and match the notification type
+            firebase_target_user_ids = None
+            firebase_target_role_ids = None
+            
+            if notification_type == 'specific' and target_user_ids and len(target_user_ids) > 0:
+                firebase_target_user_ids = target_user_ids
+            elif notification_type == 'role' and target_role_ids and len(target_role_ids) > 0:
+                firebase_target_role_ids = target_role_ids
+            
             send_push_notification(
                 notification_id=notification.id,
                 title=title,
                 body=message,  # Fixed: changed 'message' to 'body'
                 notification_type=notification_type,
-                target_user_ids=target_user_ids if notification_type == 'specific' else None,
-                target_role_ids=target_role_ids if notification_type == 'role' else None
+                target_user_ids=firebase_target_user_ids,
+                target_role_ids=firebase_target_role_ids
             )
         except Exception as firebase_error:
             print(f'Firebase notification error: {firebase_error}')
