@@ -250,31 +250,32 @@ def send_notification(request, id):
         if not target_user_ids:
             return error_response('No target users found for this notification', HTTP_STATUS['BAD_REQUEST'])
         
-        # Send push notifications using Firebase service
+        # Send push notifications using Node.js API (handles bulk FCM tokens)
         try:
-            from api_common.services.firebase_service import send_push_notification
+            from api_common.services.nodejs_notification_service import send_push_notification_via_nodejs
             
-            # Send push notification
-            # For 'all' type, pass target_user_ids directly
-            # For 'specific' type, pass target_user_ids
-            # For 'role' type, we'll pass target_user_ids (since we can't determine original roles)
-            send_push_notification(
+            # Send push notification via Node.js API
+            # Node.js API handles bulk FCM token sending efficiently
+            success = send_push_notification_via_nodejs(
                 notification_id=notification.id,
                 title=notification.title,
-                body=notification.message,
-                notification_type=notification.type,
-                target_user_ids=target_user_ids if notification.type in ['all', 'specific'] else None,
-                target_role_ids=None  # Role-based sending would require storing original role IDs
+                message=notification.message,
+                target_user_ids=target_user_ids
             )
             
-            return success_response(
-                {'sent_to_count': len(target_user_ids)}, 
-                f'Push notification sent successfully to {len(target_user_ids)} user(s)',
-                HTTP_STATUS['OK']
-            )
-        except Exception as firebase_error:
-            print(f'Firebase notification error: {firebase_error}')
-            return error_response(f'Failed to send push notification: {str(firebase_error)}', HTTP_STATUS['INTERNAL_ERROR'])
+            if success:
+                return success_response(
+                    {'sent_to_count': len(target_user_ids)}, 
+                    f'Push notification sent successfully to {len(target_user_ids)} user(s)',
+                    HTTP_STATUS['OK']
+                )
+            else:
+                return error_response('Failed to send push notification via Node.js API', HTTP_STATUS['INTERNAL_ERROR'])
+        except Exception as nodejs_error:
+            import traceback
+            print(f'Node.js notification error: {nodejs_error}')
+            print(traceback.format_exc())
+            return error_response(f'Failed to send push notification: {str(nodejs_error)}', HTTP_STATUS['INTERNAL_ERROR'])
     
     except Exception as e:
         return handle_api_exception(e)
