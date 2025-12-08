@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
@@ -23,6 +23,8 @@ from shared_utils.constants import VehicleType
 from shared_utils.numeral_utils import get_search_variants
 from datetime import datetime, timedelta
 import math
+from openpyxl import Workbook
+from io import BytesIO
 
 # Import school models for school bus access control
 try:
@@ -2770,6 +2772,186 @@ def search_vehicles_by_vehicle_type(request):
         }
         
         return success_response(response_data, f'Found {paginator.count} vehicles of type {vehicle_type}')
+    
+    except Exception as e:
+        return handle_api_exception(e)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+def export_vehicles_to_excel(request):
+    """
+    Export vehicle phone numbers to Excel file
+    Respects all active filters: search query, expire filter, and vehicle type filter
+    Exports ALL matching vehicles (no pagination)
+    """
+    try:
+        user = request.user
+        search_query = request.GET.get('q', '').strip()
+        expire_period = request.GET.get('expire_period', '').strip()
+        vehicle_type = request.GET.get('vehicle_type', '').strip()
+        
+        # Build combined filter
+        combined_filter = Q()
+        has_filters = False
+        
+        # Apply search filter if provided
+        if search_query:
+            search_variants = get_search_variants(search_query)
+            search_filter = Q()
+            for variant in search_variants:
+                search_filter |= Q(name__icontains=variant)
+                search_filter |= Q(vehicleNo__icontains=variant)
+                search_filter |= Q(imei__icontains=variant)
+                search_filter |= Q(device__imei__icontains=variant)
+                search_filter |= Q(device__phone__icontains=variant)
+                search_filter |= Q(device__sim__icontains=variant)
+                search_filter |= Q(userVehicles__user__name__icontains=variant)
+                search_filter |= Q(userVehicles__user__phone__icontains=variant)
+                search_filter |= Q(device__userDevices__user__name__icontains=variant)
+                search_filter |= Q(device__userDevices__user__phone__icontains=variant)
+            combined_filter &= search_filter
+            has_filters = True
+        
+        # Apply expire filter if provided
+        if expire_period:
+            period_map = {
+                '1_day': 1,
+                '3_days': 3,
+                '1_week': 7,
+                '1_month': 30,
+                '3_months': 90,
+                '6_months': 180
+            }
+            if expire_period in period_map:
+                now = datetime.now()
+                target_date = now + timedelta(days=period_map[expire_period])
+                expire_filter = Q(
+                    expireDate__gte=now,
+                    expireDate__lte=target_date
+                )
+                combined_filter &= expire_filter
+                has_filters = True
+        
+        # Apply vehicle type filter if provided
+        if vehicle_type:
+            valid_types = [choice[0] for choice in VehicleType.choices]
+            if vehicle_type in valid_types:
+                vehicle_type_filter = Q(vehicleType=vehicle_type)
+                combined_filter &= vehicle_type_filter
+                has_filters = True
+        
+        # Get vehicles based on user role and apply filters
+        user_group = user.groups.first()
+        if user_group and user_group.name == 'Super Admin':
+            # Super Admin can see all vehicles that match filters
+            if has_filters:
+                vehicles = Vehicle.objects.filter(combined_filter).select_related('device').prefetch_related('userVehicles__user').distinct()
+            else:
+                # No filters - get all vehicles
+                vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
+        else:
+            # For regular users, find vehicles that match filters AND user has access to
+            access_filter = Q(
+                Q(userVehicles__user=user) |  # Direct vehicle access
+                Q(device__userDevices__user=user)  # Device access
+            )
+            
+            if has_filters:
+                vehicles = Vehicle.objects.filter(
+                    Q(combined_filter) & access_filter
+                ).select_related('device').prefetch_related('userVehicles__user').distinct()
+            else:
+                vehicles = Vehicle.objects.filter(access_filter).select_related('device').prefetch_related('userVehicles__user').distinct()
+            
+            # Exclude school bus vehicles for parents
+            vehicles = exclude_school_bus_for_parents(vehicles, user)
+            
+            # If search query provided, also include vehicles matching through device-related users
+            if search_query:
+                search_variants = get_search_variants(search_query)
+                additional_search_filter = Q()
+                for variant in search_variants:
+                    additional_search_filter |= Q(device__userDevices__user__name__icontains=variant)
+                    additional_search_filter |= Q(device__userDevices__user__phone__icontains=variant)
+                
+                if additional_search_filter:
+                    additional_vehicles = Vehicle.objects.filter(
+                        additional_search_filter
+                    ).exclude(
+                        Q(userVehicles__user=user) |
+                        Q(device__userDevices__user=user)
+                    ).select_related('device').prefetch_related('userVehicles__user').distinct()
+                    
+                    # Apply other filters to additional vehicles
+                    if expire_period:
+                        period_map = {
+                            '1_day': 1,
+                            '3_days': 3,
+                            '1_week': 7,
+                            '1_month': 30,
+                            '3_months': 90,
+                            '6_months': 180
+                        }
+                        if expire_period in period_map:
+                            now = datetime.now()
+                            target_date = now + timedelta(days=period_map[expire_period])
+                            expire_filter = Q(
+                                expireDate__gte=now,
+                                expireDate__lte=target_date
+                            )
+                            additional_vehicles = additional_vehicles.filter(expire_filter)
+                    
+                    if vehicle_type:
+                        valid_types = [choice[0] for choice in VehicleType.choices]
+                        if vehicle_type in valid_types:
+                            additional_vehicles = additional_vehicles.filter(vehicleType=vehicle_type)
+                    
+                    additional_vehicles = exclude_school_bus_for_parents(additional_vehicles, user)
+                    vehicles = vehicles.union(additional_vehicles)
+        
+        # Extract phone numbers from vehicles
+        phone_numbers = []
+        for vehicle in vehicles:
+            if vehicle.device and vehicle.device.phone:
+                phone = vehicle.device.phone.strip()
+                if phone and phone not in phone_numbers:  # Avoid duplicates
+                    phone_numbers.append(phone)
+        
+        # If no phone numbers found, return error
+        if not phone_numbers:
+            return error_response('No vehicles with phone numbers found matching the filters', HTTP_STATUS['NOT_FOUND'])
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Vehicles"
+        
+        # Add header
+        ws['A1'] = 'To'
+        
+        # Add phone numbers
+        for idx, phone in enumerate(phone_numbers, start=2):
+            ws[f'A{idx}'] = phone
+        
+        # Create in-memory file
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'vehicles_export_{timestamp}.xlsx'
+        
+        # Create HTTP response
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        return response
     
     except Exception as e:
         return handle_api_exception(e)
