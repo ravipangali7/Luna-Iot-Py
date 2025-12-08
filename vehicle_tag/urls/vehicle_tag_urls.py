@@ -23,6 +23,9 @@ urlpatterns = [
     # Assign vehicle tag by VTID (for authenticated users) - must have trailing slash
     path('assign/<str:vtid>/', vehicle_tag_views.assign_vehicle_tag_by_vtid, name='assign_vehicle_tag_by_vtid'),
     
+    # Get latest alert by VTID (must come before generic vtid pattern)
+    path('<str:vtid>/latest-alert/', vehicle_tag_views.get_latest_alert_by_vtid, name='get_latest_alert_by_vtid'),
+    
     # Get QR code image (must come before generic vtid pattern)
     path('<str:vtid>/qr/', vehicle_tag_views.get_vehicle_tag_qr_image, name='get_vehicle_tag_qr_image'),
     

@@ -159,15 +159,10 @@ def get_vehicle_tag_by_vtid(request, vtid):
                 status_code=HTTP_STATUS['NOT_FOUND']
             )
         
-        # Check if vehicle tag is active
-        if not tag.is_active:
-            return error_response(
-                message='Vehicle Tag is inactive',
-                status_code=HTTP_STATUS['BAD_REQUEST']
-            )
-        
-        # Increment visit count atomically
-        VehicleTag.objects.filter(vtid=vtid).update(visit_count=F('visit_count') + 1)
+        # Increment visit count atomically (only if active)
+        # Note: We allow fetching inactive vehicle tags to show proper UI in frontend
+        if tag.is_active:
+            VehicleTag.objects.filter(vtid=vtid).update(visit_count=F('visit_count') + 1)
         
         # Refresh the tag object to get the updated visit_count
         tag.refresh_from_db()
@@ -439,6 +434,47 @@ def delete_vehicle_tag(request, id):
             data=None,
             message=f'Vehicle tag {vtid} deleted successfully'
         )
+        
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@api_response
+def get_latest_alert_by_vtid(request, vtid):
+    """
+    Get latest alert for a vehicle tag by vtid
+    Public access - no authentication required
+    Used for alert page to check cooldown period
+    """
+    try:
+        try:
+            tag = VehicleTag.objects.get(vtid=vtid)
+        except VehicleTag.DoesNotExist:
+            return error_response(
+                message=f'Vehicle tag with VTID {vtid} not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Get the most recent alert for this vehicle tag
+        latest_alert = VehicleTagAlert.objects.filter(
+            vehicle_tag=tag
+        ).order_by('-created_at').first()
+        
+        if latest_alert:
+            serializer = VehicleTagAlertSerializer(latest_alert, context={'request': request})
+            return success_response(
+                data=serializer.data,
+                message='Latest alert retrieved successfully'
+            )
+        else:
+            return success_response(
+                data=None,
+                message='No alerts found for this vehicle tag'
+            )
         
     except Exception as e:
         return error_response(
