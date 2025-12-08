@@ -157,8 +157,8 @@ DATABASES = {
         'NAME': 'luna_iot_test',
         'USER': 'root', 
         'PASSWORD': '214fa86d5dfe4729', 
-        'HOST': '38.54.71.218', 
-        # 'HOST': 'localhost', 
+        # 'HOST': '38.54.71.218', 
+        'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 600,  # 10 minutes
@@ -334,6 +334,6 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_SAVE_EVERY_REQUEST = False  # Only save when modified
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 500 * 1024 * 1024  # 500MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 500 * 1024 * 1024  # 500MB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
