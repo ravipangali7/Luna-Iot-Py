@@ -122,55 +122,45 @@ def create_notification(request):
                 sentBy=user
             )
             
-            # Determine target users based on type
-            target_users = []
+            # Determine target users based on type and create UserNotification records
+            # Use bulk_create in batches for optimal performance with large datasets
+            batch_size = 1000
             
             if notification_type == 'all':
-                # Get all active users (exclude id=0 to be safe)
-                target_users = User.objects.filter(is_active=True).exclude(id=0)
+                # Get all active users (exclude id=0 to be safe) and process in batches
+                user_queryset = User.objects.filter(is_active=True).exclude(id=0).values_list('id', flat=True)
             elif notification_type == 'specific' and target_user_ids:
-                # Get specific users (exclude id=0 to be safe)
-                target_users = User.objects.filter(id__in=target_user_ids, is_active=True).exclude(id=0)
+                # Get specific users (exclude id=0 to be safe) and process in batches
+                user_queryset = User.objects.filter(id__in=target_user_ids, is_active=True).exclude(id=0).values_list('id', flat=True)
             elif notification_type == 'role' and target_role_ids:
-                # Get users with specific roles (exclude id=0 to be safe)
-                target_users = User.objects.filter(groups__id__in=target_role_ids, is_active=True).exclude(id=0)
+                # Get users with specific roles (exclude id=0 to be safe) and process in batches
+                user_queryset = User.objects.filter(groups__id__in=target_role_ids, is_active=True).exclude(id=0).values_list('id', flat=True)
+            else:
+                user_queryset = []
             
-            # Create notification-user relationships
-            for target_user in target_users:
-                # Double-check user id is valid before creating
-                if target_user and target_user.id and target_user.id > 0:
-                    UserNotification.objects.create(
-                        notification=notification,
-                        user=target_user,
-                        isRead=False
-                    )
+            # Create notification-user relationships using bulk_create in batches
+            # This processes users in chunks to avoid loading all 10,000+ users into memory at once
+            if user_queryset:
+                batch = []
+                for user_id in user_queryset:
+                    if user_id and user_id > 0:
+                        batch.append(
+                            UserNotification(
+                                notification=notification,
+                                user_id=user_id,
+                                isRead=False
+                            )
+                        )
+                        # When batch reaches batch_size, bulk create and clear
+                        if len(batch) >= batch_size:
+                            UserNotification.objects.bulk_create(batch, ignore_conflicts=True)
+                            batch = []
+                
+                # Create remaining records in the last batch
+                if batch:
+                    UserNotification.objects.bulk_create(batch, ignore_conflicts=True)
         
-        # Send push notifications using Firebase service
-        try:
-            from api_common.services.firebase_service import send_push_notification
-            
-            # Send push notification based on type
-            # Only pass target_user_ids/target_role_ids if they are valid and match the notification type
-            firebase_target_user_ids = None
-            firebase_target_role_ids = None
-            
-            if notification_type == 'specific' and target_user_ids and len(target_user_ids) > 0:
-                firebase_target_user_ids = target_user_ids
-            elif notification_type == 'role' and target_role_ids and len(target_role_ids) > 0:
-                firebase_target_role_ids = target_role_ids
-            
-            send_push_notification(
-                notification_id=notification.id,
-                title=title,
-                body=message,  # Fixed: changed 'message' to 'body'
-                notification_type=notification_type,
-                target_user_ids=firebase_target_user_ids,
-                target_role_ids=firebase_target_role_ids
-            )
-        except Exception as firebase_error:
-            print(f'Firebase notification error: {firebase_error}')
-            # Don't fail the request if Firebase fails
-        
+        # Prepare response data first (before sending notifications)
         notification_data = {
             'id': notification.id,
             'title': notification.title,
@@ -184,6 +174,34 @@ def create_notification(request):
             'createdAt': notification.createdAt.isoformat() if notification.createdAt else None,
             'updatedAt': notification.updatedAt.isoformat() if notification.updatedAt else None
         }
+        
+        # Send push notifications using Firebase service (async - don't wait for it)
+        # This is done after preparing the response to avoid blocking the HTTP response
+        try:
+            from api_common.services.firebase_service import send_push_notification
+            
+            # Send push notification based on type
+            # Only pass target_user_ids/target_role_ids if they are valid and match the notification type
+            firebase_target_user_ids = None
+            firebase_target_role_ids = None
+            
+            if notification_type == 'specific' and target_user_ids and len(target_user_ids) > 0:
+                firebase_target_user_ids = target_user_ids
+            elif notification_type == 'role' and target_role_ids and len(target_role_ids) > 0:
+                firebase_target_role_ids = target_role_ids
+            
+            # Send notification asynchronously (don't wait for completion)
+            send_push_notification(
+                notification_id=notification.id,
+                title=title,
+                body=message,
+                notification_type=notification_type,
+                target_user_ids=firebase_target_user_ids,
+                target_role_ids=firebase_target_role_ids
+            )
+        except Exception as firebase_error:
+            print(f'Firebase notification error: {firebase_error}')
+            # Don't fail the request if Firebase fails
         
         return success_response(notification_data, 'Notification created successfully', HTTP_STATUS['CREATED'])
     
