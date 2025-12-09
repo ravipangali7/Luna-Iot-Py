@@ -51,13 +51,12 @@ class AuthMiddleware(MiddlewareMixin):
         if request.path.startswith('/api/vehicle-tag/alert/'):
             return None
         
-        # Skip authentication for vehicle tag get by VTID (public access for alert page)
+        # Skip authentication for vehicle tag public endpoints (public access for alert page)
         import re
-        if re.match(r'^/api/vehicle-tag/VTID\d+/$', request.path):
-            return None
-        
-        # Skip authentication for vehicle tag QR image (public access for QR scanning)
-        if re.match(r'^/api/vehicle-tag/VTID\d+/qr/$', request.path):
+        # Match any VTID format followed by: /, /latest-alert/, or /qr/
+        # Examples: /api/vehicle-tag/VTID84/, /api/vehicle-tag/VTID84/latest-alert/, /api/vehicle-tag/VTID84/qr/
+        if (re.match(r'^/api/vehicle-tag/[^/]+/(latest-alert/|qr/)$', request.path) or
+            re.match(r'^/api/vehicle-tag/[^/]+/$', request.path)):
             return None
         
         # Skip authentication for media files
