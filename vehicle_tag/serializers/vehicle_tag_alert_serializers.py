@@ -2,6 +2,8 @@
 Vehicle Tag Alert Serializers
 Handles serialization for vehicle tag alert endpoints
 """
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework import serializers
 from vehicle_tag.models import VehicleTagAlert
 
@@ -58,7 +60,7 @@ class VehicleTagAlertCreateSerializer(serializers.ModelSerializer):
         fields = ['vtid', 'latitude', 'longitude', 'person_image', 'alert']
     
     def create(self, validated_data):
-        """Create alert with vtid lookup"""
+        """Create alert with vtid lookup and cooldown validation"""
         from vehicle_tag.models import VehicleTag
         
         vtid = validated_data.pop('vtid')
@@ -66,6 +68,25 @@ class VehicleTagAlertCreateSerializer(serializers.ModelSerializer):
             vehicle_tag = VehicleTag.objects.get(vtid=vtid)
         except VehicleTag.DoesNotExist:
             raise serializers.ValidationError(f"Vehicle tag with VTID {vtid} not found")
+        
+        # Check for cooldown period (10 minutes)
+        latest_alert = VehicleTagAlert.objects.filter(
+            vehicle_tag=vehicle_tag
+        ).order_by('-created_at').first()
+        
+        if latest_alert:
+            time_since_last_alert = timezone.now() - latest_alert.created_at
+            cooldown_period = timedelta(minutes=10)
+            
+            if time_since_last_alert < cooldown_period:
+                remaining_seconds = int((cooldown_period - time_since_last_alert).total_seconds())
+                remaining_minutes = remaining_seconds // 60
+                remaining_secs = remaining_seconds % 60
+                
+                raise serializers.ValidationError(
+                    f"Please wait before sending another alert. A recent alert was sent less than 10 minutes ago. "
+                    f"Please wait {remaining_minutes}:{remaining_secs:02d} more."
+                )
         
         validated_data['vehicle_tag'] = vehicle_tag
         return super().create(validated_data)
