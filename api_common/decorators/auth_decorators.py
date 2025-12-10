@@ -34,7 +34,18 @@ def require_role(allowed_roles):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
+            # Debug logging for vehicle tag history endpoint
+            if request.path and '/api/vehicle-tag/history/' in request.path:
+                print(f"[require_role] Checking authentication for {request.path}")
+                print(f"[require_role] Has user attr: {hasattr(request, 'user')}")
+                if hasattr(request, 'user'):
+                    print(f"[require_role] User: {request.user}, is_authenticated: {request.user.is_authenticated}")
+                else:
+                    print(f"[require_role] User not set on request")
+            
             if not hasattr(request, 'user') or not request.user.is_authenticated:
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[require_role] Authentication failed - returning 401")
                 return error_response(
                     message='Authentication required',
                     status_code=401

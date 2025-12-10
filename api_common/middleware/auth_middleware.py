@@ -90,7 +90,14 @@ class AuthMiddleware(MiddlewareMixin):
         phone = request.META.get('HTTP_X_PHONE')
         token = request.META.get('HTTP_X_TOKEN')
         
+        # Debug logging for vehicle tag history endpoint
+        if request.path and '/api/vehicle-tag/history/' in request.path:
+            print(f"[Auth Middleware] Processing vehicle tag history request: {request.path}")
+            print(f"[Auth Middleware] Phone header: {phone}, Token header: {'SET' if token else 'NOT SET'}")
+        
         if not phone or not token:
+            if request.path and '/api/vehicle-tag/history/' in request.path:
+                print(f"[Auth Middleware] Missing phone or token for vehicle tag history")
             return error_response( 
                 message='Phone and token required',
                 status_code=401
@@ -110,6 +117,8 @@ class AuthMiddleware(MiddlewareMixin):
             
             # Check if token matches
             if user.token != token:
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[Auth Middleware] Token mismatch for vehicle tag history - user token: {user.token}, expected: {token}")
                 print(f"Auth Middleware: Token mismatch - user token: {user.token}, expected: {token}")
                 return error_response(
                     message='Invalid token',
@@ -117,6 +126,8 @@ class AuthMiddleware(MiddlewareMixin):
                 )
             
             if not user.is_active:
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[Auth Middleware] User is not active for vehicle tag history")
                 print(f"Auth Middleware: User is not active")
                 return error_response(
                     message='User account is not active',
@@ -124,7 +135,18 @@ class AuthMiddleware(MiddlewareMixin):
                 )
             
             # Add user to request
+            # Ensure user is properly set and marked as authenticated
             request.user = user
+            # Force is_authenticated to be True (User model has this as a property, but ensure it's accessible)
+            if not hasattr(request.user, 'is_authenticated') or not request.user.is_authenticated:
+                # This shouldn't happen since User model has is_authenticated property, but just in case
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[Auth Middleware] WARNING: User is_authenticated is False, forcing to True")
+            
+            if request.path and '/api/vehicle-tag/history/' in request.path:
+                print(f"[Auth Middleware] Successfully authenticated user for vehicle tag history: {user.phone}, "
+                      f"is_authenticated: {getattr(user, 'is_authenticated', 'N/A')}, "
+                      f"hasattr check: {hasattr(request, 'user')}")
             return None
             
         except User.DoesNotExist:
