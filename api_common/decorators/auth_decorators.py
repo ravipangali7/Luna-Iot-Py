@@ -4,9 +4,11 @@ Handles authentication and authorization decorators
 """
 from functools import wraps
 from django.http import JsonResponse
+from django.contrib.auth.models import AnonymousUser
 from api_common.utils.response_utils import error_response
 from api_common.constants.api_constants import ERROR_MESSAGES
 from core.models import InstituteModule, Module
+from core.models.user import User
 
 
 def require_auth(view_func):
@@ -42,6 +44,53 @@ def require_role(allowed_roles):
                     print(f"[require_role] User: {request.user}, is_authenticated: {request.user.is_authenticated}")
                 else:
                     print(f"[require_role] User not set on request")
+            
+            # Check if user is AnonymousUser (set by Django's AuthenticationMiddleware)
+            # If so, try to authenticate using our custom auth headers
+            if hasattr(request, 'user') and isinstance(request.user, AnonymousUser):
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[require_role] User is AnonymousUser, attempting to authenticate from headers")
+                
+                # Try to authenticate from headers (fallback if middleware didn't run)
+                phone = request.META.get('HTTP_X_PHONE')
+                token = request.META.get('HTTP_X_TOKEN')
+                
+                if phone and token:
+                    try:
+                        user = User.objects.get(phone=phone)
+                        if user.token == token and user.is_active:
+                            # Overwrite AnonymousUser with authenticated user
+                            request.user = user
+                            if request.path and '/api/vehicle-tag/history/' in request.path:
+                                print(f"[require_role] Successfully authenticated from headers: {user.phone}")
+                        else:
+                            if request.path and '/api/vehicle-tag/history/' in request.path:
+                                print(f"[require_role] Token mismatch or user inactive")
+                            return error_response(
+                                message='Invalid token',
+                                status_code=401
+                            )
+                    except User.DoesNotExist:
+                        if request.path and '/api/vehicle-tag/history/' in request.path:
+                            print(f"[require_role] User not found with phone: {phone}")
+                        return error_response(
+                            message='User matching query does not exist.',
+                            status_code=404
+                        )
+                    except Exception as e:
+                        if request.path and '/api/vehicle-tag/history/' in request.path:
+                            print(f"[require_role] Exception during authentication: {str(e)}")
+                        return error_response(
+                            message='Authentication error',
+                            status_code=500
+                        )
+                else:
+                    if request.path and '/api/vehicle-tag/history/' in request.path:
+                        print(f"[require_role] No auth headers found for AnonymousUser")
+                    return error_response(
+                        message='Phone and token required',
+                        status_code=401
+                    )
             
             if not hasattr(request, 'user') or not request.user.is_authenticated:
                 if request.path and '/api/vehicle-tag/history/' in request.path:

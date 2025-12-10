@@ -17,6 +17,12 @@ class AuthMiddleware(MiddlewareMixin):
     """
     
     def process_request(self, request):
+        # Debug logging for vehicle tag history endpoint - verify middleware is running
+        if request.path and '/api/vehicle-tag/history/' in request.path:
+            print(f"[Auth Middleware] ===== MIDDLEWARE STARTED ===== {request.path}")
+            print(f"[Auth Middleware] Request method: {request.method}")
+            print(f"[Auth Middleware] Initial request.user: {getattr(request, 'user', 'NOT SET')}, type: {type(getattr(request, 'user', None))}")
+        
         # Skip authentication for public routes
         public_paths = [
             '/api/core/auth/login',
@@ -136,17 +142,32 @@ class AuthMiddleware(MiddlewareMixin):
             
             # Add user to request
             # Ensure user is properly set and marked as authenticated
+            # Force overwrite even if Django's AuthenticationMiddleware set AnonymousUser
             request.user = user
-            # Force is_authenticated to be True (User model has this as a property, but ensure it's accessible)
-            if not hasattr(request.user, 'is_authenticated') or not request.user.is_authenticated:
-                # This shouldn't happen since User model has is_authenticated property, but just in case
-                if request.path and '/api/vehicle-tag/history/' in request.path:
-                    print(f"[Auth Middleware] WARNING: User is_authenticated is False, forcing to True")
             
+            # Verify the user was set correctly
             if request.path and '/api/vehicle-tag/history/' in request.path:
-                print(f"[Auth Middleware] Successfully authenticated user for vehicle tag history: {user.phone}, "
-                      f"is_authenticated: {getattr(user, 'is_authenticated', 'N/A')}, "
-                      f"hasattr check: {hasattr(request, 'user')}")
+                print(f"[Auth Middleware] Before setting user - request.user type: {type(request.user)}")
+            
+            # Force overwrite to ensure our authenticated user is used
+            request.user = user
+            
+            # Verify is_authenticated property works
+            is_auth = getattr(request.user, 'is_authenticated', False)
+            if request.path and '/api/vehicle-tag/history/' in request.path:
+                print(f"[Auth Middleware] After setting user - request.user: {request.user}, "
+                      f"type: {type(request.user)}, "
+                      f"is_authenticated: {is_auth}, "
+                      f"phone: {request.user.phone if hasattr(request.user, 'phone') else 'N/A'}")
+            
+            # Double-check that user is not AnonymousUser
+            from django.contrib.auth.models import AnonymousUser
+            if isinstance(request.user, AnonymousUser):
+                if request.path and '/api/vehicle-tag/history/' in request.path:
+                    print(f"[Auth Middleware] ERROR: User is still AnonymousUser after setting! Forcing overwrite.")
+                # Force overwrite again
+                request.user = user
+            
             return None
             
         except User.DoesNotExist:
