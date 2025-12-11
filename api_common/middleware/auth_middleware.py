@@ -91,17 +91,31 @@ class AuthMiddleware(MiddlewareMixin):
             return None
         
         if request.path in public_paths:
+            if is_vehicle_tag_endpoint:
+                print(f"[Auth Middleware] Path is in public_paths, skipping auth")
             return None
+        
+        # Debug: Log that we're past all the public path checks
+        if is_vehicle_tag_endpoint:
+            print(f"[Auth Middleware] Past public path checks, proceeding with authentication")
             
         # Extract phone and token from headers
         phone = request.META.get('HTTP_X_PHONE')
         token = request.META.get('HTTP_X_TOKEN')
         
+        # Also check alternative header formats (some proxies/servers might transform them)
+        if not phone:
+            phone = request.META.get('X-PHONE') or request.META.get('x-phone')
+        if not token:
+            token = request.META.get('X-TOKEN') or request.META.get('x-token')
+        
         # Debug logging for vehicle tag endpoints
-        is_vehicle_tag_endpoint = request.path and '/api/vehicle-tag/' in request.path
         if is_vehicle_tag_endpoint:
             print(f"[Auth Middleware] Processing vehicle tag request: {request.path}")
-            print(f"[Auth Middleware] Phone header: {phone}, Token header: {'SET' if token else 'NOT SET'}")
+            print(f"[Auth Middleware] Phone header (HTTP_X_PHONE): {request.META.get('HTTP_X_PHONE')}")
+            print(f"[Auth Middleware] Token header (HTTP_X_TOKEN): {'SET' if request.META.get('HTTP_X_TOKEN') else 'NOT SET'}")
+            print(f"[Auth Middleware] Phone (all formats): {phone}, Token (all formats): {'SET' if token else 'NOT SET'}")
+            print(f"[Auth Middleware] All headers with X: {[k for k in request.META.keys() if 'X' in k.upper() or 'PHONE' in k.upper() or 'TOKEN' in k.upper()]}")
         
         if not phone or not token:
             if is_vehicle_tag_endpoint:
@@ -173,6 +187,8 @@ class AuthMiddleware(MiddlewareMixin):
             return None
             
         except User.DoesNotExist:
+            if is_vehicle_tag_endpoint:
+                print(f"[Auth Middleware] User not found with phone: {phone}")
             print(f"Auth Middleware: User not found with phone: {phone}")
             return error_response(
                 message='User matching query does not exist.',
@@ -180,6 +196,10 @@ class AuthMiddleware(MiddlewareMixin):
             )
             
         except Exception as e:
+            if is_vehicle_tag_endpoint:
+                print(f"[Auth Middleware] Exception occurred: {str(e)}")
+                import traceback
+                traceback.print_exc()
             print(f"Auth Middleware: Exception occurred: {str(e)}")
             import traceback
             traceback.print_exc()

@@ -53,8 +53,14 @@ def require_role(allowed_roles):
                     print(f"[require_role] User is AnonymousUser, attempting to authenticate from headers")
                 
                 # Try to authenticate from headers (fallback if middleware didn't run)
-                phone = request.META.get('HTTP_X_PHONE')
-                token = request.META.get('HTTP_X_TOKEN')
+                # Check multiple header formats (some proxies/servers might transform them)
+                phone = request.META.get('HTTP_X_PHONE') or request.META.get('X-PHONE') or request.META.get('x-phone')
+                token = request.META.get('HTTP_X_TOKEN') or request.META.get('X-TOKEN') or request.META.get('x-token')
+                
+                if is_vehicle_tag_endpoint:
+                    print(f"[require_role] Checking headers - HTTP_X_PHONE: {request.META.get('HTTP_X_PHONE')}, HTTP_X_TOKEN: {'SET' if request.META.get('HTTP_X_TOKEN') else 'NOT SET'}")
+                    print(f"[require_role] After fallback - phone: {phone}, token: {'SET' if token else 'NOT SET'}")
+                    print(f"[require_role] All META keys with X/PHONE/TOKEN: {[k for k in request.META.keys() if 'X' in k.upper() or 'PHONE' in k.upper() or 'TOKEN' in k.upper()]}")
                 
                 if phone and token:
                     try:
