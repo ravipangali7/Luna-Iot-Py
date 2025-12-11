@@ -112,7 +112,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
             if title_font is None:
                 title_font = ImageFont.truetype(font_path, 38)  # Slightly smaller (was 42)
             if text_font is None:
-                text_font = ImageFont.truetype(font_path, 20)  # Slightly smaller (was 22)
+                text_font = ImageFont.truetype(font_path, 32)  # Increased for Download text prominence
             if small_font is None:
                 small_font = ImageFont.truetype(font_path, 16)  # Slightly smaller (was 18)
             if title_font and text_font and small_font:
@@ -125,7 +125,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
         try:
             test_font = ImageFont.truetype(font_path, 20)
             if subtitle_font is None:
-                subtitle_font = ImageFont.truetype(font_path, 26)  # Slightly smaller (was 28)
+                subtitle_font = ImageFont.truetype(font_path, 34)  # Increased for Nepali subtitle prominence
             if nepali_font is None:
                 nepali_font = ImageFont.truetype(font_path, 16)  # Slightly smaller (was 18)
             if subtitle_font and nepali_font:
@@ -161,11 +161,11 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     subtitle_width = bbox[2] - bbox[0]
     subtitle_height = bbox[3] - bbox[1]
     subtitle_x = (width - subtitle_width) // 2
-    draw.text((subtitle_x, body_y + title_height + 20), subtitle_text, fill=white, font=subtitle_font)
+    draw.text((subtitle_x, body_y + title_height + 25), subtitle_text, fill=white, font=subtitle_font)
     
     # Place QR code in center of body (with more spacing)
     qr_x = (width - qr_img.width) // 2
-    qr_y = body_y + title_height + subtitle_height + 80
+    qr_y = body_y + title_height + subtitle_height + 90
     img.paste(qr_img, (qr_x, qr_y))
     
     # Tag ID below QR code
@@ -181,7 +181,7 @@ def generate_tag_image(vtid, base_url='https://app.mylunago.com'):
     bbox = draw.textbbox((0, 0), app_text, font=text_font)
     app_width = bbox[2] - bbox[0]
     app_x = (width - app_width) // 2
-    draw.text((app_x, qr_y + qr_img.height + tag_id_height + 50), app_text, fill=white, font=text_font)
+    draw.text((app_x, qr_y + qr_img.height + tag_id_height + 60), app_text, fill=white, font=text_font)
     
     # Footer section - First row: Icons
     footer_y = footer_start + 15  # Reduced spacing (was 20)
