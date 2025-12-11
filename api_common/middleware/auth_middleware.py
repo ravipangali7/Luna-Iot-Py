@@ -168,8 +168,8 @@ class AuthMiddleware(MiddlewareMixin):
                     status_code=401
                 )
             
-                # Find user by phone first, then verify token
-                
+            # Find user by phone first, then verify token
+            try:
                 # First check if any users exist
                 user_count = User.objects.count()
                 
