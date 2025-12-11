@@ -54,8 +54,22 @@ def require_role(allowed_roles):
                 
                 # Try to authenticate from headers (fallback if middleware didn't run)
                 # Check multiple header formats (some proxies/servers might transform them)
-                phone = request.META.get('HTTP_X_PHONE') or request.META.get('X-PHONE') or request.META.get('x-phone')
-                token = request.META.get('HTTP_X_TOKEN') or request.META.get('X-TOKEN') or request.META.get('x-token')
+                phone = (
+                    request.META.get('HTTP_X_PHONE') or
+                    request.META.get('X-PHONE') or
+                    request.META.get('x-phone') or
+                    request.META.get('HTTP_X_PHONE_NORMALIZED') or
+                    (request.headers.get('X-PHONE') if hasattr(request, 'headers') else None) or
+                    (request.headers.get('x-phone') if hasattr(request, 'headers') else None)
+                )
+                token = (
+                    request.META.get('HTTP_X_TOKEN') or
+                    request.META.get('X-TOKEN') or
+                    request.META.get('x-token') or
+                    request.META.get('HTTP_X_TOKEN_NORMALIZED') or
+                    (request.headers.get('X-TOKEN') if hasattr(request, 'headers') else None) or
+                    (request.headers.get('x-token') if hasattr(request, 'headers') else None)
+                )
                 
                 if is_vehicle_tag_endpoint:
                     print(f"[require_role] Checking headers - HTTP_X_PHONE: {request.META.get('HTTP_X_PHONE')}, HTTP_X_TOKEN: {'SET' if request.META.get('HTTP_X_TOKEN') else 'NOT SET'}")
