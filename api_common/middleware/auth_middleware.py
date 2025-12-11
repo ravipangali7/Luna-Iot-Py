@@ -17,8 +17,9 @@ class AuthMiddleware(MiddlewareMixin):
     """
     
     def process_request(self, request):
-        # Debug logging for vehicle tag history endpoint - verify middleware is running
-        if request.path and '/api/vehicle-tag/history/' in request.path:
+        # Debug logging for vehicle tag endpoints - verify middleware is running
+        is_vehicle_tag_endpoint = request.path and '/api/vehicle-tag/' in request.path
+        if is_vehicle_tag_endpoint:
             print(f"[Auth Middleware] ===== MIDDLEWARE STARTED ===== {request.path}")
             print(f"[Auth Middleware] Request method: {request.method}")
             print(f"[Auth Middleware] Initial request.user: {getattr(request, 'user', 'NOT SET')}, type: {type(getattr(request, 'user', None))}")
@@ -96,14 +97,15 @@ class AuthMiddleware(MiddlewareMixin):
         phone = request.META.get('HTTP_X_PHONE')
         token = request.META.get('HTTP_X_TOKEN')
         
-        # Debug logging for vehicle tag history endpoint
-        if request.path and '/api/vehicle-tag/history/' in request.path:
-            print(f"[Auth Middleware] Processing vehicle tag history request: {request.path}")
+        # Debug logging for vehicle tag endpoints
+        is_vehicle_tag_endpoint = request.path and '/api/vehicle-tag/' in request.path
+        if is_vehicle_tag_endpoint:
+            print(f"[Auth Middleware] Processing vehicle tag request: {request.path}")
             print(f"[Auth Middleware] Phone header: {phone}, Token header: {'SET' if token else 'NOT SET'}")
         
         if not phone or not token:
-            if request.path and '/api/vehicle-tag/history/' in request.path:
-                print(f"[Auth Middleware] Missing phone or token for vehicle tag history")
+            if is_vehicle_tag_endpoint:
+                print(f"[Auth Middleware] Missing phone or token for vehicle tag endpoint")
             return error_response( 
                 message='Phone and token required',
                 status_code=401
@@ -123,8 +125,8 @@ class AuthMiddleware(MiddlewareMixin):
             
             # Check if token matches
             if user.token != token:
-                if request.path and '/api/vehicle-tag/history/' in request.path:
-                    print(f"[Auth Middleware] Token mismatch for vehicle tag history - user token: {user.token}, expected: {token}")
+                if is_vehicle_tag_endpoint:
+                    print(f"[Auth Middleware] Token mismatch for vehicle tag endpoint - user token: {user.token}, expected: {token}")
                 print(f"Auth Middleware: Token mismatch - user token: {user.token}, expected: {token}")
                 return error_response(
                     message='Invalid token',
@@ -132,8 +134,8 @@ class AuthMiddleware(MiddlewareMixin):
                 )
             
             if not user.is_active:
-                if request.path and '/api/vehicle-tag/history/' in request.path:
-                    print(f"[Auth Middleware] User is not active for vehicle tag history")
+                if is_vehicle_tag_endpoint:
+                    print(f"[Auth Middleware] User is not active for vehicle tag endpoint")
                 print(f"Auth Middleware: User is not active")
                 return error_response(
                     message='User account is not active',
@@ -146,7 +148,7 @@ class AuthMiddleware(MiddlewareMixin):
             request.user = user
             
             # Verify the user was set correctly
-            if request.path and '/api/vehicle-tag/history/' in request.path:
+            if is_vehicle_tag_endpoint:
                 print(f"[Auth Middleware] Before setting user - request.user type: {type(request.user)}")
             
             # Force overwrite to ensure our authenticated user is used
@@ -154,7 +156,7 @@ class AuthMiddleware(MiddlewareMixin):
             
             # Verify is_authenticated property works
             is_auth = getattr(request.user, 'is_authenticated', False)
-            if request.path and '/api/vehicle-tag/history/' in request.path:
+            if is_vehicle_tag_endpoint:
                 print(f"[Auth Middleware] After setting user - request.user: {request.user}, "
                       f"type: {type(request.user)}, "
                       f"is_authenticated: {is_auth}, "
@@ -163,7 +165,7 @@ class AuthMiddleware(MiddlewareMixin):
             # Double-check that user is not AnonymousUser
             from django.contrib.auth.models import AnonymousUser
             if isinstance(request.user, AnonymousUser):
-                if request.path and '/api/vehicle-tag/history/' in request.path:
+                if is_vehicle_tag_endpoint:
                     print(f"[Auth Middleware] ERROR: User is still AnonymousUser after setting! Forcing overwrite.")
                 # Force overwrite again
                 request.user = user

@@ -36,8 +36,9 @@ def require_role(allowed_roles):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            # Debug logging for vehicle tag history endpoint
-            if request.path and '/api/vehicle-tag/history/' in request.path:
+            # Debug logging for vehicle tag endpoints
+            is_vehicle_tag_endpoint = request.path and '/api/vehicle-tag/' in request.path
+            if is_vehicle_tag_endpoint:
                 print(f"[require_role] Checking authentication for {request.path}")
                 print(f"[require_role] Has user attr: {hasattr(request, 'user')}")
                 if hasattr(request, 'user'):
@@ -48,7 +49,7 @@ def require_role(allowed_roles):
             # Check if user is AnonymousUser (set by Django's AuthenticationMiddleware)
             # If so, try to authenticate using our custom auth headers
             if hasattr(request, 'user') and isinstance(request.user, AnonymousUser):
-                if request.path and '/api/vehicle-tag/history/' in request.path:
+                if is_vehicle_tag_endpoint:
                     print(f"[require_role] User is AnonymousUser, attempting to authenticate from headers")
                 
                 # Try to authenticate from headers (fallback if middleware didn't run)
@@ -61,31 +62,31 @@ def require_role(allowed_roles):
                         if user.token == token and user.is_active:
                             # Overwrite AnonymousUser with authenticated user
                             request.user = user
-                            if request.path and '/api/vehicle-tag/history/' in request.path:
+                            if is_vehicle_tag_endpoint:
                                 print(f"[require_role] Successfully authenticated from headers: {user.phone}")
                         else:
-                            if request.path and '/api/vehicle-tag/history/' in request.path:
+                            if is_vehicle_tag_endpoint:
                                 print(f"[require_role] Token mismatch or user inactive")
                             return error_response(
                                 message='Invalid token',
                                 status_code=401
                             )
                     except User.DoesNotExist:
-                        if request.path and '/api/vehicle-tag/history/' in request.path:
+                        if is_vehicle_tag_endpoint:
                             print(f"[require_role] User not found with phone: {phone}")
                         return error_response(
                             message='User matching query does not exist.',
                             status_code=404
                         )
                     except Exception as e:
-                        if request.path and '/api/vehicle-tag/history/' in request.path:
+                        if is_vehicle_tag_endpoint:
                             print(f"[require_role] Exception during authentication: {str(e)}")
                         return error_response(
                             message='Authentication error',
                             status_code=500
                         )
                 else:
-                    if request.path and '/api/vehicle-tag/history/' in request.path:
+                    if is_vehicle_tag_endpoint:
                         print(f"[require_role] No auth headers found for AnonymousUser")
                     return error_response(
                         message='Phone and token required',
@@ -93,7 +94,7 @@ def require_role(allowed_roles):
                     )
             
             if not hasattr(request, 'user') or not request.user.is_authenticated:
-                if request.path and '/api/vehicle-tag/history/' in request.path:
+                if is_vehicle_tag_endpoint:
                     print(f"[require_role] Authentication failed - returning 401")
                 return error_response(
                     message='Authentication required',
