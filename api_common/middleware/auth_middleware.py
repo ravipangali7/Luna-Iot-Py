@@ -73,10 +73,11 @@ class AuthMiddleware(MiddlewareMixin):
             
             # Skip authentication for vehicle tag public endpoints (public access for alert page)
             import re
-            # Match any VTID format followed by: /, /latest-alert/, or /qr/
+            # Match VTID format (VTID followed by digits) followed by: /, /latest-alert/, or /qr/
             # Examples: /api/vehicle-tag/VTID84/, /api/vehicle-tag/VTID84/latest-alert/, /api/vehicle-tag/VTID84/qr/
-            if (re.match(r'^/api/vehicle-tag/[^/]+/(latest-alert/|qr/)$', request.path) or
-                re.match(r'^/api/vehicle-tag/[^/]+/$', request.path)):
+            # DO NOT match: /api/vehicle-tag/generate/, /api/vehicle-tag/history/, etc.
+            if (re.match(r'^/api/vehicle-tag/VTID\d+/(latest-alert/|qr/)$', request.path) or
+                re.match(r'^/api/vehicle-tag/VTID\d+/$', request.path)):
                 if is_vehicle_tag_endpoint:
                     print(f"[Auth Middleware] Skipping - vehicle tag public VTID route")
                 return None
@@ -131,33 +132,50 @@ class AuthMiddleware(MiddlewareMixin):
                 
             # Extract phone and token from headers
             # Try multiple header formats to handle different proxy/load balancer configurations
-            phone = (
-                request.META.get('HTTP_X_PHONE') or
-                request.META.get('X-PHONE') or
-                request.META.get('x-phone') or
-                request.META.get('HTTP_X_PHONE_NORMALIZED') or
-                request.headers.get('X-PHONE') if hasattr(request, 'headers') else None or
-                request.headers.get('x-phone') if hasattr(request, 'headers') else None
-            )
-            token = (
-                request.META.get('HTTP_X_TOKEN') or
-                request.META.get('X-TOKEN') or
-                request.META.get('x-token') or
-                request.META.get('HTTP_X_TOKEN_NORMALIZED') or
-                request.headers.get('X-TOKEN') if hasattr(request, 'headers') else None or
-                request.headers.get('x-token') if hasattr(request, 'headers') else None
-            )
+            phone = None
+            token = None
+            
+            # Check META first (standard Django way)
+            phone = (request.META.get('HTTP_X_PHONE') or 
+                    request.META.get('X-PHONE') or 
+                    request.META.get('x-phone') or
+                    request.META.get('HTTP_X_PHONE_NORMALIZED'))
+            
+            token = (request.META.get('HTTP_X_TOKEN') or 
+                    request.META.get('X-TOKEN') or 
+                    request.META.get('x-token') or
+                    request.META.get('HTTP_X_TOKEN_NORMALIZED'))
+            
+            # If not found in META, check request.headers (Django 2.2+)
+            if not phone and hasattr(request, 'headers'):
+                phone = (request.headers.get('X-PHONE') or 
+                        request.headers.get('x-phone') or
+                        request.headers.get('HTTP_X_PHONE'))
+            
+            if not token and hasattr(request, 'headers'):
+                token = (request.headers.get('X-TOKEN') or 
+                        request.headers.get('x-token') or
+                        request.headers.get('HTTP_X_TOKEN'))
             
             # Debug logging for vehicle tag endpoints
             if is_vehicle_tag_endpoint:
                 print(f"[Auth Middleware] Processing vehicle tag request: {request.path}")
+                print(f"[Auth Middleware] Request method: {request.method}")
                 print(f"[Auth Middleware] Phone header (HTTP_X_PHONE): {request.META.get('HTTP_X_PHONE')}")
                 print(f"[Auth Middleware] Token header (HTTP_X_TOKEN): {'SET' if request.META.get('HTTP_X_TOKEN') else 'NOT SET'}")
                 print(f"[Auth Middleware] Phone (all formats checked): {phone}, Token (all formats checked): {'SET' if token else 'NOT SET'}")
-                print(f"[Auth Middleware] All META keys: {list(request.META.keys())[:20]}")  # First 20 keys
-                print(f"[Auth Middleware] All headers with X/PHONE/TOKEN: {[k for k in request.META.keys() if 'X' in k.upper() or 'PHONE' in k.upper() or 'TOKEN' in k.upper()]}")
+                print(f"[Auth Middleware] All META keys with X/PHONE/TOKEN: {[k for k in request.META.keys() if 'X' in k.upper() or 'PHONE' in k.upper() or 'TOKEN' in k.upper()]}")
                 if hasattr(request, 'headers'):
                     print(f"[Auth Middleware] Request.headers keys: {list(request.headers.keys()) if hasattr(request.headers, 'keys') else 'N/A'}")
+                    if hasattr(request.headers, 'get'):
+                        print(f"[Auth Middleware] Request.headers X-PHONE: {request.headers.get('X-PHONE')}")
+                        print(f"[Auth Middleware] Request.headers x-phone: {request.headers.get('x-phone')}")
+                        print(f"[Auth Middleware] Request.headers X-TOKEN: {'SET' if request.headers.get('X-TOKEN') else 'NOT SET'}")
+                        print(f"[Auth Middleware] Request.headers x-token: {'SET' if request.headers.get('x-token') else 'NOT SET'}")
+                # Log all META keys for debugging
+                all_meta_keys = list(request.META.keys())
+                print(f"[Auth Middleware] Total META keys: {len(all_meta_keys)}")
+                print(f"[Auth Middleware] Sample META keys: {all_meta_keys[:30]}")
             
             if not phone or not token:
                 if is_vehicle_tag_endpoint:
