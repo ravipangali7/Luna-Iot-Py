@@ -65,6 +65,12 @@ class AuthMiddleware(MiddlewareMixin):
                     print(f"[Auth Middleware] Skipping - alert history create route")
                 return None
             
+            # Skip authentication for community siren history create endpoint (called by Node)
+            if request.path.startswith('/api/community-siren/community-siren-history/create/') and request.method == 'POST':
+                if is_vehicle_tag_endpoint:
+                    print(f"[Auth Middleware] Skipping - community siren history create route")
+                return None
+            
             # Skip authentication for vehicle tag alert endpoints (public access)
             if request.path.startswith('/api/vehicle-tag/alert/'):
                 if is_vehicle_tag_endpoint:
