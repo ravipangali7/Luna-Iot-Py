@@ -500,3 +500,65 @@ def get_public_vehicle_institutes(request):
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
         )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_community_siren_institutes(request):
+    """
+    Get institutes where the current user has access to the community-siren module
+    For Super Admin: returns all institutes with community-siren module enabled
+    For other users: returns only institutes where user has access
+    """
+    try:
+        # Get the community-siren module
+        try:
+            community_siren_module = Module.objects.get(slug='community-siren')
+        except Module.DoesNotExist:
+            return success_response(
+                data=[],
+                message="Community siren module not found"
+            )
+        
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
+        
+        if is_admin:
+            # Super Admin: Get all institutes with community-siren module enabled
+            all_institute_modules = InstituteModule.objects.filter(
+                module=community_siren_module
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in all_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_community_siren_access': True
+                })
+        else:
+            # Regular users: Get only institutes where user has access to community-siren module
+            user_institute_modules = InstituteModule.objects.filter(
+                module=community_siren_module,
+                users=request.user
+            ).select_related('institute')
+            
+            institutes_data = []
+            for institute_module in user_institute_modules:
+                institutes_data.append({
+                    'institute_id': institute_module.institute.id,
+                    'institute_name': institute_module.institute.name,
+                    'has_community_siren_access': True
+                })
+        
+        return success_response(
+            data=institutes_data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Community siren institutes retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )

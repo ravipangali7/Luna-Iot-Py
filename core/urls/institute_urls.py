@@ -34,6 +34,7 @@ urlpatterns = [
     path('modules/<int:module_id>/delete/', institute_module_views.delete_institute_module, name='delete_institute_module'),
     path('modules/<int:module_id>/users/', institute_module_views.update_institute_module_users, name='update_institute_module_users'),
     path('modules/alert-system-institutes/', institute_module_views.get_alert_system_institutes, name='get_alert_system_institutes'),
+    path('modules/community-siren-institutes/', institute_module_views.get_community_siren_institutes, name='get_community_siren_institutes'),
     path('modules/school-institutes/', institute_module_views.get_school_institutes, name='get_school_institutes'),
     path('modules/garbage-institutes/', institute_module_views.get_garbage_institutes, name='get_garbage_institutes'),
     path('modules/public-vehicle-institutes/', institute_module_views.get_public_vehicle_institutes, name='get_public_vehicle_institutes'),
