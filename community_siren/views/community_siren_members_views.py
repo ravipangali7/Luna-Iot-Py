@@ -3,13 +3,15 @@ Community Siren Members Views
 Handles community siren members management endpoints
 """
 from rest_framework.decorators import api_view
-from community_siren.models import CommunitySirenMembers
+from community_siren.models import CommunitySirenMembers, CommunitySirenBuzzer
 from community_siren.serializers import (
     CommunitySirenMembersSerializer,
     CommunitySirenMembersCreateSerializer,
     CommunitySirenMembersUpdateSerializer,
-    CommunitySirenMembersListSerializer
+    CommunitySirenMembersListSerializer,
+    CommunitySirenBuzzerWithStatusSerializer
 )
+from core.models import Module, InstituteModule, Institute
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -128,3 +130,93 @@ def delete_community_siren_member(request, member_id):
         return error_response(message=str(e), status_code=HTTP_STATUS['NOT_FOUND'])
     except Exception as e:
         return error_response(message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'), data=str(e))
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def check_member_access(request):
+    """
+    Check if current user is a member of any institute with community-siren module
+    Returns institute and buzzer details if access exists
+    """
+    try:
+        user = request.user
+        
+        # Check if user is Super Admin
+        user_groups = user.groups.all()
+        user_role_names = [group.name for group in user_groups]
+        is_super_admin = 'Super Admin' in user_role_names
+        
+        # Get the community-siren module
+        try:
+            community_siren_module = Module.objects.get(slug='community-siren')
+        except Module.DoesNotExist:
+            return success_response(
+                data={'has_access': False, 'message': 'Community siren module not found'},
+                message='Access check completed'
+            )
+        
+        # Find institutes where user has access to community-siren module
+        if is_super_admin:
+            # Super Admin: Get all institutes with community-siren module
+            institute_modules = InstituteModule.objects.filter(
+                module=community_siren_module
+            ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
+        else:
+            # Regular users: Get only institutes where user has access
+            institute_modules = InstituteModule.objects.filter(
+                module=community_siren_module,
+                users=user
+            ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
+        
+        if not institute_modules.exists():
+            return success_response(
+                data={'has_access': False},
+                message='Access check completed'
+            )
+        
+        # Get the first institute (assuming user has access to one)
+        institute_module = institute_modules.first()
+        institute = institute_module.institute
+        
+        # Get buzzer for this institute
+        buzzers = CommunitySirenBuzzer.objects.filter(
+            institute=institute
+        ).select_related('device', 'institute').order_by('-created_at')
+        
+        buzzer_data = None
+        if buzzers.exists():
+            buzzer = buzzers.first()
+            buzzer_serializer = CommunitySirenBuzzerWithStatusSerializer(buzzer)
+            buzzer_data = buzzer_serializer.data
+        
+        # Prepare institute data
+        logo_url = None
+        if institute.logo:
+            try:
+                logo_url = request.build_absolute_uri(institute.logo.url) if request else institute.logo.url
+            except Exception:
+                logo_url = None
+        
+        institute_data = {
+            'id': institute.id,
+            'name': institute.name,
+            'logo': logo_url,
+            'phone': institute.phone,
+            'address': institute.address,
+        }
+        
+        return success_response(
+            data={
+                'has_access': True,
+                'institute': institute_data,
+                'buzzer': buzzer_data
+            },
+            message='Access check completed'
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )

@@ -5,7 +5,7 @@ Handles community siren history management endpoints
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
-from community_siren.models import CommunitySirenHistory
+from community_siren.models import CommunitySirenHistory, CommunitySirenBuzzer
 from community_siren.serializers import (
     CommunitySirenHistorySerializer,
     CommunitySirenHistoryCreateSerializer,
@@ -19,7 +19,11 @@ from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth
 from api_common.exceptions.api_exceptions import NotFoundError
 from core.models import Module, InstituteModule
+from api_common.utils.tcp_service import tcp_service
 from functools import wraps
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def require_community_siren_module_access(model_class=None, id_param_name='id'):
@@ -209,12 +213,41 @@ def get_community_siren_histories_by_institute(request, institute_id):
 @require_community_siren_module_access()
 @api_response
 def create_community_siren_history(request):
-    """Create new community siren history"""
+    """Create new community siren history and control buzzer relay"""
     try:
         serializer = CommunitySirenHistoryCreateSerializer(data=request.data)
         if serializer.is_valid():
+            # Get institute from validated data
+            institute = serializer.validated_data.get('institute')
+            
+            # Get buzzer for this institute
+            buzzer = None
+            if institute:
+                try:
+                    buzzer = CommunitySirenBuzzer.objects.filter(institute=institute).first()
+                except Exception as e:
+                    logger.warning(f"Could not find buzzer for institute {institute.id}: {str(e)}")
+            
+            # Turn relay ON if buzzer exists
+            if buzzer and buzzer.device and buzzer.device.imei:
+                try:
+                    imei = buzzer.device.imei
+                    logger.info(f"Turning relay ON for buzzer device IMEI: {imei}")
+                    tcp_result = tcp_service.send_relay_on_command(imei)
+                    if not tcp_result.get('success'):
+                        logger.warning(f"Failed to turn relay ON for IMEI {imei}: {tcp_result.get('message', 'Unknown error')}")
+                except Exception as e:
+                    logger.error(f"Error turning relay ON: {str(e)}")
+                    # Continue with history creation even if relay control fails
+            
+            # Set member to current user if not provided
+            if 'member' not in serializer.validated_data or serializer.validated_data.get('member') is None:
+                serializer.validated_data['member'] = request.user
+            
+            # Create history
             history = serializer.save()
             response_serializer = CommunitySirenHistorySerializer(history)
+            
             return success_response(
                 data=response_serializer.data,
                 message=SUCCESS_MESSAGES.get('DATA_CREATED', 'Community siren history created successfully'),
@@ -227,6 +260,7 @@ def create_community_siren_history(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
+        logger.exception(f"Error creating community siren history: {str(e)}")
         return error_response(message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'), data=str(e))
 
 

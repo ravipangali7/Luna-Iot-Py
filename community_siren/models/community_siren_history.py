@@ -1,5 +1,5 @@
 from django.db import models
-from core.models import Institute
+from core.models import Institute, User
 from shared_utils.constants import AlertSource, AlertStatus
 
 
@@ -22,6 +22,14 @@ class CommunitySirenHistory(models.Model):
         related_name='community_siren_histories',
         help_text="Institute this alert belongs to"
     )
+    member = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='community_siren_histories',
+        help_text="Member (user) who clicked the SOS button"
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
@@ -37,6 +45,7 @@ class CommunitySirenHistory(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['institute']),
             models.Index(fields=['datetime']),
+            models.Index(fields=['member']),
         ]
     
     def __str__(self):

@@ -10,6 +10,7 @@ __all__ = [
     'CommunitySirenBuzzerCreateSerializer',
     'CommunitySirenBuzzerUpdateSerializer',
     'CommunitySirenBuzzerListSerializer',
+    'CommunitySirenBuzzerWithStatusSerializer',
     
     # Community Siren Switch serializers
     'CommunitySirenSwitchSerializer',
