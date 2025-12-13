@@ -2,7 +2,8 @@
 Community Siren History Views
 Handles community siren history management endpoints
 """
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from django.core.paginator import Paginator
 from django.db.models import Q
 from community_siren.models import CommunitySirenHistory, CommunitySirenBuzzer, CommunitySirenSwitch
@@ -210,8 +211,7 @@ def get_community_siren_histories_by_institute(request, institute_id):
 
 
 @api_view(['POST'])
-@require_auth
-@require_community_siren_module_access()
+@permission_classes([AllowAny])
 @api_response
 def create_community_siren_history(request):
     """Create new community siren history and control buzzer/switch relay with timing"""
@@ -222,8 +222,8 @@ def create_community_siren_history(request):
             institute = serializer.validated_data.get('institute')
             source = serializer.validated_data.get('source', 'app')
             
-            # Set member to current user if not provided
-            if 'member' not in serializer.validated_data or serializer.validated_data.get('member') is None:
+            # Set member to current user if not provided and user is authenticated
+            if ('member' not in serializer.validated_data or serializer.validated_data.get('member') is None) and request.user.is_authenticated:
                 serializer.validated_data['member'] = request.user
             
             # Create history first
