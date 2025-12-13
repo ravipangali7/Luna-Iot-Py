@@ -5,7 +5,7 @@ Handles community siren history management endpoints
 from rest_framework.decorators import api_view
 from django.core.paginator import Paginator
 from django.db.models import Q
-from community_siren.models import CommunitySirenHistory, CommunitySirenBuzzer
+from community_siren.models import CommunitySirenHistory, CommunitySirenBuzzer, CommunitySirenSwitch
 from community_siren.serializers import (
     CommunitySirenHistorySerializer,
     CommunitySirenHistoryCreateSerializer,
@@ -13,6 +13,7 @@ from community_siren.serializers import (
     CommunitySirenHistoryListSerializer,
     CommunitySirenHistoryStatusUpdateSerializer
 )
+from community_siren.tasks import schedule_relay_off_command
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -213,39 +214,85 @@ def get_community_siren_histories_by_institute(request, institute_id):
 @require_community_siren_module_access()
 @api_response
 def create_community_siren_history(request):
-    """Create new community siren history and control buzzer relay"""
+    """Create new community siren history and control buzzer/switch relay with timing"""
     try:
         serializer = CommunitySirenHistoryCreateSerializer(data=request.data)
         if serializer.is_valid():
-            # Get institute from validated data
+            # Get institute and source from validated data
             institute = serializer.validated_data.get('institute')
-            
-            # Get buzzer for this institute
-            buzzer = None
-            if institute:
-                try:
-                    buzzer = CommunitySirenBuzzer.objects.filter(institute=institute).first()
-                except Exception as e:
-                    logger.warning(f"Could not find buzzer for institute {institute.id}: {str(e)}")
-            
-            # Turn relay ON if buzzer exists
-            if buzzer and buzzer.device and buzzer.device.imei:
-                try:
-                    imei = buzzer.device.imei
-                    logger.info(f"Turning relay ON for buzzer device IMEI: {imei}")
-                    tcp_result = tcp_service.send_relay_on_command(imei)
-                    if not tcp_result.get('success'):
-                        logger.warning(f"Failed to turn relay ON for IMEI {imei}: {tcp_result.get('message', 'Unknown error')}")
-                except Exception as e:
-                    logger.error(f"Error turning relay ON: {str(e)}")
-                    # Continue with history creation even if relay control fails
+            source = serializer.validated_data.get('source', 'app')
             
             # Set member to current user if not provided
             if 'member' not in serializer.validated_data or serializer.validated_data.get('member') is None:
                 serializer.validated_data['member'] = request.user
             
-            # Create history
+            # Create history first
             history = serializer.save()
+            
+            # Handle relay commands after history is created (so we have history.id for logging)
+            if institute:
+                # Handle buzzer relay commands (for both 'app' and 'switch' sources)
+                buzzer = None
+                try:
+                    buzzer = CommunitySirenBuzzer.objects.filter(institute=institute).first()
+                except Exception as e:
+                    logger.warning(f"Could not find buzzer for institute {institute.id}: {str(e)}")
+                
+                # Turn relay ON and schedule OFF for buzzer
+                if buzzer and buzzer.device and buzzer.device.imei:
+                    try:
+                        buzzer_imei = buzzer.device.imei
+                        logger.info(f"Turning relay ON for buzzer device IMEI: {buzzer_imei}")
+                        relay_on_result = tcp_service.send_relay_on_command(buzzer_imei)
+                        
+                        if relay_on_result.get('success'):
+                            logger.info(f"Relay ON sent to buzzer {buzzer.title} (IMEI: {buzzer_imei})")
+                            
+                            # Schedule relay OFF for buzzer after delay
+                            schedule_relay_off_command(
+                                buzzer_imei,
+                                buzzer.delay,
+                                history.id,
+                                buzzer_id=buzzer.id
+                            )
+                        else:
+                            logger.warning(f"Failed to send relay ON to buzzer {buzzer.title} (IMEI: {buzzer_imei}): {relay_on_result.get('message', 'Unknown error')}")
+                    except Exception as e:
+                        logger.error(f"Error handling buzzer relay commands: {str(e)}")
+                        # Continue even if relay control fails
+                
+                # Handle switch device relay commands if source is 'switch'
+                if source == 'switch':
+                    switch = None
+                    try:
+                        # Try to find switch by institute and location proximity
+                        # For now, get first switch for the institute
+                        switch = CommunitySirenSwitch.objects.filter(institute=institute).first()
+                    except Exception as e:
+                        logger.warning(f"Could not find switch for institute {institute.id}: {str(e)}")
+                    
+                    if switch and switch.device and switch.device.imei:
+                        try:
+                            switch_imei = switch.device.imei
+                            logger.info(f"Turning relay ON for switch device IMEI: {switch_imei}")
+                            switch_relay_on_result = tcp_service.send_relay_on_command(switch_imei)
+                            
+                            if switch_relay_on_result.get('success'):
+                                logger.info(f"Relay ON sent to switch {switch.title} (IMEI: {switch_imei})")
+                                
+                                # Schedule relay OFF for switch after trigger delay
+                                schedule_relay_off_command(
+                                    switch_imei,
+                                    switch.trigger,
+                                    history.id,
+                                    switch_id=switch.id
+                                )
+                            else:
+                                logger.warning(f"Failed to send relay ON to switch {switch.title} (IMEI: {switch_imei}): {switch_relay_on_result.get('message', 'Unknown error')}")
+                        except Exception as e:
+                            logger.error(f"Error handling switch relay commands: {str(e)}")
+                            # Continue even if relay control fails
+            
             response_serializer = CommunitySirenHistorySerializer(history)
             
             return success_response(
