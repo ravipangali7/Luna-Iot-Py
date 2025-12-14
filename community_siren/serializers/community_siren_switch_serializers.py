@@ -6,6 +6,7 @@ from rest_framework import serializers
 from community_siren.models import CommunitySirenSwitch
 from core.models import Institute
 from device.models import Device
+from device.models.buzzer_status import BuzzerStatus
 
 
 class CommunitySirenSwitchSerializer(serializers.ModelSerializer):
@@ -131,3 +132,37 @@ class CommunitySirenSwitchListSerializer(serializers.ModelSerializer):
             'latitude', 'longitude', 'trigger', 'primary_phone', 'secondary_phone',
             'image', 'created_at', 'updated_at'
         ]
+
+
+class CommunitySirenSwitchWithStatusSerializer(serializers.ModelSerializer):
+    """Serializer for community siren switch with latest device status"""
+    institute_name = serializers.CharField(source='institute.name', read_only=True)
+    institute_logo = serializers.CharField(source='institute.logo', read_only=True, allow_null=True)
+    device_imei = serializers.CharField(source='device.imei', read_only=True)
+    device_phone = serializers.CharField(source='device.phone', read_only=True)
+    switch_status = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = CommunitySirenSwitch
+        fields = [
+            'id', 'title', 'device', 'device_imei', 'device_phone', 'institute', 'institute_name', 'institute_logo',
+            'latitude', 'longitude', 'trigger', 'primary_phone', 'secondary_phone',
+            'image', 'switch_status', 'created_at', 'updated_at'
+        ]
+    
+    def get_switch_status(self, obj):
+        """Get latest device status for the switch"""
+        try:
+            latest_status = BuzzerStatus.objects.filter(imei=obj.device.imei).order_by('-createdAt', '-updatedAt').first()
+            if latest_status:
+                return {
+                    'battery': latest_status.battery,
+                    'signal': latest_status.signal,
+                    'ignition': latest_status.ignition,
+                    'charging': latest_status.charging,
+                    'relay': latest_status.relay,
+                    'last_updated': latest_status.updatedAt.isoformat() if latest_status.updatedAt else None,
+                }
+        except Exception:
+            pass
+        return None

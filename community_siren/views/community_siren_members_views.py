@@ -3,13 +3,14 @@ Community Siren Members Views
 Handles community siren members management endpoints
 """
 from rest_framework.decorators import api_view
-from community_siren.models import CommunitySirenMembers, CommunitySirenBuzzer
+from community_siren.models import CommunitySirenMembers, CommunitySirenBuzzer, CommunitySirenSwitch
 from community_siren.serializers import (
     CommunitySirenMembersSerializer,
     CommunitySirenMembersCreateSerializer,
     CommunitySirenMembersUpdateSerializer,
     CommunitySirenMembersListSerializer,
-    CommunitySirenBuzzerWithStatusSerializer
+    CommunitySirenBuzzerWithStatusSerializer,
+    CommunitySirenSwitchWithStatusSerializer
 )
 from core.models import Module, InstituteModule, Institute
 from api_common.utils.response_utils import success_response, error_response
@@ -138,7 +139,7 @@ def delete_community_siren_member(request, member_id):
 def check_member_access(request):
     """
     Check if current user is a member of any institute with community-siren module
-    Returns institute and buzzer details if access exists
+    Returns institute, buzzer, switches, and has_module_access details if access exists
     """
     try:
         user = request.user
@@ -153,7 +154,7 @@ def check_member_access(request):
             community_siren_module = Module.objects.get(slug='community-siren')
         except Module.DoesNotExist:
             return success_response(
-                data={'has_access': False, 'message': 'Community siren module not found'},
+                data={'has_access': False, 'has_module_access': False, 'message': 'Community siren module not found'},
                 message='Access check completed'
             )
         
@@ -172,13 +173,16 @@ def check_member_access(request):
         
         if not institute_modules.exists():
             return success_response(
-                data={'has_access': False},
+                data={'has_access': False, 'has_module_access': False},
                 message='Access check completed'
             )
         
         # Get the first institute (assuming user has access to one)
         institute_module = institute_modules.first()
         institute = institute_module.institute
+        
+        # Check if user has module access (is in InstituteModule.users)
+        has_module_access = is_super_admin or institute_module.users.filter(id=user.id).exists()
         
         # Get buzzer for this institute
         buzzers = CommunitySirenBuzzer.objects.filter(
@@ -190,6 +194,34 @@ def check_member_access(request):
             buzzer = buzzers.first()
             buzzer_serializer = CommunitySirenBuzzerWithStatusSerializer(buzzer)
             buzzer_data = buzzer_serializer.data
+            # Add institute logo URL to buzzer data
+            if institute.logo:
+                try:
+                    buzzer_data['institute_logo'] = request.build_absolute_uri(institute.logo.url) if request else institute.logo.url
+                except Exception:
+                    buzzer_data['institute_logo'] = None
+            else:
+                buzzer_data['institute_logo'] = None
+        
+        # Get switches for this institute (only if user has module access)
+        switches_data = []
+        if has_module_access:
+            switches = CommunitySirenSwitch.objects.filter(
+                institute=institute
+            ).select_related('device', 'institute').order_by('-created_at')
+            
+            for switch in switches:
+                switch_serializer = CommunitySirenSwitchWithStatusSerializer(switch)
+                switch_data = switch_serializer.data
+                # Add institute logo URL to switch data
+                if institute.logo:
+                    try:
+                        switch_data['institute_logo'] = request.build_absolute_uri(institute.logo.url) if request else institute.logo.url
+                    except Exception:
+                        switch_data['institute_logo'] = None
+                else:
+                    switch_data['institute_logo'] = None
+                switches_data.append(switch_data)
         
         # Prepare institute data
         logo_url = None
@@ -210,8 +242,10 @@ def check_member_access(request):
         return success_response(
             data={
                 'has_access': True,
+                'has_module_access': has_module_access,
                 'institute': institute_data,
-                'buzzer': buzzer_data
+                'buzzer': buzzer_data,
+                'switches': switches_data
             },
             message='Access check completed'
         )

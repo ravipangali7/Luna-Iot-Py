@@ -17,6 +17,7 @@ __all__ = [
     'CommunitySirenSwitchCreateSerializer',
     'CommunitySirenSwitchUpdateSerializer',
     'CommunitySirenSwitchListSerializer',
+    'CommunitySirenSwitchWithStatusSerializer',
     
     # Community Siren Members serializers
     'CommunitySirenMembersSerializer',
