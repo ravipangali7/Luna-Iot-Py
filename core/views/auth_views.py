@@ -734,7 +734,7 @@ def delete_account_public(request):
     """
     Public endpoint to delete user account by phone and password
     No authentication required - verifies credentials via phone and password
-    Permanently deletes the user account
+    Deactivates the user account (sets is_active = False) instead of permanent deletion
     """
     try:
         # Get phone and password from query parameters
@@ -770,11 +770,14 @@ def delete_account_public(request):
                 status_code=HTTP_STATUS['UNAUTHORIZED']
             )
         
-        # Permanently delete the user account
-        user.delete()
+        # Deactivate user account instead of deleting
+        user.is_active = False
+        user.token = None  # Invalidate token
+        user.biometric_token = None  # Invalidate biometric token
+        user.save()
         
         return success_response(
-            message='Account has been permanently deleted successfully.'
+            message='Account has been deleted successfully. Please contact administration to reactivate your account.'
         )
     except Exception as e:
         return error_response(
