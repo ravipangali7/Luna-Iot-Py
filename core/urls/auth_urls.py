@@ -20,6 +20,9 @@ urlpatterns = [
     # Biometric authentication route (public)
     path('biometric-login', auth_views.biometric_login, name='biometric_login'),
     
+    # Public delete account route (no authentication required)
+    path('delete-account-public', auth_views.delete_account_public, name='delete_account_public'),
+    
     # Protected routes (authentication required)
     path('logout', auth_views.logout, name='logout'),
     path('me', auth_views.get_current_user, name='get_current_user'),

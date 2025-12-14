@@ -37,6 +37,7 @@ class AuthMiddleware(MiddlewareMixin):
                 '/api/core/auth/forgot-password/verify-otp',
                 '/api/core/auth/forgot-password/reset-password',
                 '/api/core/auth/biometric-login',  # Public biometric login endpoint
+                '/api/core/auth/delete-account-public',  # Public delete account endpoint
                 '/api/health/blood-donation',  # Public blood donation endpoints
                 '/api/shared/popup/active',  # Public popup endpoint
             ]

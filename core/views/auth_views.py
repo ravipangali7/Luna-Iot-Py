@@ -728,6 +728,62 @@ def delete_account(request):
 
 
 @csrf_exempt
+@require_http_methods(["GET", "POST"])
+@api_response
+def delete_account_public(request):
+    """
+    Public endpoint to delete user account by phone and password
+    No authentication required - verifies credentials via phone and password
+    Permanently deletes the user account
+    """
+    try:
+        # Get phone and password from query parameters
+        phone = request.GET.get('phone')
+        password = request.GET.get('password')
+        
+        # Check if phone and password are provided
+        if not phone:
+            return error_response(
+                message='Phone number is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        if not password:
+            return error_response(
+                message='Password is required',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Find user by phone
+        try:
+            user = User.objects.get(phone=phone)
+        except User.DoesNotExist:
+            return error_response(
+                message=ERROR_MESSAGES['USER_NOT_FOUND'],
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Verify password using Django's built-in checker
+        if not check_password(password, user.password):
+            return error_response(
+                message='Invalid phone number or password',
+                status_code=HTTP_STATUS['UNAUTHORIZED']
+            )
+        
+        # Permanently delete the user account
+        user.delete()
+        
+        return success_response(
+            message='Account has been permanently deleted successfully.'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@csrf_exempt
 @require_http_methods(["POST"])
 @api_response
 def biometric_login(request):
