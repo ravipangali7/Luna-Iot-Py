@@ -20,6 +20,7 @@ from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES,
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
+from decimal import Decimal
 
 
 @api_view(['GET'])
@@ -276,7 +277,7 @@ def create_user(request):
         from finance.models import Wallet
         Wallet.objects.create(
             user=user,
-            balance=0.00
+            balance=Decimal('7.5')
         )
         
         # Get user's primary group

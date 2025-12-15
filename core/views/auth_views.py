@@ -27,6 +27,7 @@ from api_common.utils.sms_service import sms_service
 from api_common.exceptions.auth_exceptions import InvalidCredentialsError, AccountInactiveError
 from django.core.files.storage import default_storage
 from api_common.constants.validation_constants import FILE_UPLOAD_LIMITS
+from decimal import Decimal
 
 
 @csrf_exempt
@@ -247,7 +248,7 @@ def verify_otp_and_register(request):
         from finance.models import Wallet
         Wallet.objects.create(
             user=user,
-            balance=0.00
+            balance=Decimal('7.5')
         )
         
         # Delete OTP after successful registration
