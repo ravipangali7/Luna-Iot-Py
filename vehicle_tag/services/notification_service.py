@@ -12,6 +12,17 @@ from core.models import MySetting
 
 logger = logging.getLogger(__name__)
 
+# Nepali messages for each alert type
+ALERT_NEPALI_MESSAGES = {
+    'wrong_parking': 'गलत पार्किङ',
+    'blocking_road': 'सडक अवरुद्ध',
+    'not_locked_ignition_on': 'लक नभएको / इग्निसन चालू',
+    'vehicle_tow_alert': 'गाडी टो गर्ने चेतावनी',
+    'traffic_rule_violation': 'यातायात नियम उल्लङ्घन',
+    'fire_physical_threat': 'आगो र शारीरिक खतरा',
+    'accident_alert': 'दुर्घटना चेतावनी (परिवारलाई सूचना)',
+}
+
 
 def send_vehicle_tag_alert_notification(vehicle_tag_alert):
     """
@@ -33,15 +44,20 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
         
         user = vehicle_tag.user
         
-        # Get alert type display name
-        alert_display = vehicle_tag_alert.get_alert_display()
+        # Get Nepali alert message, fallback to English if not found
+        nepali_alert = ALERT_NEPALI_MESSAGES.get(
+            vehicle_tag_alert.alert,
+            vehicle_tag_alert.get_alert_display()
+        )
         
         # Create notification title and message
         title = f"Vehicle Tag Alert"
-        message = f"{alert_display} reported for vehicle tag {vehicle_tag.vtid}"
         
+        # Construct message with Nepali alert text, keeping Vehicle no and Luna IOT in English
         if vehicle_tag.registration_no:
-            message = f"{alert_display} reported for vehicle {vehicle_tag.registration_no}   - Luna IOT"
+            message = f"{nepali_alert} को रिपोर्ट Vehicle no {vehicle_tag.registration_no} - Luna IOT"
+        else:
+            message = f"{nepali_alert} को रिपोर्ट Vehicle Tag {vehicle_tag.vtid} - Luna IOT"
         
         # Create notification in database
         try:
