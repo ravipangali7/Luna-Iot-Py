@@ -55,9 +55,9 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
         
         # Construct message with Nepali alert text, keeping Vehicle no and Luna IOT in English
         if vehicle_tag.registration_no:
-            message = f"{nepali_alert} को रिपोर्ट Vehicle no {vehicle_tag.registration_no} - Luna IOT"
+            message = f"{nepali_alert} को रिपोर्ट गाडी .नं {vehicle_tag.registration_no} - Luna IOT"
         else:
-            message = f"{nepali_alert} को रिपोर्ट Vehicle Tag {vehicle_tag.vtid} - Luna IOT"
+            message = f"{nepali_alert} को रिपोर्ट गाडी Tag {vehicle_tag.vtid} - Luna IOT"
         
         # Create notification in database
         try:
