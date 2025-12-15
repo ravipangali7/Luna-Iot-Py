@@ -159,30 +159,58 @@ def check_member_access(request):
             )
         
         # Find institutes where user has access to community-siren module
+        institute_module = None
+        institute = None
+        has_module_access = False
+        
         if is_super_admin:
             # Super Admin: Get all institutes with community-siren module
             institute_modules = InstituteModule.objects.filter(
                 module=community_siren_module
             ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
+            if institute_modules.exists():
+                institute_module = institute_modules.first()
+                institute = institute_module.institute
+                has_module_access = True
         else:
             # Regular users: Get only institutes where user has access
             institute_modules = InstituteModule.objects.filter(
                 module=community_siren_module,
                 users=user
             ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
+            if institute_modules.exists():
+                institute_module = institute_modules.first()
+                institute = institute_module.institute
+                has_module_access = True
         
-        if not institute_modules.exists():
-            return success_response(
-                data={'has_access': False, 'has_module_access': False},
-                message='Access check completed'
-            )
-        
-        # Get the first institute (assuming user has access to one)
-        institute_module = institute_modules.first()
-        institute = institute_module.institute
-        
-        # Check if user has module access (is in InstituteModule.users)
-        has_module_access = is_super_admin or institute_module.users.filter(id=user.id).exists()
+        # If no InstituteModule access, check if user is in CommunitySirenMembers
+        if not institute:
+            is_community_siren_member = CommunitySirenMembers.objects.filter(user=user).exists()
+            if is_community_siren_member:
+                # Find institutes that have community-siren module (through InstituteModule)
+                # Get institutes that have buzzers or switches configured
+                institute_modules = InstituteModule.objects.filter(
+                    module=community_siren_module
+                ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
+                
+                if institute_modules.exists():
+                    # Get the first institute that has community-siren module
+                    institute_module = institute_modules.first()
+                    institute = institute_module.institute
+                    # User is in CommunitySirenMembers but not in InstituteModule
+                    has_module_access = False
+                else:
+                    # No institutes with community-siren module found
+                    return success_response(
+                        data={'has_access': False, 'has_module_access': False},
+                        message='Access check completed'
+                    )
+            else:
+                # User is not in CommunitySirenMembers and has no InstituteModule access
+                return success_response(
+                    data={'has_access': False, 'has_module_access': False},
+                    message='Access check completed'
+                )
         
         # Get buzzer for this institute
         buzzers = CommunitySirenBuzzer.objects.filter(
