@@ -1,5 +1,5 @@
 from django.db import models
-from core.models import User
+from core.models import User, Institute
 
 
 class CommunitySirenMembers(models.Model):
@@ -10,6 +10,12 @@ class CommunitySirenMembers(models.Model):
         on_delete=models.CASCADE,
         related_name='community_siren_members',
         help_text="User who is a member of community siren"
+    )
+    institute = models.ForeignKey(
+        Institute,
+        on_delete=models.CASCADE,
+        related_name='community_siren_members',
+        help_text="Institute this member belongs to"
     )
     
     # Timestamps
@@ -23,8 +29,9 @@ class CommunitySirenMembers(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user']),
+            models.Index(fields=['institute']),
         ]
-        unique_together = ['user']  # Each user can only be a member once
+        unique_together = [['user', 'institute']]  # Each user can only be a member once per institute
     
     def __str__(self):
         return f"{self.user.name or self.user.phone}"

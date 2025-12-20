@@ -24,9 +24,23 @@ from api_common.exceptions.api_exceptions import NotFoundError
 @require_auth
 @api_response
 def get_all_community_siren_members(request):
-    """Get all community siren members"""
+    """Get all community siren members, optionally filtered by institute_id"""
     try:
-        members = CommunitySirenMembers.objects.select_related('user').all().order_by('-created_at')
+        members = CommunitySirenMembers.objects.select_related('user', 'institute').all()
+        
+        # Filter by institute_id if provided
+        institute_id = request.GET.get('institute_id')
+        if institute_id:
+            try:
+                institute_id = int(institute_id)
+                members = members.filter(institute_id=institute_id)
+            except (ValueError, TypeError):
+                return error_response(
+                    message="Invalid institute_id parameter",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        
+        members = members.order_by('-created_at')
         serializer = CommunitySirenMembersListSerializer(members, many=True)
         return success_response(
             data=serializer.data,
@@ -43,7 +57,7 @@ def get_community_siren_member_by_id(request, member_id):
     """Get community siren member by ID"""
     try:
         try:
-            member = CommunitySirenMembers.objects.select_related('user').get(id=member_id)
+            member = CommunitySirenMembers.objects.select_related('user', 'institute').get(id=member_id)
         except CommunitySirenMembers.DoesNotExist:
             raise NotFoundError("Community siren member not found")
         serializer = CommunitySirenMembersSerializer(member)
@@ -106,6 +120,33 @@ def update_community_siren_member(request, member_id):
                 data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
+    except NotFoundError as e:
+        return error_response(message=str(e), status_code=HTTP_STATUS['NOT_FOUND'])
+    except Exception as e:
+        return error_response(message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'), data=str(e))
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_community_siren_members_by_institute(request, institute_id):
+    """Get all community siren members for a specific institute"""
+    try:
+        # Verify institute exists
+        try:
+            institute = Institute.objects.get(id=institute_id)
+        except Institute.DoesNotExist:
+            raise NotFoundError("Institute not found")
+        
+        members = CommunitySirenMembers.objects.filter(
+            institute=institute
+        ).select_related('user', 'institute').order_by('-created_at')
+        
+        serializer = CommunitySirenMembersListSerializer(members, many=True)
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Community siren members retrieved successfully')
+        )
     except NotFoundError as e:
         return error_response(message=str(e), status_code=HTTP_STATUS['NOT_FOUND'])
     except Exception as e:
@@ -185,26 +226,12 @@ def check_member_access(request):
         
         # If no InstituteModule access, check if user is in CommunitySirenMembers
         if not institute:
-            is_community_siren_member = CommunitySirenMembers.objects.filter(user=user).exists()
-            if is_community_siren_member:
-                # Find institutes that have community-siren module (through InstituteModule)
-                # Get institutes that have buzzers or switches configured
-                institute_modules = InstituteModule.objects.filter(
-                    module=community_siren_module
-                ).select_related('institute').prefetch_related('institute__community_siren_buzzers__device')
-                
-                if institute_modules.exists():
-                    # Get the first institute that has community-siren module
-                    institute_module = institute_modules.first()
-                    institute = institute_module.institute
-                    # User is in CommunitySirenMembers but not in InstituteModule
-                    has_module_access = False
-                else:
-                    # No institutes with community-siren module found
-                    return success_response(
-                        data={'has_access': False, 'has_module_access': False},
-                        message='Access check completed'
-                    )
+            # Get member record - now we can directly access the institute
+            member = CommunitySirenMembers.objects.filter(user=user).select_related('institute').first()
+            if member:
+                institute = member.institute
+                # User is in CommunitySirenMembers but not in InstituteModule
+                has_module_access = False
             else:
                 # User is not in CommunitySirenMembers and has no InstituteModule access
                 return success_response(
