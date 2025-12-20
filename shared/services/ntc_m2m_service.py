@@ -22,9 +22,8 @@ def automate_ntc_m2m_download():
     """
     Automate the NTC M2M portal:
     1. Login
-    2. Click "Fetch All" button
-    3. Click "Download Report" button
-    4. Wait for download and read Excel file
+    2. Click "Download Report" button (directly, no need for Fetch All)
+    3. Wait for download and read Excel file
     
     Returns:
         dict: {
@@ -136,43 +135,15 @@ def automate_ntc_m2m_download():
                 page.wait_for_load_state('networkidle', timeout=30000)
                 time.sleep(3)
                 
-                # Step 2: Click "Fetch All" button
-                logger.info("Clicking 'Fetch All' button...")
-                fetch_all_selectors = [
-                    'button:has-text("Fetch All")',
-                    'button:has-text("Fetch")',
-                    'button[id*="fetch"]',
-                    'button[class*="fetch"]',
-                    'a:has-text("Fetch All")'
-                ]
-                
-                fetch_clicked = False
-                for selector in fetch_all_selectors:
-                    try:
-                        if page.locator(selector).count() > 0:
-                            page.click(selector)
-                            fetch_clicked = True
-                            logger.info(f"Fetch All button clicked using selector: {selector}")
-                            break
-                    except Exception as e:
-                        continue
-                
-                if not fetch_clicked:
-                    logger.warning("Could not find 'Fetch All' button, continuing anyway...")
-                else:
-                    # Wait for data to load
-                    page.wait_for_load_state('networkidle', timeout=30000)
-                    time.sleep(3)
-                
-                # Step 3: Download Report
+                # Step 2: Download Report (directly, no need for Fetch All)
                 logger.info("Clicking 'Download Report' button...")
+                # Use specific selectors based on the actual HTML structure
                 download_selectors = [
-                    'button:has-text("Download Report")',
-                    'button:has-text("Download")',
-                    'a:has-text("Download Report")',
-                    'a:has-text("Download")',
-                    'button[id*="download"]',
-                    'button[class*="download"]'
+                    'button[name="numberListForm:j_idt7"]',  # Specific name attribute
+                    'button#numberListForm\\:j_idt7',  # ID with escaped colon
+                    'button:has-text("Download Report")',  # Text matching (fallback)
+                    'button:has-text("Download")',  # Partial text match
+                    'button[id*="j_idt7"]',  # Partial ID match
                 ]
                 
                 download_clicked = False
@@ -200,7 +171,7 @@ def automate_ntc_m2m_download():
                 # Wait a bit for file to be fully written
                 time.sleep(2)
                 
-                # Step 4: Read Excel file
+                # Step 3: Read Excel file
                 # Find the most recently downloaded Excel file
                 excel_files = list(DOWNLOAD_DIR.glob("*.xlsx"))
                 if not excel_files:
