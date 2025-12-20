@@ -47,3 +47,5 @@ uritemplate==4.2.0
 urllib3==2.5.0
 qrcode[pil]==7.4.2
 openpyxl==3.1.2
+playwright==1.40.0
+pandas==2.1.3
