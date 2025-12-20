@@ -133,40 +133,137 @@ def automate_ntc_m2m_download():
                 
                 # Wait for login to complete
                 page.wait_for_load_state('networkidle', timeout=30000)
+                time.sleep(5)  # Give more time for JSF page to render
+                
+                # Wait for the form to be visible (JSF forms take time to render)
+                logger.info("Waiting for form to load...")
+                try:
+                    page.wait_for_selector('form#numberListForm', timeout=15000, state='visible')
+                    logger.info("Form found, waiting for button...")
+                except Exception as e:
+                    logger.warning(f"Form wait failed, continuing anyway: {str(e)}")
+                
+                # Additional wait for JSF components to initialize
                 time.sleep(3)
                 
                 # Step 2: Download Report (directly, no need for Fetch All)
-                logger.info("Clicking 'Download Report' button...")
-                # Use specific selectors based on the actual HTML structure
-                download_selectors = [
-                    'button[name="numberListForm:j_idt7"]',  # Specific name attribute
-                    'button#numberListForm\\:j_idt7',  # ID with escaped colon
-                    'button:has-text("Download Report")',  # Text matching (fallback)
-                    'button:has-text("Download")',  # Partial text match
-                    'button[id*="j_idt7"]',  # Partial ID match
-                ]
+                logger.info("Looking for 'Download Report' button...")
                 
+                # Try multiple strategies to find and click the button
                 download_clicked = False
-                for selector in download_selectors:
+                download_error_messages = []
+                
+                # Strategy 1: Wait for button by name attribute (most reliable for JSF)
+                try:
+                    logger.info("Trying to find button by name attribute...")
+                    button_locator = page.locator('button[name="numberListForm:j_idt7"]')
+                    button_locator.wait_for(state='visible', timeout=10000)
+                    logger.info("Button found by name attribute, waiting for it to be enabled...")
+                    button_locator.wait_for(state='attached', timeout=5000)
+                    
+                    # Set up download handler before clicking
+                    with page.expect_download(timeout=60000) as download_info:
+                        button_locator.click()
+                    download = download_info.value
+                    
+                    file_path = DOWNLOAD_DIR / download.suggested_filename
+                    download.save_as(file_path)
+                    logger.info(f"File downloaded: {file_path}")
+                    download_clicked = True
+                except Exception as e:
+                    error_msg = f"Name attribute strategy failed: {str(e)}"
+                    logger.warning(error_msg)
+                    download_error_messages.append(error_msg)
+                
+                # Strategy 2: Try by ID with XPath (more reliable for JSF IDs with colons)
+                if not download_clicked:
                     try:
-                        if page.locator(selector).count() > 0:
-                            # Set up download handler
-                            with page.expect_download(timeout=60000) as download_info:
-                                page.click(selector)
-                            download = download_info.value
-                            
-                            # Save the file
-                            file_path = DOWNLOAD_DIR / download.suggested_filename
-                            download.save_as(file_path)
-                            logger.info(f"File downloaded: {file_path}")
-                            download_clicked = True
-                            break
+                        logger.info("Trying XPath selector for button ID...")
+                        button_locator = page.locator('xpath=//button[@id="numberListForm:j_idt7"]')
+                        button_locator.wait_for(state='visible', timeout=10000)
+                        logger.info("Button found by XPath ID, clicking...")
+                        
+                        with page.expect_download(timeout=60000) as download_info:
+                            button_locator.click()
+                        download = download_info.value
+                        
+                        file_path = DOWNLOAD_DIR / download.suggested_filename
+                        download.save_as(file_path)
+                        logger.info(f"File downloaded: {file_path}")
+                        download_clicked = True
                     except Exception as e:
-                        logger.warning(f"Download selector {selector} failed: {str(e)}")
-                        continue
+                        error_msg = f"XPath ID strategy failed: {str(e)}"
+                        logger.warning(error_msg)
+                        download_error_messages.append(error_msg)
+                
+                # Strategy 3: Try by text content
+                if not download_clicked:
+                    try:
+                        logger.info("Trying to find button by text 'Download Report'...")
+                        button_locator = page.locator('button:has-text("Download Report")')
+                        button_locator.wait_for(state='visible', timeout=10000)
+                        logger.info("Button found by text, clicking...")
+                        
+                        with page.expect_download(timeout=60000) as download_info:
+                            button_locator.click()
+                        download = download_info.value
+                        
+                        file_path = DOWNLOAD_DIR / download.suggested_filename
+                        download.save_as(file_path)
+                        logger.info(f"File downloaded: {file_path}")
+                        download_clicked = True
+                    except Exception as e:
+                        error_msg = f"Text matching strategy failed: {str(e)}"
+                        logger.warning(error_msg)
+                        download_error_messages.append(error_msg)
+                
+                # Strategy 4: Try all buttons and find the one with download text
+                if not download_clicked:
+                    try:
+                        logger.info("Trying to find any button containing 'Download'...")
+                        buttons = page.locator('button').all()
+                        logger.info(f"Found {len(buttons)} buttons on page")
+                        
+                        for i, button in enumerate(buttons):
+                            try:
+                                text = button.inner_text()
+                                logger.info(f"Button {i} text: {text}")
+                                if 'Download' in text and 'Report' in text:
+                                    logger.info(f"Found download button at index {i}")
+                                    with page.expect_download(timeout=60000) as download_info:
+                                        button.click()
+                                    download = download_info.value
+                                    
+                                    file_path = DOWNLOAD_DIR / download.suggested_filename
+                                    download.save_as(file_path)
+                                    logger.info(f"File downloaded: {file_path}")
+                                    download_clicked = True
+                                    break
+                            except Exception as e:
+                                continue
+                    except Exception as e:
+                        error_msg = f"Button enumeration strategy failed: {str(e)}"
+                        logger.warning(error_msg)
+                        download_error_messages.append(error_msg)
                 
                 if not download_clicked:
-                    raise Exception("Could not find or click 'Download Report' button")
+                    # Take a screenshot for debugging
+                    screenshot_path = DOWNLOAD_DIR / 'debug_screenshot.png'
+                    try:
+                        page.screenshot(path=str(screenshot_path))
+                        logger.info(f"Debug screenshot saved to: {screenshot_path}")
+                    except:
+                        pass
+                    
+                    # Get page HTML for debugging
+                    try:
+                        html_snippet = page.locator('form#numberListForm').inner_html()
+                        logger.info(f"Form HTML snippet: {html_snippet[:500]}")
+                    except:
+                        pass
+                    
+                    error_details = "; ".join(download_error_messages)
+                    raise Exception(f"Could not find or click 'Download Report' button. Attempted strategies: {error_details}")
                 
                 # Wait a bit for file to be fully written
                 time.sleep(2)
