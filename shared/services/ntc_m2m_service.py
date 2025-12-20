@@ -133,18 +133,38 @@ def automate_ntc_m2m_download():
                 
                 # Wait for login to complete
                 page.wait_for_load_state('networkidle', timeout=30000)
-                time.sleep(5)  # Give more time for JSF page to render
+                logger.info("Waiting for page to fully render...")
+                time.sleep(10)  # Give JSF plenty of time to render
                 
-                # Wait for the form to be visible (JSF forms take time to render)
-                logger.info("Waiting for form to load...")
+                # Try to find the form, but don't fail if it's not found
+                logger.info("Checking if form is loaded...")
                 try:
-                    page.wait_for_selector('form#numberListForm', timeout=15000, state='visible')
-                    logger.info("Form found, waiting for button...")
+                    # Try multiple form selectors
+                    form_selectors = [
+                        'form#numberListForm',
+                        'form[name="numberListForm"]',
+                        'form',
+                    ]
+                    form_found = False
+                    for form_selector in form_selectors:
+                        try:
+                            if page.locator(form_selector).count() > 0:
+                                logger.info(f"Form found using selector: {form_selector}")
+                                form_found = True
+                                break
+                        except:
+                            continue
+                    
+                    if not form_found:
+                        logger.warning("Form not found, but continuing to look for button...")
+                    else:
+                        logger.info("Form is present, waiting a bit more for JSF components...")
+                        time.sleep(3)
                 except Exception as e:
-                    logger.warning(f"Form wait failed, continuing anyway: {str(e)}")
+                    logger.warning(f"Form check failed, continuing anyway: {str(e)}")
                 
                 # Additional wait for JSF components to initialize
-                time.sleep(3)
+                time.sleep(2)
                 
                 # Step 2: Download Report (directly, no need for Fetch All)
                 logger.info("Looking for 'Download Report' button...")
@@ -155,11 +175,11 @@ def automate_ntc_m2m_download():
                 
                 # Strategy 1: Wait for button by name attribute (most reliable for JSF)
                 try:
-                    logger.info("Trying to find button by name attribute...")
+                    logger.info("Trying to find button by name attribute 'numberListForm:j_idt7'...")
                     button_locator = page.locator('button[name="numberListForm:j_idt7"]')
-                    button_locator.wait_for(state='visible', timeout=10000)
-                    logger.info("Button found by name attribute, waiting for it to be enabled...")
-                    button_locator.wait_for(state='attached', timeout=5000)
+                    # Wait longer for button to appear
+                    button_locator.wait_for(state='visible', timeout=20000)
+                    logger.info("Button found by name attribute!")
                     
                     # Set up download handler before clicking
                     with page.expect_download(timeout=60000) as download_info:
