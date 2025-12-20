@@ -31,6 +31,7 @@ class CorsMiddleware(MiddlewareMixin):
                 'https://ios.mylunago.com',
                 'https://www.mylunago.com',
                 'https://mylunago.com',
+                'https://app.mylunago.com',
             ]
             
             # Check if origin is in allowed list or contains localhost/127.0.0.1 (for dev)
@@ -84,6 +85,7 @@ class CorsMiddleware(MiddlewareMixin):
                 'https://ios.mylunago.com',
                 'https://www.mylunago.com',
                 'https://mylunago.com',
+                'https://app.mylunago.com',
             ]
             
             if origin in allowed_origins or 'localhost' in origin or '127.0.0.1' in origin:
