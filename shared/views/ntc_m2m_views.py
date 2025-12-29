@@ -9,8 +9,14 @@ from api_common.decorators.auth_decorators import require_auth
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from shared.tasks import fetch_ntc_m2m_report_task
 from django.core.cache import cache
-from celery.result import AsyncResult
 import logging
+
+# Try to import Celery, but make it optional
+try:
+    from celery.result import AsyncResult
+    CELERY_AVAILABLE = True
+except ImportError:
+    CELERY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -73,13 +79,15 @@ def get_ntc_m2m_report_status(request, task_id):
     try:
         logger.info(f"Checking NTC M2M report task status: {task_id}")
         
-        # Try to get result from Celery
-        try:
-            task_result = AsyncResult(task_id)
-            celery_state = task_result.state
-        except Exception as e:
-            logger.warning(f"Could not get Celery task result: {str(e)}")
-            celery_state = None
+        # Try to get result from Celery (if available)
+        celery_state = None
+        if CELERY_AVAILABLE:
+            try:
+                task_result = AsyncResult(task_id)
+                celery_state = task_result.state
+            except Exception as e:
+                logger.warning(f"Could not get Celery task result: {str(e)}")
+                celery_state = None
         
         # Get status from cache (more reliable)
         cached_status = cache.get(f'ntc_m2m_task_{task_id}')
@@ -122,50 +130,54 @@ def get_ntc_m2m_report_status(request, task_id):
                     }
                 )
         else:
-            # Check Celery state if cache is not available
-            if celery_state:
-                if celery_state == 'SUCCESS':
-                    try:
-                        result = task_result.get()
-                        if result and result.get('status') == 'SUCCESS':
-                            return success_response(
-                                message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Report fetched successfully'),
+            # Check Celery state if cache is not available and Celery is available
+            if CELERY_AVAILABLE and celery_state:
+                try:
+                    task_result = AsyncResult(task_id)
+                    if celery_state == 'SUCCESS':
+                        try:
+                            result = task_result.get()
+                            if result and result.get('status') == 'SUCCESS':
+                                return success_response(
+                                    message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Report fetched successfully'),
+                                    data={
+                                        'task_id': task_id,
+                                        'status': 'SUCCESS',
+                                        'records': result.get('records', []),
+                                        'total_records': result.get('total_records', 0),
+                                        'columns': result.get('columns', [])
+                                    }
+                                )
+                        except Exception as e:
+                            logger.error(f"Error getting task result: {str(e)}")
+                    
+                    if celery_state == 'FAILURE':
+                        try:
+                            error_info = task_result.info
+                            error_message = str(error_info) if error_info else 'Task failed'
+                            return error_response(
+                                message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Failed to fetch report'),
                                 data={
                                     'task_id': task_id,
-                                    'status': 'SUCCESS',
-                                    'records': result.get('records', []),
-                                    'total_records': result.get('total_records', 0),
-                                    'columns': result.get('columns', [])
-                                }
+                                    'status': 'FAILURE',
+                                    'error': error_message
+                                },
+                                status_code=HTTP_STATUS.get('INTERNAL_SERVER_ERROR', 500)
                             )
-                    except Exception as e:
-                        logger.error(f"Error getting task result: {str(e)}")
-                
-                if celery_state == 'FAILURE':
-                    try:
-                        error_info = task_result.info
-                        error_message = str(error_info) if error_info else 'Task failed'
-                        return error_response(
-                            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Failed to fetch report'),
-                            data={
-                                'task_id': task_id,
-                                'status': 'FAILURE',
-                                'error': error_message
-                            },
-                            status_code=HTTP_STATUS.get('INTERNAL_SERVER_ERROR', 500)
-                        )
-                    except Exception as e:
-                        logger.error(f"Error getting task failure info: {str(e)}")
-                
-                # Task is still running
-                return success_response(
-                    message='Task in progress',
-                    data={
-                        'task_id': task_id,
-                        'status': celery_state,
-                        'message': f'Task is {celery_state.lower()}'
-                    }
-                )
+                        except Exception as e:
+                            logger.error(f"Error getting task failure info: {str(e)}")
+                    
+                    # Task is still running
+                    return success_response(
+                        message='Task in progress',
+                        data={
+                            'task_id': task_id,
+                            'status': celery_state,
+                            'message': f'Task is {celery_state.lower()}'
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Error checking Celery state: {str(e)}")
             
             # Task not found
             return error_response(
