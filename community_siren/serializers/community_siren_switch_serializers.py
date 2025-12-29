@@ -6,7 +6,7 @@ from rest_framework import serializers
 from community_siren.models import CommunitySirenSwitch
 from core.models import Institute
 from device.models import Device
-from device.models.buzzer_status import BuzzerStatus
+from device.models.sos_status import SosStatus
 
 
 class CommunitySirenSwitchSerializer(serializers.ModelSerializer):
@@ -153,7 +153,7 @@ class CommunitySirenSwitchWithStatusSerializer(serializers.ModelSerializer):
     def get_switch_status(self, obj):
         """Get latest device status for the switch"""
         try:
-            latest_status = BuzzerStatus.objects.filter(imei=obj.device.imei).order_by('-createdAt', '-updatedAt').first()
+            latest_status = SosStatus.objects.filter(imei=obj.device.imei).order_by('-createdAt', '-updatedAt').first()
             if latest_status:
                 return {
                     'battery': latest_status.battery,

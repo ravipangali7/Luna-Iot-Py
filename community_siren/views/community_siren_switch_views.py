@@ -8,7 +8,8 @@ from community_siren.serializers import (
     CommunitySirenSwitchSerializer,
     CommunitySirenSwitchCreateSerializer,
     CommunitySirenSwitchUpdateSerializer,
-    CommunitySirenSwitchListSerializer
+    CommunitySirenSwitchListSerializer,
+    CommunitySirenSwitchWithStatusSerializer
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
@@ -121,7 +122,7 @@ def get_community_siren_switches_by_institute(request, institute_id):
     """Get community siren switches by institute"""
     try:
         switches = CommunitySirenSwitch.objects.select_related('device').filter(institute_id=institute_id).order_by('-created_at')
-        serializer = CommunitySirenSwitchListSerializer(switches, many=True)
+        serializer = CommunitySirenSwitchWithStatusSerializer(switches, many=True)
         return success_response(
             data=serializer.data,
             message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'Community siren switches retrieved successfully')

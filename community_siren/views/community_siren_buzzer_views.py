@@ -8,7 +8,8 @@ from community_siren.serializers import (
     CommunitySirenBuzzerSerializer,
     CommunitySirenBuzzerCreateSerializer,
     CommunitySirenBuzzerUpdateSerializer,
-    CommunitySirenBuzzerListSerializer
+    CommunitySirenBuzzerListSerializer,
+    CommunitySirenBuzzerWithStatusSerializer
 )
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
@@ -157,7 +158,7 @@ def get_community_siren_buzzers_by_institute(request, institute_id):
     """Get community siren buzzers by institute"""
     try:
         buzzers = CommunitySirenBuzzer.objects.select_related('device').filter(institute_id=institute_id).order_by('-created_at')
-        serializer = CommunitySirenBuzzerListSerializer(buzzers, many=True)
+        serializer = CommunitySirenBuzzerWithStatusSerializer(buzzers, many=True)
         
         return success_response(
             data=serializer.data,
