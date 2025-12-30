@@ -41,7 +41,9 @@ class DeviceCart(models.Model):
 
     def get_subtotal(self):
         """Calculate subtotal of all items in cart"""
-        return sum(item.get_total() for item in self.items.all())
+        total = sum(item.get_total() for item in self.items.all())
+        # Return Decimal(0) if cart is empty, otherwise return the sum
+        return total if total else Decimal('0.00')
 
     def clear(self):
         """Clear all items from cart"""

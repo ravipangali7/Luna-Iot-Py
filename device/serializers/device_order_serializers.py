@@ -98,7 +98,11 @@ class DeviceCartSerializer(serializers.ModelSerializer):
     
     def get_subtotal(self, obj):
         """Calculate subtotal of all items"""
-        return float(obj.get_subtotal())
+        try:
+            subtotal = obj.get_subtotal()
+            return float(subtotal) if subtotal else 0.0
+        except Exception:
+            return 0.0
     
     def get_total_quantity(self, obj):
         """Calculate total quantity"""
