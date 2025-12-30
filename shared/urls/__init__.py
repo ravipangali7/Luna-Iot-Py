@@ -9,5 +9,5 @@ urlpatterns = [
     path('', include('shared.urls.short_link_api_urls')),
     path('', include('shared.urls.external_app_link_urls')),
     path('', include('shared.urls.banner_urls')),
-    path('', include('shared.urls.ntc_m2m_urls')),
+    path('', include('shared.urls.sim_balance_urls')),
 ]

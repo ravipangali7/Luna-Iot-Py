@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser, GeofenceEvent, ExternalAppLink
+from .models import Notification, UserNotification, Popup, Recharge, Geofence, GeofenceUser, GeofenceEvent, ExternalAppLink, SimBalance, SimFreeResource
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -51,3 +51,27 @@ class ExternalAppLinkAdmin(admin.ModelAdmin):
     list_filter = ('createdAt', 'updatedAt')
     search_fields = ('name', 'link', 'username')
     readonly_fields = ('createdAt', 'updatedAt')
+
+
+class SimFreeResourceInline(admin.TabularInline):
+    model = SimFreeResource
+    extra = 0
+    readonly_fields = ('created_at', 'updated_at')
+    fields = ('name', 'resource_type', 'remaining', 'expiry', 'created_at', 'updated_at')
+
+
+@admin.register(SimBalance)
+class SimBalanceAdmin(admin.ModelAdmin):
+    list_display = ('phone_number', 'device', 'state', 'balance', 'balance_expiry', 'last_synced_at', 'created_at')
+    list_filter = ('state', 'balance_expiry', 'created_at')
+    search_fields = ('phone_number', 'device__imei', 'device__phone')
+    readonly_fields = ('last_synced_at', 'created_at', 'updated_at')
+    inlines = [SimFreeResourceInline]
+
+
+@admin.register(SimFreeResource)
+class SimFreeResourceAdmin(admin.ModelAdmin):
+    list_display = ('sim_balance', 'name', 'resource_type', 'remaining', 'expiry', 'created_at')
+    list_filter = ('resource_type', 'expiry', 'created_at')
+    search_fields = ('name', 'sim_balance__phone_number')
+    readonly_fields = ('created_at', 'updated_at')

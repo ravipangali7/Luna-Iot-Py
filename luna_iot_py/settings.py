@@ -244,11 +244,6 @@ NCHL_PFX_PATH = os.getenv('NCHL_PFX_PATH', 'LUNAG.pfx')  # Relative to BASE_DIR 
 NCHL_PFX_PASSWORD = os.getenv('NCHL_PFX_PASSWORD', 'LuCER3@55')
 NCHL_BASE_URL = os.getenv('NCHL_BASE_URL', 'https://login.connectips.com')  # Test URL, change for production
 
-# NTC M2M Portal Configuration
-NTC_M2M_URL = os.getenv('NTC_M2M_URL', 'https://m2m.ntc.net.np')
-NTC_M2M_USERNAME = os.getenv('NTC_M2M_USERNAME', 'pathibhara')
-NTC_M2M_PASSWORD = os.getenv('NTC_M2M_PASSWORD', 'P@bhibhara')
-
 # Logging Configuration
 LOGGING = {
     'version': 1,
