@@ -33,6 +33,7 @@ from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 from api_common.utils.sms_service import sms_service
 from api_common.utils.tcp_service import tcp_service
 from shared_utils.numeral_utils import get_search_variants
+from shared.models import SimBalance
 
 
 @api_view(['GET'])
@@ -113,6 +114,30 @@ def get_all_devices(request):
                         'userVehicles': user_vehicles_data
                     })
                 
+                # Get SIM balance info if available
+                sim_balance = None
+                try:
+                    sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+                except Exception as e:
+                    sim_balance = None
+                
                 devices_data.append({
                     'id': device.id,
                     'imei': device.imei,
@@ -130,6 +155,7 @@ def get_all_devices(request):
                     } if device.subscription_plan else None,
                     'userDevices': user_devices_data,
                     'vehicles': vehicles_data,
+                    'simBalance': sim_balance,
                     'createdAt': device.createdAt.isoformat(),
                     'updatedAt': device.updatedAt.isoformat()
                 })
@@ -1066,6 +1092,30 @@ def get_devices_paginated(request):
             except Exception as e:
                 latest_status = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                if sim_balance_obj:
+                    sim_balance = {
+                        'id': sim_balance_obj.id,
+                        'phone_number': sim_balance_obj.phone_number,
+                        'balance': float(sim_balance_obj.balance),
+                        'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                        'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                        'state': sim_balance_obj.state,
+                        'free_resources_summary': [
+                            {
+                                'name': resource.name,
+                                'type': resource.resource_type,
+                                'remaining': resource.remaining,
+                                'expiry': resource.expiry.isoformat()
+                            } for resource in sim_balance_obj.free_resources.all()[:3]
+                        ]
+                    }
+            except Exception as e:
+                sim_balance = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1084,6 +1134,7 @@ def get_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'simBalance': sim_balance,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1292,6 +1343,30 @@ def search_devices(request):
             except Exception as e:
                 latest_status = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                if sim_balance_obj:
+                    sim_balance = {
+                        'id': sim_balance_obj.id,
+                        'phone_number': sim_balance_obj.phone_number,
+                        'balance': float(sim_balance_obj.balance),
+                        'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                        'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                        'state': sim_balance_obj.state,
+                        'free_resources_summary': [
+                            {
+                                'name': resource.name,
+                                'type': resource.resource_type,
+                                'remaining': resource.remaining,
+                                'expiry': resource.expiry.isoformat()
+                            } for resource in sim_balance_obj.free_resources.all()[:3]
+                        ]
+                    }
+            except Exception as e:
+                sim_balance = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1310,6 +1385,7 @@ def search_devices(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'simBalance': sim_balance,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1619,6 +1695,30 @@ def get_gps_devices_paginated(request):
             # Get institute info (GPS devices may not have institute, so leave as null)
             institute_data = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                if sim_balance_obj:
+                    sim_balance = {
+                        'id': sim_balance_obj.id,
+                        'phone_number': sim_balance_obj.phone_number,
+                        'balance': float(sim_balance_obj.balance),
+                        'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                        'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                        'state': sim_balance_obj.state,
+                        'free_resources_summary': [
+                            {
+                                'name': resource.name,
+                                'type': resource.resource_type,
+                                'remaining': resource.remaining,
+                                'expiry': resource.expiry.isoformat()
+                            } for resource in sim_balance_obj.free_resources.all()[:3]
+                        ]
+                    }
+            except Exception as e:
+                sim_balance = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1833,6 +1933,30 @@ def get_buzzer_devices_paginated(request):
                 except Exception:
                     institute_data = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                if sim_balance_obj:
+                    sim_balance = {
+                        'id': sim_balance_obj.id,
+                        'phone_number': sim_balance_obj.phone_number,
+                        'balance': float(sim_balance_obj.balance),
+                        'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                        'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                        'state': sim_balance_obj.state,
+                        'free_resources_summary': [
+                            {
+                                'name': resource.name,
+                                'type': resource.resource_type,
+                                'remaining': resource.remaining,
+                                'expiry': resource.expiry.isoformat()
+                            } for resource in sim_balance_obj.free_resources.all()[:3]
+                        ]
+                    }
+            except Exception as e:
+                sim_balance = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -1851,6 +1975,7 @@ def get_buzzer_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'simBalance': sim_balance,
                 'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
@@ -2047,6 +2172,30 @@ def get_sos_devices_paginated(request):
                 except Exception:
                     institute_data = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                if sim_balance_obj:
+                    sim_balance = {
+                        'id': sim_balance_obj.id,
+                        'phone_number': sim_balance_obj.phone_number,
+                        'balance': float(sim_balance_obj.balance),
+                        'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                        'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                        'state': sim_balance_obj.state,
+                        'free_resources_summary': [
+                            {
+                                'name': resource.name,
+                                'type': resource.resource_type,
+                                'remaining': resource.remaining,
+                                'expiry': resource.expiry.isoformat()
+                            } for resource in sim_balance_obj.free_resources.all()[:3]
+                        ]
+                    }
+            except Exception as e:
+                sim_balance = None
+            
             devices_data.append({
                 'id': device.id,
                 'imei': device.imei,
@@ -2065,6 +2214,7 @@ def get_sos_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'simBalance': sim_balance,
                 'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()

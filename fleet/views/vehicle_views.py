@@ -19,6 +19,7 @@ from device.models.location import Location
 from device.models.status import Status
 from core.models import User
 from shared.models.recharge import Recharge
+from shared.models import SimBalance
 from shared_utils.constants import VehicleType
 from shared_utils.numeral_utils import get_search_variants
 from datetime import datetime, timedelta
@@ -403,6 +404,31 @@ def get_all_vehicles_detailed(request):
             except Exception as e:
                 latest_recharge = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                if vehicle.device:
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+            except Exception as e:
+                sim_balance = None
+            
             # Calculate today's km
             today_km = calculate_today_km(vehicle.imei)
             
@@ -469,6 +495,7 @@ def get_all_vehicles_detailed(request):
                 'userVehicle': user_vehicle_single,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
+                'simBalance': sim_balance,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
                 'todayKm': today_km
@@ -1943,6 +1970,31 @@ def get_vehicles_paginated(request):
             except Exception as e:
                 latest_recharge = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                if vehicle.device:
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+            except Exception as e:
+                sim_balance = None
+            
             # Calculate today's km
             today_km = calculate_today_km(vehicle.imei)
             
@@ -2009,6 +2061,7 @@ def get_vehicles_paginated(request):
                 'userVehicle': user_vehicle_single,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
+                'simBalance': sim_balance,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
                 'todayKm': today_km,
@@ -2210,6 +2263,31 @@ def search_vehicles(request):
             except Exception as e:
                 latest_recharge = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                if vehicle.device:
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+            except Exception as e:
+                sim_balance = None
+            
             # Calculate today's km
             today_km = calculate_today_km(vehicle.imei)
             
@@ -2275,6 +2353,7 @@ def search_vehicles(request):
                 'userVehicles': user_vehicles,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
+                'simBalance': sim_balance,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
                 'todayKm': today_km,
@@ -2453,6 +2532,31 @@ def search_vehicles_by_expire(request):
             except Exception as e:
                 latest_recharge = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                if vehicle.device:
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+            except Exception as e:
+                sim_balance = None
+            
             # Calculate today's km
             today_km = calculate_today_km(vehicle.imei)
             
@@ -2518,6 +2622,7 @@ def search_vehicles_by_expire(request):
                 'userVehicles': user_vehicles,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
+                'simBalance': sim_balance,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
                 'todayKm': today_km,
@@ -2682,6 +2787,31 @@ def search_vehicles_by_vehicle_type(request):
             except Exception as e:
                 latest_recharge = None
             
+            # Get SIM balance info if available
+            sim_balance = None
+            try:
+                if vehicle.device:
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    if sim_balance_obj:
+                        sim_balance = {
+                            'id': sim_balance_obj.id,
+                            'phone_number': sim_balance_obj.phone_number,
+                            'balance': float(sim_balance_obj.balance),
+                            'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
+                            'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
+                            'state': sim_balance_obj.state,
+                            'free_resources_summary': [
+                                {
+                                    'name': resource.name,
+                                    'type': resource.resource_type,
+                                    'remaining': resource.remaining,
+                                    'expiry': resource.expiry.isoformat()
+                                } for resource in sim_balance_obj.free_resources.all()[:3]
+                            ]
+                        }
+            except Exception as e:
+                sim_balance = None
+            
             # Calculate today's km
             today_km = calculate_today_km(vehicle.imei)
             
@@ -2747,6 +2877,7 @@ def search_vehicles_by_vehicle_type(request):
                 'userVehicles': user_vehicles,
                 'mainCustomer': main_customer,
                 'latestRecharge': latest_recharge,
+                'simBalance': sim_balance,
                 'latestStatus': latest_status,
                 'latestLocation': latest_location,
                 'todayKm': today_km,
