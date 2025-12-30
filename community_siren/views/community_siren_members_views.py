@@ -3,7 +3,7 @@ Community Siren Members Views
 Handles community siren members management endpoints
 """
 from rest_framework.decorators import api_view
-from community_siren.models import CommunitySirenMembers, CommunitySirenBuzzer, CommunitySirenSwitch
+from community_siren.models import CommunitySirenMembers, CommunitySirenBuzzer, CommunitySirenSwitch, CommunitySirenContact
 from community_siren.serializers import (
     CommunitySirenMembersSerializer,
     CommunitySirenMembersCreateSerializer,
@@ -80,6 +80,23 @@ def create_community_siren_member(request):
         serializer = CommunitySirenMembersCreateSerializer(data=request.data)
         if serializer.is_valid():
             member = serializer.save()
+            
+            # Auto-create contact if it doesn't already exist
+            existing_contact = CommunitySirenContact.objects.filter(
+                phone=member.user.phone,
+                institute=member.institute
+            ).first()
+            
+            if not existing_contact:
+                # Create new contact with user's name and phone
+                CommunitySirenContact.objects.create(
+                    name=member.user.name or member.user.phone,
+                    phone=member.user.phone,
+                    institute=member.institute,
+                    is_sms=True,
+                    is_call=False
+                )
+            
             response_serializer = CommunitySirenMembersSerializer(member)
             return success_response(
                 data=response_serializer.data,
