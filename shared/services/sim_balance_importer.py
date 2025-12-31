@@ -46,12 +46,48 @@ class SimBalanceImporter:
             raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
         return True
     
+    def extract_mb_from_name(self, name):
+        """
+        Extract MB value from name field (e.g., 'm2m 50mb' -> 50)
+        """
+        if not name:
+            return None
+        
+        # Pattern to match number before 'mb' or 'MB' (case-insensitive)
+        pattern = r'(\d+(?:\.\d+)?)\s*mb'
+        match = re.search(pattern, name, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return None
+        return None
+    
+    def extract_mb_from_remaining(self, remaining):
+        """
+        Extract MB value from remaining field (e.g., '49.83MB' -> 49.83)
+        """
+        if not remaining:
+            return None
+        
+        # Pattern to match decimal number before 'MB' (case-insensitive)
+        pattern = r'(\d+(?:\.\d+)?)\s*mb'
+        match = re.search(pattern, remaining, re.IGNORECASE)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                return None
+        return None
+    
     def parse_free_resources(self, free_resource_text):
         """
         Parse multi-line free resource text
         
         Format: "name: X, type: Y, remaining: Z, expiry: W"
         Multiple resources separated by newlines
+        
+        Only processes DATA type resources and extracts MB values
         """
         resources = []
         if not free_resource_text or pd.isna(free_resource_text):
@@ -94,7 +130,14 @@ class SimBalanceImporter:
             
             # Validate resource has all required fields
             if all(key in resource for key in ['name', 'type', 'remaining', 'expiry']):
-                resources.append(resource)
+                # Only process DATA type resources
+                resource_type = resource['type'].upper()
+                if resource_type == ResourceType.DATA or 'DATA' in resource_type:
+                    # Extract MB values
+                    resource['data_plan_mb'] = self.extract_mb_from_name(resource['name'])
+                    resource['remaining_mb'] = self.extract_mb_from_remaining(resource['remaining'])
+                    resources.append(resource)
+                # Ignore SMS and VOICE resources
         
         return resources
     
@@ -217,27 +260,16 @@ class SimBalanceImporter:
                 # Delete old resources for this SIM
                 SimFreeResource.objects.filter(sim_balance=sim_balance).delete()
                 
-                # Create new resources
+                # Create new resources (only DATA type resources are returned from parse_free_resources)
                 for resource in resources:
-                    # Map resource type to enum
-                    resource_type = resource['type'].upper()
-                    if resource_type not in [ResourceType.DATA, ResourceType.SMS, ResourceType.VOICE]:
-                        # Try to map common variations
-                        if 'DATA' in resource_type or 'MB' in resource_type or 'GB' in resource_type:
-                            resource_type = ResourceType.DATA
-                        elif 'SMS' in resource_type or 'PCS' in resource_type or 'Pcs' in resource_type:
-                            resource_type = ResourceType.SMS
-                        elif 'VOICE' in resource_type or 'MIN' in resource_type or 'Min' in resource_type:
-                            resource_type = ResourceType.VOICE
-                        else:
-                            resource_type = ResourceType.DATA  # Default
-                    
                     SimFreeResource.objects.create(
                         sim_balance=sim_balance,
                         name=resource['name'],
-                        resource_type=resource_type,
+                        resource_type=ResourceType.DATA,
                         remaining=resource['remaining'],
-                        expiry=resource['expiry']
+                        expiry=resource['expiry'],
+                        data_plan_mb=resource.get('data_plan_mb'),
+                        remaining_mb=resource.get('remaining_mb')
                     )
             
             self.success_count += 1

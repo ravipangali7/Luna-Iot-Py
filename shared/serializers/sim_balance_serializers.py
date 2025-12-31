@@ -13,6 +13,7 @@ class SimFreeResourceSerializer(serializers.ModelSerializer):
         model = SimFreeResource
         fields = [
             'id', 'name', 'resource_type', 'remaining', 'expiry',
+            'data_plan_mb', 'remaining_mb',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

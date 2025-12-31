@@ -25,6 +25,20 @@ class SimFreeResource(models.Model):
     )
     remaining = models.CharField(max_length=100, help_text="Remaining amount (e.g., '49.83MB', '15 Pcs', '40 Min')")
     expiry = models.DateTimeField(help_text="Resource expiry date")
+    data_plan_mb = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Data plan MB value extracted from name (e.g., 50 from 'm2m 50mb')"
+    )
+    remaining_mb = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Remaining MB value extracted from remaining field (e.g., 49.83 from '49.83MB')"
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')
 
