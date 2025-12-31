@@ -69,18 +69,14 @@ class CommunitySirenHistoryCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_latitude(self, value):
-        """Validate latitude is required and within valid range"""
-        if value is None:
-            raise serializers.ValidationError("Latitude is required")
-        if value < -90 or value > 90:
+        """Validate latitude is within valid range (optional)"""
+        if value is not None and (value < -90 or value > 90):
             raise serializers.ValidationError("Latitude must be between -90 and 90")
         return value
     
     def validate_longitude(self, value):
-        """Validate longitude is required and within valid range"""
-        if value is None:
-            raise serializers.ValidationError("Longitude is required")
-        if value < -180 or value > 180:
+        """Validate longitude is within valid range (optional)"""
+        if value is not None and (value < -180 or value > 180):
             raise serializers.ValidationError("Longitude must be between -180 and 180")
         return value
 
