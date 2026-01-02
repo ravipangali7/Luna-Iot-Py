@@ -408,7 +408,7 @@ def get_all_vehicles_detailed(request):
             sim_balance = None
             try:
                 if vehicle.device:
-                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').first()
                     if sim_balance_obj:
                         sim_balance = {
                             'id': sim_balance_obj.id,
@@ -417,14 +417,9 @@ def get_all_vehicles_detailed(request):
                             'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                             'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                             'state': sim_balance_obj.state,
-                            'free_resources_summary': [
-                                {
-                                    'name': resource.name,
-                                    'type': resource.resource_type,
-                                    'remaining': resource.remaining,
-                                    'expiry': resource.expiry.isoformat()
-                                } for resource in sim_balance_obj.free_resources.all()[:3]
-                            ]
+                            'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                            'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                            'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                         }
             except Exception as e:
                 sim_balance = None
@@ -1974,7 +1969,7 @@ def get_vehicles_paginated(request):
             sim_balance = None
             try:
                 if vehicle.device:
-                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').first()
                     if sim_balance_obj:
                         sim_balance = {
                             'id': sim_balance_obj.id,
@@ -1983,14 +1978,9 @@ def get_vehicles_paginated(request):
                             'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                             'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                             'state': sim_balance_obj.state,
-                            'free_resources_summary': [
-                                {
-                                    'name': resource.name,
-                                    'type': resource.resource_type,
-                                    'remaining': resource.remaining,
-                                    'expiry': resource.expiry.isoformat()
-                                } for resource in sim_balance_obj.free_resources.all()[:3]
-                            ]
+                            'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                            'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                            'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                         }
             except Exception as e:
                 sim_balance = None
@@ -2267,7 +2257,7 @@ def search_vehicles(request):
             sim_balance = None
             try:
                 if vehicle.device:
-                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').first()
                     if sim_balance_obj:
                         sim_balance = {
                             'id': sim_balance_obj.id,
@@ -2276,14 +2266,9 @@ def search_vehicles(request):
                             'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                             'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                             'state': sim_balance_obj.state,
-                            'free_resources_summary': [
-                                {
-                                    'name': resource.name,
-                                    'type': resource.resource_type,
-                                    'remaining': resource.remaining,
-                                    'expiry': resource.expiry.isoformat()
-                                } for resource in sim_balance_obj.free_resources.all()[:3]
-                            ]
+                            'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                            'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                            'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                         }
             except Exception as e:
                 sim_balance = None
@@ -2536,7 +2521,7 @@ def search_vehicles_by_expire(request):
             sim_balance = None
             try:
                 if vehicle.device:
-                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').first()
                     if sim_balance_obj:
                         sim_balance = {
                             'id': sim_balance_obj.id,
@@ -2545,14 +2530,9 @@ def search_vehicles_by_expire(request):
                             'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                             'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                             'state': sim_balance_obj.state,
-                            'free_resources_summary': [
-                                {
-                                    'name': resource.name,
-                                    'type': resource.resource_type,
-                                    'remaining': resource.remaining,
-                                    'expiry': resource.expiry.isoformat()
-                                } for resource in sim_balance_obj.free_resources.all()[:3]
-                            ]
+                            'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                            'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                            'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                         }
             except Exception as e:
                 sim_balance = None
@@ -2791,7 +2771,7 @@ def search_vehicles_by_vehicle_type(request):
             sim_balance = None
             try:
                 if vehicle.device:
-                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').prefetch_related('free_resources').first()
+                    sim_balance_obj = SimBalance.objects.filter(device=vehicle.device).select_related('device').first()
                     if sim_balance_obj:
                         sim_balance = {
                             'id': sim_balance_obj.id,
@@ -2800,14 +2780,9 @@ def search_vehicles_by_vehicle_type(request):
                             'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                             'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                             'state': sim_balance_obj.state,
-                            'free_resources_summary': [
-                                {
-                                    'name': resource.name,
-                                    'type': resource.resource_type,
-                                    'remaining': resource.remaining,
-                                    'expiry': resource.expiry.isoformat()
-                                } for resource in sim_balance_obj.free_resources.all()[:3]
-                            ]
+                            'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                            'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                            'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                         }
             except Exception as e:
                 sim_balance = None

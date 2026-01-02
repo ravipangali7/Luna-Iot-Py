@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from django.db import transaction
 from device.models import Device
-from shared.models import SimBalance, SimFreeResource, ResourceType
+from shared.models import SimBalance
 
 
 class SimBalanceImporter:
@@ -82,23 +82,24 @@ class SimBalanceImporter:
     
     def parse_free_resources(self, free_resource_text):
         """
-        Parse multi-line free resource text
+        Parse multi-line free resource text and return the latest DATA resource
         
         Format: "name: X, type: Y, remaining: Z, expiry: W"
         Multiple resources separated by newlines
         
-        Only processes DATA type resources and extracts MB values
+        Returns the DATA resource with the latest expiry date, or None
         """
-        resources = []
         if not free_resource_text or pd.isna(free_resource_text):
-            return resources
+            return None
         
         # Convert to string and split by newlines
         text = str(free_resource_text).strip()
         if not text:
-            return resources
+            return None
         
+        data_resources = []
         lines = text.split('\n')
+        
         for line in lines:
             line = line.strip()
             if not line:
@@ -132,14 +133,18 @@ class SimBalanceImporter:
             if all(key in resource for key in ['name', 'type', 'remaining', 'expiry']):
                 # Only process DATA type resources
                 resource_type = resource['type'].upper()
-                if resource_type == ResourceType.DATA or 'DATA' in resource_type:
+                if resource_type == 'DATA' or 'DATA' in resource_type:
                     # Extract MB values
                     resource['data_plan_mb'] = self.extract_mb_from_name(resource['name'])
                     resource['remaining_mb'] = self.extract_mb_from_remaining(resource['remaining'])
-                    resources.append(resource)
+                    data_resources.append(resource)
                 # Ignore SMS and VOICE resources
         
-        return resources
+        # Return the resource with the latest expiry date
+        if data_resources:
+            return max(data_resources, key=lambda r: r['expiry'])
+        
+        return None
     
     def parse_balance_expiry(self, expiry_str):
         """Parse balance expiry date string"""
@@ -242,35 +247,36 @@ class SimBalanceImporter:
                 # Multiple devices with same phone - use first one
                 device = Device.objects.filter(phone=phone_number).first()
             
-            # Create or update SimBalance
-            sim_balance, created = SimBalance.objects.update_or_create(
-                phone_number=phone_number,
-                defaults={
-                    'device': device,
-                    'state': state,
-                    'balance': balance,
-                    'balance_expiry': balance_expiry
-                }
-            )
+            # Parse free resources to extract MB data
+            mb = None
+            remaining_mb = None
+            mb_expiry_date = None
             
-            # Parse and update free resources
             if free_resource_text:
-                resources = self.parse_free_resources(free_resource_text)
-                
-                # Delete old resources for this SIM
-                SimFreeResource.objects.filter(sim_balance=sim_balance).delete()
-                
-                # Create new resources (only DATA type resources are returned from parse_free_resources)
-                for resource in resources:
-                    SimFreeResource.objects.create(
-                        sim_balance=sim_balance,
-                        name=resource['name'],
-                        resource_type=ResourceType.DATA,
-                        remaining=resource['remaining'],
-                        expiry=resource['expiry'],
-                        data_plan_mb=resource.get('data_plan_mb'),
-                        remaining_mb=resource.get('remaining_mb')
-                    )
+                resource = self.parse_free_resources(free_resource_text)
+                if resource:
+                    mb = resource.get('data_plan_mb')
+                    remaining_mb = resource.get('remaining_mb')
+                    mb_expiry_date = resource.get('expiry')
+            
+            # Full override: delete existing record if found, then create new one
+            try:
+                existing = SimBalance.objects.get(phone_number=phone_number)
+                existing.delete()
+            except SimBalance.DoesNotExist:
+                pass
+            
+            # Create new SimBalance with all data
+            SimBalance.objects.create(
+                phone_number=phone_number,
+                device=device,
+                state=state,
+                balance=balance,
+                balance_expiry=balance_expiry,
+                mb=mb,
+                remaining_mb=remaining_mb,
+                mb_expiry_date=mb_expiry_date
+            )
             
             self.success_count += 1
         

@@ -17,6 +17,9 @@ class SimBalance(models.Model):
     state = models.CharField(max_length=20, default='ACTIVE', help_text="SIM state (ACTIVE, INACTIVE, etc.)")
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Account balance")
     balance_expiry = models.DateTimeField(null=True, blank=True, help_text="Balance expiry date")
+    mb = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Total MB plan value")
+    remaining_mb = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Remaining MB")
+    mb_expiry_date = models.DateTimeField(null=True, blank=True, help_text="MB data expiry date")
     last_synced_at = models.DateTimeField(auto_now=True, db_column='last_synced_at', help_text="Last sync timestamp")
     created_at = models.DateTimeField(auto_now_add=True, db_column='created_at')
     updated_at = models.DateTimeField(auto_now=True, db_column='updated_at')
@@ -29,6 +32,7 @@ class SimBalance(models.Model):
             models.Index(fields=['phone_number']),
             models.Index(fields=['balance_expiry']),
             models.Index(fields=['state']),
+            models.Index(fields=['mb_expiry_date']),
         ]
     
     def __str__(self):

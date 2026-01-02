@@ -75,12 +75,12 @@ def get_all_sim_balances(request):
         
         # Super Admin: all access
         if user.role.name == 'Super Admin':
-            sim_balances = SimBalance.objects.select_related('device').prefetch_related('free_resources').all().order_by('-created_at')
+            sim_balances = SimBalance.objects.select_related('device').all().order_by('-created_at')
         # Dealer: only view SIM balances for assigned devices
         elif user.role.name == 'Dealer':
             sim_balances = SimBalance.objects.filter(
                 device__userdevice__user=user
-            ).select_related('device').prefetch_related('free_resources').distinct().order_by('-created_at')
+            ).select_related('device').distinct().order_by('-created_at')
         # Customer: no access
         else:
             return error_response('Access denied. Customers cannot view SIM balances', HTTP_STATUS['FORBIDDEN'])
@@ -113,12 +113,12 @@ def get_sim_balances_with_pagination(request):
         
         # Super Admin: all access
         if user.role.name == 'Super Admin':
-            sim_balances_query = SimBalance.objects.select_related('device').prefetch_related('free_resources').all()
+            sim_balances_query = SimBalance.objects.select_related('device').all()
         # Dealer: only view SIM balances for assigned devices
         elif user.role.name == 'Dealer':
             sim_balances_query = SimBalance.objects.filter(
                 device__userdevice__user=user
-            ).select_related('device').prefetch_related('free_resources').distinct()
+            ).select_related('device').distinct()
         # Customer: no access
         else:
             return error_response('Access denied. Customers cannot view SIM balances', HTTP_STATUS['FORBIDDEN'])
@@ -173,7 +173,7 @@ def get_sim_balance_by_id(request, id):
         # Super Admin: can access any SIM balance
         if user.role.name == 'Super Admin':
             try:
-                sim_balance = SimBalance.objects.select_related('device').prefetch_related('free_resources').get(id=id)
+                sim_balance = SimBalance.objects.select_related('device').get(id=id)
             except SimBalance.DoesNotExist:
                 return error_response('SIM balance not found', HTTP_STATUS['NOT_FOUND'])
         # Dealer: can only access SIM balances for assigned devices
@@ -182,7 +182,7 @@ def get_sim_balance_by_id(request, id):
                 sim_balance = SimBalance.objects.filter(
                     id=id,
                     device__userdevice__user=user
-                ).select_related('device').prefetch_related('free_resources').get()
+                ).select_related('device').get()
             except SimBalance.DoesNotExist:
                 return error_response('SIM balance not found or access denied', HTTP_STATUS['NOT_FOUND'])
         # Customer: no access
@@ -225,7 +225,7 @@ def get_sim_balance_by_device(request, device_id):
         
         # Get SIM balance for device
         try:
-            sim_balance = SimBalance.objects.select_related('device').prefetch_related('free_resources').get(device_id=device_id)
+            sim_balance = SimBalance.objects.select_related('device').get(device_id=device_id)
         except SimBalance.DoesNotExist:
             return error_response('SIM balance not found for this device', HTTP_STATUS['NOT_FOUND'])
         
@@ -249,7 +249,7 @@ def get_sim_balance_by_phone(request, phone):
         # Super Admin: can access any SIM balance
         if user.role.name == 'Super Admin':
             try:
-                sim_balance = SimBalance.objects.select_related('device').prefetch_related('free_resources').get(phone_number=phone)
+                sim_balance = SimBalance.objects.select_related('device').get(phone_number=phone)
             except SimBalance.DoesNotExist:
                 return error_response('SIM balance not found', HTTP_STATUS['NOT_FOUND'])
         # Dealer: can only access SIM balances for assigned devices
@@ -258,7 +258,7 @@ def get_sim_balance_by_phone(request, phone):
                 sim_balance = SimBalance.objects.filter(
                     phone_number=phone,
                     device__userdevice__user=user
-                ).select_related('device').prefetch_related('free_resources').get()
+                ).select_related('device').get()
             except SimBalance.DoesNotExist:
                 return error_response('SIM balance not found or access denied', HTTP_STATUS['NOT_FOUND'])
         # Customer: no access
