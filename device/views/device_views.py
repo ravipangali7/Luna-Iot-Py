@@ -33,7 +33,7 @@ from api_common.exceptions.api_exceptions import NotFoundError, ValidationError
 from api_common.utils.sms_service import sms_service
 from api_common.utils.tcp_service import tcp_service
 from shared_utils.numeral_utils import get_search_variants
-from shared.models import SimBalance
+from shared.models import SimBalance, Recharge
 
 
 @api_view(['GET'])
@@ -133,6 +133,19 @@ def get_all_devices(request):
                 except Exception as e:
                     sim_balance = None
                 
+                # Get latest recharge info
+                latest_recharge = None
+                try:
+                    latest_recharge_obj = Recharge.objects.filter(device=device).order_by('-createdAt').first()
+                    latest_recharge = {
+                        'id': latest_recharge_obj.id,
+                        'deviceId': latest_recharge_obj.device.id,
+                        'amount': float(latest_recharge_obj.amount),
+                        'createdAt': latest_recharge_obj.createdAt.isoformat()
+                    } if latest_recharge_obj else None
+                except Exception as e:
+                    latest_recharge = None
+                
                 devices_data.append({
                     'id': device.id,
                     'imei': device.imei,
@@ -151,6 +164,7 @@ def get_all_devices(request):
                     'userDevices': user_devices_data,
                     'vehicles': vehicles_data,
                     'simBalance': sim_balance,
+                    'latestRecharge': latest_recharge,
                     'createdAt': device.createdAt.isoformat(),
                     'updatedAt': device.updatedAt.isoformat()
                 })
@@ -223,6 +237,19 @@ def get_all_devices(request):
                         'userVehicles': user_vehicles_data
                     })
                 
+                # Get latest recharge info
+                latest_recharge = None
+                try:
+                    latest_recharge_obj = Recharge.objects.filter(device=device).order_by('-createdAt').first()
+                    latest_recharge = {
+                        'id': latest_recharge_obj.id,
+                        'deviceId': latest_recharge_obj.device.id,
+                        'amount': float(latest_recharge_obj.amount),
+                        'createdAt': latest_recharge_obj.createdAt.isoformat()
+                    } if latest_recharge_obj else None
+                except Exception as e:
+                    latest_recharge = None
+                
                 devices_data.append({
                     'id': device.id,
                     'imei': device.imei,
@@ -240,6 +267,7 @@ def get_all_devices(request):
                     } if device.subscription_plan else None,
                     'userDevices': user_devices_data,
                     'vehicles': vehicles_data,
+                    'latestRecharge': latest_recharge,
                     'createdAt': device.createdAt.isoformat(),
                     'updatedAt': device.updatedAt.isoformat()
                 })
@@ -1090,7 +1118,7 @@ def get_devices_paginated(request):
             # Get SIM balance info if available
             sim_balance = None
             try:
-                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').first()
                 if sim_balance_obj:
                     sim_balance = {
                         'id': sim_balance_obj.id,
@@ -1099,17 +1127,25 @@ def get_devices_paginated(request):
                         'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                         'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                         'state': sim_balance_obj.state,
-                        'free_resources_summary': [
-                            {
-                                'name': resource.name,
-                                'type': resource.resource_type,
-                                'remaining': resource.remaining,
-                                'expiry': resource.expiry.isoformat()
-                            } for resource in sim_balance_obj.free_resources.all()[:3]
-                        ]
+                        'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                        'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                        'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                     }
             except Exception as e:
                 sim_balance = None
+            
+            # Get latest recharge info
+            latest_recharge = None
+            try:
+                latest_recharge_obj = Recharge.objects.filter(device=device).order_by('-createdAt').first()
+                latest_recharge = {
+                    'id': latest_recharge_obj.id,
+                    'deviceId': latest_recharge_obj.device.id,
+                    'amount': float(latest_recharge_obj.amount),
+                    'createdAt': latest_recharge_obj.createdAt.isoformat()
+                } if latest_recharge_obj else None
+            except Exception as e:
+                latest_recharge = None
             
             devices_data.append({
                 'id': device.id,
@@ -1130,6 +1166,7 @@ def get_devices_paginated(request):
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
                 'simBalance': sim_balance,
+                'latestRecharge': latest_recharge,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1341,7 +1378,7 @@ def search_devices(request):
             # Get SIM balance info if available
             sim_balance = None
             try:
-                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').first()
                 if sim_balance_obj:
                     sim_balance = {
                         'id': sim_balance_obj.id,
@@ -1350,17 +1387,25 @@ def search_devices(request):
                         'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                         'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                         'state': sim_balance_obj.state,
-                        'free_resources_summary': [
-                            {
-                                'name': resource.name,
-                                'type': resource.resource_type,
-                                'remaining': resource.remaining,
-                                'expiry': resource.expiry.isoformat()
-                            } for resource in sim_balance_obj.free_resources.all()[:3]
-                        ]
+                        'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                        'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                        'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                     }
             except Exception as e:
                 sim_balance = None
+            
+            # Get latest recharge info
+            latest_recharge = None
+            try:
+                latest_recharge_obj = Recharge.objects.filter(device=device).order_by('-createdAt').first()
+                latest_recharge = {
+                    'id': latest_recharge_obj.id,
+                    'deviceId': latest_recharge_obj.device.id,
+                    'amount': float(latest_recharge_obj.amount),
+                    'createdAt': latest_recharge_obj.createdAt.isoformat()
+                } if latest_recharge_obj else None
+            except Exception as e:
+                latest_recharge = None
             
             devices_data.append({
                 'id': device.id,
@@ -1381,6 +1426,7 @@ def search_devices(request):
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
                 'simBalance': sim_balance,
+                'latestRecharge': latest_recharge,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
             })
@@ -1693,7 +1739,7 @@ def get_gps_devices_paginated(request):
             # Get SIM balance info if available
             sim_balance = None
             try:
-                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').first()
                 if sim_balance_obj:
                     sim_balance = {
                         'id': sim_balance_obj.id,
@@ -1702,17 +1748,25 @@ def get_gps_devices_paginated(request):
                         'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                         'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                         'state': sim_balance_obj.state,
-                        'free_resources_summary': [
-                            {
-                                'name': resource.name,
-                                'type': resource.resource_type,
-                                'remaining': resource.remaining,
-                                'expiry': resource.expiry.isoformat()
-                            } for resource in sim_balance_obj.free_resources.all()[:3]
-                        ]
+                        'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                        'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                        'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                     }
             except Exception as e:
                 sim_balance = None
+            
+            # Get latest recharge info
+            latest_recharge = None
+            try:
+                latest_recharge_obj = Recharge.objects.filter(device=device).order_by('-createdAt').first()
+                latest_recharge = {
+                    'id': latest_recharge_obj.id,
+                    'deviceId': latest_recharge_obj.device.id,
+                    'amount': float(latest_recharge_obj.amount),
+                    'createdAt': latest_recharge_obj.createdAt.isoformat()
+                } if latest_recharge_obj else None
+            except Exception as e:
+                latest_recharge = None
             
             devices_data.append({
                 'id': device.id,
@@ -1732,6 +1786,8 @@ def get_gps_devices_paginated(request):
                 'userDevices': user_devices_data,
                 'vehicles': vehicles_data,
                 'latestStatus': latest_status,
+                'simBalance': sim_balance,
+                'latestRecharge': latest_recharge,
                 'institute': institute_data,
                 'createdAt': device.createdAt.isoformat(),
                 'updatedAt': device.updatedAt.isoformat()
@@ -1931,7 +1987,7 @@ def get_buzzer_devices_paginated(request):
             # Get SIM balance info if available
             sim_balance = None
             try:
-                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').first()
                 if sim_balance_obj:
                     sim_balance = {
                         'id': sim_balance_obj.id,
@@ -1940,14 +1996,9 @@ def get_buzzer_devices_paginated(request):
                         'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                         'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                         'state': sim_balance_obj.state,
-                        'free_resources_summary': [
-                            {
-                                'name': resource.name,
-                                'type': resource.resource_type,
-                                'remaining': resource.remaining,
-                                'expiry': resource.expiry.isoformat()
-                            } for resource in sim_balance_obj.free_resources.all()[:3]
-                        ]
+                        'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                        'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                        'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                     }
             except Exception as e:
                 sim_balance = None
@@ -2170,7 +2221,7 @@ def get_sos_devices_paginated(request):
             # Get SIM balance info if available
             sim_balance = None
             try:
-                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').prefetch_related('free_resources').first()
+                sim_balance_obj = SimBalance.objects.filter(device=device).select_related('device').first()
                 if sim_balance_obj:
                     sim_balance = {
                         'id': sim_balance_obj.id,
@@ -2179,14 +2230,9 @@ def get_sos_devices_paginated(request):
                         'balance_expiry': sim_balance_obj.balance_expiry.isoformat() if sim_balance_obj.balance_expiry else None,
                         'last_synced_at': sim_balance_obj.last_synced_at.isoformat(),
                         'state': sim_balance_obj.state,
-                        'free_resources_summary': [
-                            {
-                                'name': resource.name,
-                                'type': resource.resource_type,
-                                'remaining': resource.remaining,
-                                'expiry': resource.expiry.isoformat()
-                            } for resource in sim_balance_obj.free_resources.all()[:3]
-                        ]
+                        'mb': float(sim_balance_obj.mb) if sim_balance_obj.mb else None,
+                        'remaining_mb': float(sim_balance_obj.remaining_mb) if sim_balance_obj.remaining_mb else None,
+                        'mb_expiry_date': sim_balance_obj.mb_expiry_date.isoformat() if sim_balance_obj.mb_expiry_date else None
                     }
             except Exception as e:
                 sim_balance = None
