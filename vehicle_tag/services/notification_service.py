@@ -7,6 +7,7 @@ from decimal import Decimal
 from vehicle_tag.models import VehicleTag, VehicleTagAlert
 from shared.models import Notification, UserNotification
 from api_common.utils.sms_service import sms_service
+from api_common.utils.sms_cost_utils import calculate_sms_cost
 from finance.models import Wallet
 from core.models import MySetting
 
@@ -125,21 +126,37 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
                         defaults={'balance': Decimal('0.00')}
                     )
                     
+                    # Get MySetting for SMS price and character price
+                    try:
+                        my_setting = MySetting.objects.first()
+                    except Exception as e:
+                        logger.warning(f"Error getting MySetting: {str(e)}")
+                        my_setting = None
+                    
                     # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
                     sms_price = wallet.sms_price
                     if sms_price is None or sms_price == Decimal('0.00'):
-                        try:
-                            my_setting = MySetting.objects.first()
-                            if my_setting and my_setting.sms_price:
-                                sms_price = Decimal(str(my_setting.sms_price))
-                            else:
-                                sms_price = Decimal('0.00')
-                        except Exception as e:
-                            logger.warning(f"Error getting default SMS price from MySetting: {str(e)}")
+                        if my_setting and my_setting.sms_price:
+                            sms_price = Decimal(str(my_setting.sms_price))
+                        else:
                             sms_price = Decimal('0.00')
                     
-                    # Calculate total cost
-                    total_cost = Decimal(str(len(sms_recipients))) * sms_price
+                    # Get SMS character price from MySetting (default: 160)
+                    sms_character_price = 160  # Default value
+                    if my_setting and my_setting.sms_character_price:
+                        sms_character_price = int(my_setting.sms_character_price)
+                    
+                    # Format the final SMS message that will be sent
+                    sms_message = f"""Vehicle Tag Alert: 
+{message}"""
+                    
+                    # Calculate total cost based on character count of the FINAL formatted message
+                    total_cost, character_count, sms_parts = calculate_sms_cost(
+                        message=sms_message,
+                        sms_price=sms_price,
+                        sms_character_price=sms_character_price,
+                        num_recipients=len(sms_recipients)
+                    )
                     
                     # Check if wallet balance is sufficient
                     if wallet.balance >= total_cost:
@@ -153,11 +170,7 @@ def send_vehicle_tag_alert_notification(vehicle_tag_alert):
                         if not success:
                             logger.warning(f"Failed to deduct {total_cost} from wallet for user {user.id}, skipping SMS")
                         else:
-                            logger.info(f"Deducted {total_cost} from wallet for user {user.id} before sending {len(sms_recipients)} SMS")
-                            
-                            # Send SMS to all recipients
-                            sms_message = f"""Vehicle Tag Alert: 
-{message}"""
+                            logger.info(f"Deducted {total_cost} from wallet for user {user.id} before sending {len(sms_recipients)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
                             
                             successful_sends = 0
                             for recipient in sms_recipients:

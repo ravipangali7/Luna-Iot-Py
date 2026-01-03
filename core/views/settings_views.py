@@ -32,6 +32,7 @@ def settings_handler(request):
                 'vat_percent': 0.00,
                 'call_price': 0.00,
                 'sms_price': 0.00,
+                'sms_character_price': 160,
                 'parent_price': 0.00
             }
         )

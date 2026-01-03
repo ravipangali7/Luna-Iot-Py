@@ -25,6 +25,11 @@ class MySetting(models.Model):
         db_column='sms_price',
         help_text="Default SMS price"
     )
+    sms_character_price = models.IntegerField(
+        default=160,
+        db_column='sms_character_price',
+        help_text="Number of characters per SMS part (default: 160)"
+    )
     parent_price = models.DecimalField(
         max_digits=15, 
         decimal_places=2, 

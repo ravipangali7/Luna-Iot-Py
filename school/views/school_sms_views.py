@@ -20,6 +20,7 @@ from api_common.decorators.auth_decorators import require_auth, require_super_ad
 from school.models import SchoolSMS
 from api_common.exceptions.api_exceptions import NotFoundError
 from api_common.utils.sms_service import sms_service
+from api_common.utils.sms_cost_utils import calculate_sms_cost
 from finance.models import Wallet
 from core.models import MySetting
 
@@ -153,21 +154,33 @@ def create_school_sms(request):
                     defaults={'balance': Decimal('0.00')}
                 )
                 
+                # Get MySetting for SMS price and character price
+                try:
+                    my_setting = MySetting.objects.first()
+                except Exception as e:
+                    logger.warning(f"Error getting MySetting: {str(e)}")
+                    my_setting = None
+                
                 # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
                 sms_price = wallet.sms_price
                 if sms_price is None or sms_price == Decimal('0.00'):
-                    try:
-                        my_setting = MySetting.objects.first()
-                        if my_setting and my_setting.sms_price:
-                            sms_price = Decimal(str(my_setting.sms_price))
-                        else:
-                            sms_price = Decimal('0.00')
-                    except Exception as e:
-                        logger.warning(f"Error getting default SMS price from MySetting: {str(e)}")
+                    if my_setting and my_setting.sms_price:
+                        sms_price = Decimal(str(my_setting.sms_price))
+                    else:
                         sms_price = Decimal('0.00')
                 
-                # Calculate total cost
-                total_cost = Decimal(str(len(phone_numbers))) * sms_price
+                # Get SMS character price from MySetting (default: 160)
+                sms_character_price = 160  # Default value
+                if my_setting and my_setting.sms_character_price:
+                    sms_character_price = int(my_setting.sms_character_price)
+                
+                # Calculate total cost based on character count
+                total_cost, character_count, sms_parts = calculate_sms_cost(
+                    message=message,
+                    sms_price=sms_price,
+                    sms_character_price=sms_character_price,
+                    num_recipients=len(phone_numbers)
+                )
                 
                 # Check if wallet balance is sufficient
                 if wallet.balance < total_cost:
@@ -189,7 +202,7 @@ def create_school_sms(request):
                         status_code=HTTP_STATUS['INTERNAL_ERROR']
                     )
                 
-                logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS")
+                logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
                 
                 logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
                 

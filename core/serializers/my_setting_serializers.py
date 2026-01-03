@@ -13,7 +13,7 @@ class MySettingSerializer(serializers.ModelSerializer):
         model = MySetting
         fields = [
             'id', 'mypay_balance', 'vat_percent', 'call_price', 'sms_price',
-            'parent_price', 'created_at', 'updated_at'
+            'sms_character_price', 'parent_price', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -24,7 +24,7 @@ class MySettingUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = MySetting
         fields = [
-            'mypay_balance', 'vat_percent', 'call_price', 'sms_price', 'parent_price'
+            'mypay_balance', 'vat_percent', 'call_price', 'sms_price', 'sms_character_price', 'parent_price'
         ]
     
     def validate_vat_percent(self, value):
@@ -57,5 +57,13 @@ class MySettingUpdateSerializer(serializers.ModelSerializer):
         """Validate parent price is not negative"""
         if value < 0:
             raise serializers.ValidationError("Parent price cannot be negative")
+        return value
+    
+    def validate_sms_character_price(self, value):
+        """Validate SMS character price is a positive integer"""
+        if value < 1:
+            raise serializers.ValidationError("SMS character price must be at least 1")
+        if not isinstance(value, int):
+            raise serializers.ValidationError("SMS character price must be an integer")
         return value
 
