@@ -2,6 +2,7 @@
 School SMS Views
 Handles school SMS management endpoints
 """
+import json
 import logging
 from decimal import Decimal
 from rest_framework.decorators import api_view

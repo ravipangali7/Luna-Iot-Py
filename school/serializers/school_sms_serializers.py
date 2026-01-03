@@ -2,6 +2,7 @@
 School SMS Serializers
 Handles serialization for school SMS management endpoints
 """
+import json
 from rest_framework import serializers
 from school.models import SchoolSMS
 from core.serializers import InstituteSerializer
@@ -61,7 +62,6 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     def validate_institute(self, value):
         """Validate institute is a valid positive integer"""
         # #region agent log
-        import json
         with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
             f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"school_sms_serializers.py:61","message":"validate_institute called","data":{"value":value,"type":str(type(value))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
         # #endregion
@@ -82,7 +82,6 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create SchoolSMS instance, converting institute ID to Institute instance"""
         # #region agent log
-        import json
         with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
             f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"school_sms_serializers.py:73","message":"create method called","data":{"validated_data_keys":list(validated_data.keys()),"institute_in_data":"institute" in validated_data},"timestamp":int(__import__('time').time()*1000)}) + '\n')
         # #endregion
