@@ -287,35 +287,30 @@ def create_school_sms(request):
             logger.info(f"SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
         else:
             logger.warning(f"No phone numbers provided for school SMS {school_sms.id}")
-            
-            response_serializer = SchoolSMSSerializer(school_sms)
-            response_data = response_serializer.data
-            
-            # Add SMS sending results to response
-            response_data['sms_sending_results'] = {
-                'total_recipients': len(phone_numbers),
-                'sent_count': sent_count,
-                'failed_count': failed_count,
-                'results': sms_results
-            }
-            
-            message = SUCCESS_MESSAGES.get('DATA_CREATED', 'School SMS created successfully')
-            if sent_count > 0:
-                message = f"School SMS created and sent to {sent_count} recipient(s)"
-                if failed_count > 0:
-                    message += f", {failed_count} failed"
-            
-            return success_response(
-                data=response_data,
-                message=message,
-                status_code=HTTP_STATUS['CREATED']
-            )
-        else:
-            return error_response(
-                message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
-                data=serializer.errors,
-                status_code=HTTP_STATUS['BAD_REQUEST']
-            )
+        
+        # Build response (regardless of whether phone numbers exist)
+        response_serializer = SchoolSMSSerializer(school_sms)
+        response_data = response_serializer.data
+        
+        # Add SMS sending results to response
+        response_data['sms_sending_results'] = {
+            'total_recipients': len(phone_numbers),
+            'sent_count': sent_count,
+            'failed_count': failed_count,
+            'results': sms_results
+        }
+        
+        message = SUCCESS_MESSAGES.get('DATA_CREATED', 'School SMS created successfully')
+        if sent_count > 0:
+            message = f"School SMS created and sent to {sent_count} recipient(s)"
+            if failed_count > 0:
+                message += f", {failed_count} failed"
+        
+        return success_response(
+            data=response_data,
+            message=message,
+            status_code=HTTP_STATUS['CREATED']
+        )
     except Exception as e:
         logger.error(f"Error creating school SMS: {str(e)}")
         return error_response(
