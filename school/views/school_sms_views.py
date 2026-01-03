@@ -136,8 +136,19 @@ def get_school_sms_by_institute(request, institute_id):
 def create_school_sms(request):
     """Create new school SMS and send SMS to all phone numbers"""
     try:
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"D","location":"school_sms_views.py:138","message":"Function entry - request.data","data":{"request_data_keys":list(request.data.keys()) if hasattr(request.data, 'keys') else str(type(request.data)),"institute_value":request.data.get('institute') if hasattr(request.data, 'get') else None,"request_data_type":str(type(request.data))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
+        
         # Early validation: check if institute is 0 or missing before serializer
         institute_value = request.data.get('institute')
+        
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"D","location":"school_sms_views.py:145","message":"Early validation check","data":{"institute_value":institute_value,"is_none":institute_value is None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
+        
         if institute_value is None:
             return error_response(
                 message="Institute is required",
@@ -145,12 +156,26 @@ def create_school_sms(request):
             )
         try:
             institute_id = int(institute_value)
+            
+            # #region agent log
+            with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"D","location":"school_sms_views.py:157","message":"Institute ID converted","data":{"institute_id":institute_id,"is_zero":institute_id == 0},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            
             if institute_id == 0:
+                # #region agent log
+                with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                    f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"D","location":"school_sms_views.py:160","message":"Returning error for institute_id=0","data":{},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                # #endregion
                 return error_response(
                     message="Institute ID cannot be 0",
                     status_code=HTTP_STATUS['BAD_REQUEST']
                 )
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            # #region agent log
+            with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"D","location":"school_sms_views.py:170","message":"Exception converting institute","data":{"error":str(e)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
             return error_response(
                 message="Institute must be a valid integer",
                 status_code=HTTP_STATUS['BAD_REQUEST']
@@ -180,10 +205,15 @@ def create_school_sms(request):
             
             # #region agent log
             with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
-                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:157","message":"About to call serializer.save()","data":{"institute_id":institute_id},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"E","location":"school_sms_views.py:207","message":"About to call serializer.save()","data":{"institute_id":institute_id,"validated_data_keys":list(serializer.validated_data.keys()) if hasattr(serializer, 'validated_data') else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
             # #endregion
             
             school_sms = serializer.save()
+            
+            # #region agent log
+            with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"E","location":"school_sms_views.py:213","message":"serializer.save() completed","data":{"school_sms_id":school_sms.id if hasattr(school_sms, 'id') else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
             
             # Send SMS to all phone numbers
             phone_numbers = school_sms.phone_numbers if school_sms.phone_numbers else []
@@ -314,6 +344,10 @@ def create_school_sms(request):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run2","hypothesisId":"F","location":"school_sms_views.py:420","message":"Exception caught in create_school_sms","data":{"error_type":str(type(e).__name__),"error_message":str(e)},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         logger.error(f"Error creating school SMS: {str(e)}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
