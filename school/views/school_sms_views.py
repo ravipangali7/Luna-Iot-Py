@@ -150,11 +150,18 @@ def create_school_sms(request, institute_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        # 3. Prepare data for serializer (without institute)
+        # 3. Prepare data for serializer (explicitly filter out unwanted fields)
         serializer_data = {
             'message': request.data.get('message'),
             'phone_numbers': request.data.get('phone_numbers')
         }
+        
+        # Explicitly remove any id or institute fields if they exist
+        # (defensive programming - shouldn't be needed but ensures safety)
+        if 'id' in request.data:
+            logger.warning(f"Request data contains 'id' field: {request.data.get('id')} - ignoring")
+        if 'institute' in request.data:
+            logger.warning(f"Request data contains 'institute' field: {request.data.get('institute')} - ignoring (using URL parameter)")
         
         # 4. Validate message and phone_numbers using serializer
         serializer = SchoolSMSCreateSerializer(data=serializer_data)
