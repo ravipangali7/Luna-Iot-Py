@@ -194,15 +194,18 @@ def require_school_module_access(model_class=None, id_param_name='id'):
             institute_ids = []
             
             if request.method == 'POST':
-                # For create operations, get institute_id from request.data
-                institute_id = request.data.get('institute')
-                if institute_id:
-                    if isinstance(institute_id, dict):
-                        institute_id = institute_id.get('id') or institute_id.get('pk')
-                    elif hasattr(institute_id, 'id'):
-                        institute_id = institute_id.id
+                # For create operations, get institute_id from URL kwargs first, then request.data
+                institute_id = kwargs.get('institute_id')
+                if not institute_id:
+                    # Fallback to request.data for backward compatibility
+                    institute_id = request.data.get('institute')
                     if institute_id:
-                        institute_ids = [institute_id]
+                        if isinstance(institute_id, dict):
+                            institute_id = institute_id.get('id') or institute_id.get('pk')
+                        elif hasattr(institute_id, 'id'):
+                            institute_id = institute_id.id
+                if institute_id:
+                    institute_ids = [institute_id]
                 else:
                     # Check for school_buses (for SchoolParent create)
                     school_bus_ids = request.data.get('school_buses', [])

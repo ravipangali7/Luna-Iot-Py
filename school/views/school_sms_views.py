@@ -131,28 +131,13 @@ def get_school_sms_by_institute(request, institute_id):
 @api_view(['POST'])
 @require_school_module_access()
 @api_response
-def create_school_sms(request):
+def create_school_sms(request, institute_id):
     """Create new school SMS and send SMS to all phone numbers"""
     try:
-        # 1. Extract and validate institute_id from request.data
-        institute_value = request.data.get('institute')
-        
-        if institute_value is None:
+        # 1. Validate institute_id from URL parameter (already validated by URL router, but add safety check)
+        if institute_id <= 0:
             return error_response(
-                message="Institute is required",
-                status_code=HTTP_STATUS['BAD_REQUEST']
-            )
-        
-        try:
-            institute_id = int(institute_value)
-            if institute_id <= 0:
-                return error_response(
-                    message="Institute ID must be a positive integer",
-                    status_code=HTTP_STATUS['BAD_REQUEST']
-                )
-        except (ValueError, TypeError):
-            return error_response(
-                message="Institute must be a valid integer",
+                message="Institute ID must be a positive integer",
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
