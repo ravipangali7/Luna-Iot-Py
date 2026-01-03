@@ -135,11 +135,26 @@ def get_school_sms_by_institute(request, institute_id):
 def create_school_sms(request):
     """Create new school SMS and send SMS to all phone numbers"""
     try:
-        # #region agent log
-        import json
-        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
-            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:138","message":"Request data received","data":{"institute":request.data.get('institute'),"has_institute":"institute" in request.data},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-        # #endregion
+        # Early validation: check if institute is 0 or missing before serializer
+        institute_value = request.data.get('institute')
+        if institute_value is None:
+            return error_response(
+                message="Institute is required",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        try:
+            institute_id = int(institute_value)
+            if institute_id == 0:
+                return error_response(
+                    message="Institute ID cannot be 0",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+        except (ValueError, TypeError):
+            return error_response(
+                message="Institute must be a valid integer",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
         serializer = SchoolSMSCreateSerializer(data=request.data)
         
         # #region agent log

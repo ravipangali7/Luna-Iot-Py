@@ -28,7 +28,7 @@ class SchoolSMSSerializer(serializers.ModelSerializer):
 
 class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating school SMS"""
-    institute = serializers.IntegerField(required=True)
+    institute = serializers.IntegerField(required=True, min_value=1)
     phone_numbers = serializers.ListField(
         child=serializers.CharField(),
         allow_empty=False
