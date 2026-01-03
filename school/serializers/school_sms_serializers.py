@@ -60,6 +60,11 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     
     def validate_institute(self, value):
         """Validate institute is a valid positive integer"""
+        # #region agent log
+        import json
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"school_sms_serializers.py:61","message":"validate_institute called","data":{"value":value,"type":str(type(value))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         if value is None:
             raise serializers.ValidationError("Institute is required")
         if value == 0:
@@ -68,17 +73,40 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
         from core.models import Institute
         if not Institute.objects.filter(id=value).exists():
             raise serializers.ValidationError(f"Institute with ID {value} does not exist")
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"school_sms_serializers.py:71","message":"validate_institute returning","data":{"value":value},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         return value
     
     def create(self, validated_data):
         """Create SchoolSMS instance, converting institute ID to Institute instance"""
+        # #region agent log
+        import json
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"school_sms_serializers.py:73","message":"create method called","data":{"validated_data_keys":list(validated_data.keys()),"institute_in_data":"institute" in validated_data},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         from core.models import Institute
         
         # Extract institute ID from validated_data
         institute_id = validated_data.pop('institute')
         
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"school_sms_serializers.py:80","message":"Institute ID extracted","data":{"institute_id":institute_id,"type":str(type(institute_id))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
+        
+        # Safety check: prevent 0 or None from reaching database
+        if institute_id is None or institute_id == 0:
+            raise serializers.ValidationError("Institute ID cannot be 0 or None")
+        
         # Get the Institute instance
         institute = Institute.objects.get(id=institute_id)
+        
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"school_sms_serializers.py:85","message":"About to create SchoolSMS","data":{"institute_id":institute.id,"institute_type":str(type(institute))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         
         # Create SchoolSMS with Institute instance
         school_sms = SchoolSMS.objects.create(

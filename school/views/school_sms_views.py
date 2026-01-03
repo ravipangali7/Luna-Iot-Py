@@ -135,16 +135,37 @@ def get_school_sms_by_institute(request, institute_id):
 def create_school_sms(request):
     """Create new school SMS and send SMS to all phone numbers"""
     try:
+        # #region agent log
+        import json
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:138","message":"Request data received","data":{"institute":request.data.get('institute'),"has_institute":"institute" in request.data},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         serializer = SchoolSMSCreateSerializer(data=request.data)
+        
+        # #region agent log
+        with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:141","message":"Serializer validation result","data":{"is_valid":serializer.is_valid(),"errors":dict(serializer.errors) if not serializer.is_valid() else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+        # #endregion
         
         if serializer.is_valid():
             # Additional validation: ensure institute is valid before saving
             institute_id = serializer.validated_data.get('institute')
+            
+            # #region agent log
+            with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:149","message":"Institute ID from validated_data","data":{"institute_id":institute_id,"type":str(type(institute_id))},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
+            
             if institute_id is None or institute_id == 0:
                 return error_response(
                     message="Invalid institute ID. Institute is required and cannot be 0.",
                     status_code=HTTP_STATUS['BAD_REQUEST']
                 )
+            
+            # #region agent log
+            with open('c:\\Mine\\Projects\\Luna_IOT\\LUNA\\.cursor\\debug.log', 'a') as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"school_sms_views.py:157","message":"About to call serializer.save()","data":{"institute_id":institute_id},"timestamp":int(__import__('time').time()*1000)}) + '\n')
+            # #endregion
             
             school_sms = serializer.save()
             
