@@ -37,8 +37,9 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SchoolSMS
-        fields = ['message', 'phone_numbers']
-        # Note: 'institute' is handled manually, not included in fields to prevent DRF from trying to set it as ForeignKey
+        fields = ['message', 'institute', 'phone_numbers']
+        # Note: 'institute' is included in fields for DRF validation, but handled manually in create() method
+        # by popping it from validated_data before model creation, preventing DRF from trying to set it as ForeignKey
     
     def validate_phone_numbers(self, value):
         """Validate phone numbers list"""
