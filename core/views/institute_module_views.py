@@ -562,3 +562,45 @@ def get_community_siren_institutes(request):
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
         )
+
+
+@api_view(['GET'])
+@require_auth
+@api_response
+def get_user_accessible_institutes(request):
+    """
+    Get institutes where the current user has access via any InstituteModule
+    For Super Admin: returns all institutes
+    For other users: returns only institutes where user is assigned via any InstituteModule
+    """
+    try:
+        from core.serializers import InstituteListSerializer
+        
+        # Check if user is Super Admin
+        user_groups = request.user.groups.all()
+        is_admin = user_groups.filter(name='Super Admin').exists()
+        
+        if is_admin:
+            # Super Admin: Get all institutes
+            institutes = Institute.objects.prefetch_related('institute_services').all().order_by('name')
+        else:
+            # Regular users: Get only institutes where user is assigned via any InstituteModule
+            user_institute_ids = InstituteModule.objects.filter(
+                users=request.user
+            ).values_list('institute_id', flat=True).distinct()
+            
+            institutes = Institute.objects.prefetch_related('institute_services').filter(
+                id__in=user_institute_ids
+            ).order_by('name')
+        
+        serializer = InstituteListSerializer(institutes, many=True)
+        
+        return success_response(
+            data=serializer.data,
+            message=SUCCESS_MESSAGES.get('DATA_RETRIEVED', 'User accessible institutes retrieved successfully')
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
