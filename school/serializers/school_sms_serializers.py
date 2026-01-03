@@ -29,7 +29,7 @@ class SchoolSMSSerializer(serializers.ModelSerializer):
 
 class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating school SMS"""
-    institute = serializers.IntegerField(required=True, min_value=1)
+    institute = serializers.IntegerField(required=True, min_value=1, write_only=True)
     phone_numbers = serializers.ListField(
         child=serializers.CharField(),
         allow_empty=False
@@ -37,7 +37,8 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SchoolSMS
-        fields = ['message', 'institute', 'phone_numbers']
+        fields = ['message', 'phone_numbers']
+        # Note: 'institute' is handled manually, not included in fields to prevent DRF from trying to set it as ForeignKey
     
     def validate_phone_numbers(self, value):
         """Validate phone numbers list"""
