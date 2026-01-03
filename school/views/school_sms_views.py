@@ -213,18 +213,42 @@ def create_school_sms(request, institute_id):
         failed_count = 0
         sms_results = []
         
+        print(f"[DEBUG] After SchoolSMS creation - phone_numbers count: {len(phone_numbers)}")
+        
         if phone_numbers:
+            # Validate user.id before Wallet operations
+            print(f"[DEBUG] About to get/create wallet for user.id: {request.user.id}")
+            if not hasattr(request.user, 'id') or not request.user.id or request.user.id <= 0:
+                print(f"[ERROR] Invalid user.id: {getattr(request.user, 'id', 'NO_ID_ATTR')}")
+                return error_response(
+                    message="Invalid user ID. Please ensure you are properly authenticated.",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+            
             # Get or create wallet for logged-in user
-            wallet, created = Wallet.objects.get_or_create(
-                user=request.user,
-                defaults={'balance': Decimal('0.00')}
-            )
+            try:
+                print(f"[DEBUG] Calling Wallet.objects.get_or_create for user.id: {request.user.id}")
+                wallet, created = Wallet.objects.get_or_create(
+                    user=request.user,
+                    defaults={'balance': Decimal('0.00')}
+                )
+                print(f"[INFO] Wallet retrieved/created: id={wallet.id if hasattr(wallet, 'id') else 'NO_ID'}, created={created}")
+            except Exception as wallet_error:
+                print(f"[ERROR] Wallet get_or_create failed: {str(wallet_error)}")
+                print(f"[ERROR] Exception type: {type(wallet_error)}")
+                import traceback
+                print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
+                raise
             
             # Get MySetting for SMS price and character price
+            print(f"[DEBUG] About to get MySetting")
             try:
                 my_setting = MySetting.objects.first()
+                print(f"[DEBUG] MySetting retrieved: id={my_setting.id if my_setting else 'None'}")
             except Exception as e:
                 print(f"[WARNING] Error getting MySetting: {str(e)}")
+                import traceback
+                print(f"[WARNING] MySetting traceback:\n{traceback.format_exc()}")
                 my_setting = None
             
             # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
@@ -256,11 +280,21 @@ def create_school_sms(request, institute_id):
                 )
             
             # Deduct balance before sending SMS
-            success = wallet.subtract_balance(
-                amount=total_cost,
-                description=f"School SMS to {len(phone_numbers)} recipients",
-                performed_by=request.user
-            )
+            print(f"[DEBUG] About to subtract balance: {total_cost} from wallet.id: {wallet.id}")
+            print(f"[DEBUG] performed_by user.id: {request.user.id if hasattr(request.user, 'id') else 'NO_ID'}")
+            try:
+                success = wallet.subtract_balance(
+                    amount=total_cost,
+                    description=f"School SMS to {len(phone_numbers)} recipients",
+                    performed_by=request.user
+                )
+                print(f"[INFO] subtract_balance completed: success={success}")
+            except Exception as balance_error:
+                print(f"[ERROR] subtract_balance failed: {str(balance_error)}")
+                print(f"[ERROR] Exception type: {type(balance_error)}")
+                import traceback
+                print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
+                raise
             
             if not success:
                 return error_response(
