@@ -179,14 +179,6 @@ def create_school_sms(request, institute_id):
         print(f"[DEBUG] Request data keys: {list(request.data.keys())}")
         print(f"[DEBUG] Request data: {request.data}")
         
-        # Create instance manually to have full control
-        school_sms = SchoolSMS()
-        # Explicitly ensure id is None (should be None for new instance, but force it)
-        school_sms.id = None
-        school_sms.institute = institute
-        school_sms.message = serializer.validated_data['message']
-        school_sms.phone_numbers = serializer.validated_data['phone_numbers']
-        
         # Double-check that institute is valid and has a valid id
         if not institute or not hasattr(institute, 'id') or institute.id <= 0:
             print(f"[ERROR] Invalid institute: {institute}, id: {getattr(institute, 'id', 'NO_ID')}")
@@ -195,13 +187,23 @@ def create_school_sms(request, institute_id):
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        print(f"[DEBUG] Before save - school_sms.id: {school_sms.id}, institute.id: {institute.id}")
+        print(f"[DEBUG] Institute validation passed - institute.id: {institute.id}, type: {type(institute.id)}")
         
+        # Use objects.create() with explicit fields only - this is the safest way
+        # Django will handle the id field automatically
         try:
-            school_sms.save()
-        except Exception as save_error:
-            print(f"[ERROR] Error during school_sms.save(): {str(save_error)}")
-            print(f"[ERROR] school_sms.__dict__: {school_sms.__dict__}")
+            print(f"[DEBUG] About to create SchoolSMS with: institute_id={institute.id}, message length={len(serializer.validated_data['message'])}, phone_count={len(serializer.validated_data['phone_numbers'])}")
+            school_sms = SchoolSMS.objects.create(
+                institute_id=institute.id,  # Use institute_id instead of institute to be explicit
+                message=serializer.validated_data['message'],
+                phone_numbers=serializer.validated_data['phone_numbers']
+            )
+            print(f"[INFO] SchoolSMS created successfully with id: {school_sms.id}")
+        except Exception as create_error:
+            print(f"[ERROR] Error during SchoolSMS.objects.create(): {str(create_error)}")
+            print(f"[ERROR] Exception type: {type(create_error)}")
+            import traceback
+            print(f"[ERROR] Full traceback:\n{traceback.format_exc()}")
             raise
         
         # 6. Send SMS to all phone numbers
