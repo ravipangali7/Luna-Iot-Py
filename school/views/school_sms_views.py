@@ -196,97 +196,97 @@ def create_school_sms(request):
         sms_results = []
         
         if phone_numbers:
-                # Get or create wallet for logged-in user
-                wallet, created = Wallet.objects.get_or_create(
-                    user=request.user,
-                    defaults={'balance': Decimal('0.00')}
+            # Get or create wallet for logged-in user
+            wallet, created = Wallet.objects.get_or_create(
+                user=request.user,
+                defaults={'balance': Decimal('0.00')}
+            )
+            
+            # Get MySetting for SMS price and character price
+            try:
+                my_setting = MySetting.objects.first()
+            except Exception as e:
+                logger.warning(f"Error getting MySetting: {str(e)}")
+                my_setting = None
+            
+            # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
+            sms_price = wallet.sms_price
+            if sms_price is None or sms_price == Decimal('0.00'):
+                if my_setting and my_setting.sms_price:
+                    sms_price = Decimal(str(my_setting.sms_price))
+                else:
+                    sms_price = Decimal('0.00')
+            
+            # Get SMS character price from MySetting (default: 160)
+            sms_character_price = 160  # Default value
+            if my_setting and my_setting.sms_character_price:
+                sms_character_price = int(my_setting.sms_character_price)
+            
+            # Calculate total cost based on character count
+            total_cost, character_count, sms_parts = calculate_sms_cost(
+                message=message,
+                sms_price=sms_price,
+                sms_character_price=sms_character_price,
+                num_recipients=len(phone_numbers)
+            )
+            
+            # Check if wallet balance is sufficient
+            if wallet.balance < total_cost:
+                return error_response(
+                    message=f"Insufficient wallet balance. Required: {total_cost}, Available: {wallet.balance}. Please top up your wallet first.",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
                 )
-                
-                # Get MySetting for SMS price and character price
+            
+            # Deduct balance before sending SMS
+            success = wallet.subtract_balance(
+                amount=total_cost,
+                description=f"School SMS to {len(phone_numbers)} recipients",
+                performed_by=request.user
+            )
+            
+            if not success:
+                return error_response(
+                    message="Failed to deduct from wallet balance. Please try again.",
+                    status_code=HTTP_STATUS['INTERNAL_ERROR']
+                )
+            
+            logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
+            
+            logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
+            
+            for phone_number in phone_numbers:
                 try:
-                    my_setting = MySetting.objects.first()
-                except Exception as e:
-                    logger.warning(f"Error getting MySetting: {str(e)}")
-                    my_setting = None
-                
-                # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
-                sms_price = wallet.sms_price
-                if sms_price is None or sms_price == Decimal('0.00'):
-                    if my_setting and my_setting.sms_price:
-                        sms_price = Decimal(str(my_setting.sms_price))
+                    # Clean phone number (remove spaces, etc.)
+                    clean_phone = str(phone_number).strip()
+                    if not clean_phone:
+                        continue
+                        
+                    sms_result = sms_service.send_sms(clean_phone, message)
+                    
+                    if sms_result.get('success'):
+                        sent_count += 1
+                        logger.info(f"SMS sent successfully to {clean_phone} for school SMS {school_sms.id}")
                     else:
-                        sms_price = Decimal('0.00')
-                
-                # Get SMS character price from MySetting (default: 160)
-                sms_character_price = 160  # Default value
-                if my_setting and my_setting.sms_character_price:
-                    sms_character_price = int(my_setting.sms_character_price)
-                
-                # Calculate total cost based on character count
-                total_cost, character_count, sms_parts = calculate_sms_cost(
-                    message=message,
-                    sms_price=sms_price,
-                    sms_character_price=sms_character_price,
-                    num_recipients=len(phone_numbers)
-                )
-                
-                # Check if wallet balance is sufficient
-                if wallet.balance < total_cost:
-                    return error_response(
-                        message=f"Insufficient wallet balance. Required: {total_cost}, Available: {wallet.balance}. Please top up your wallet first.",
-                        status_code=HTTP_STATUS['BAD_REQUEST']
-                    )
-                
-                # Deduct balance before sending SMS
-                success = wallet.subtract_balance(
-                    amount=total_cost,
-                    description=f"School SMS to {len(phone_numbers)} recipients",
-                    performed_by=request.user
-                )
-                
-                if not success:
-                    return error_response(
-                        message="Failed to deduct from wallet balance. Please try again.",
-                        status_code=HTTP_STATUS['INTERNAL_ERROR']
-                    )
-                
-                logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
-                
-                logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
-                
-                for phone_number in phone_numbers:
-                    try:
-                        # Clean phone number (remove spaces, etc.)
-                        clean_phone = str(phone_number).strip()
-                        if not clean_phone:
-                            continue
-                            
-                        sms_result = sms_service.send_sms(clean_phone, message)
-                        
-                        if sms_result.get('success'):
-                            sent_count += 1
-                            logger.info(f"SMS sent successfully to {clean_phone} for school SMS {school_sms.id}")
-                        else:
-                            failed_count += 1
-                            logger.warning(f"Failed to send SMS to {clean_phone} for school SMS {school_sms.id}: {sms_result.get('message')}")
-                        
-                        sms_results.append({
-                            'phone_number': clean_phone,
-                            'success': sms_result.get('success', False),
-                            'message': sms_result.get('message', 'Unknown error')
-                        })
-                    except Exception as e:
                         failed_count += 1
-                        logger.error(f"Error sending SMS to {phone_number} for school SMS {school_sms.id}: {str(e)}")
-                        sms_results.append({
-                            'phone_number': str(phone_number),
-                            'success': False,
-                            'message': str(e)
-                        })
-                
-                logger.info(f"SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
-            else:
-                logger.warning(f"No phone numbers provided for school SMS {school_sms.id}")
+                        logger.warning(f"Failed to send SMS to {clean_phone} for school SMS {school_sms.id}: {sms_result.get('message')}")
+                    
+                    sms_results.append({
+                        'phone_number': clean_phone,
+                        'success': sms_result.get('success', False),
+                        'message': sms_result.get('message', 'Unknown error')
+                    })
+                except Exception as e:
+                    failed_count += 1
+                    logger.error(f"Error sending SMS to {phone_number} for school SMS {school_sms.id}: {str(e)}")
+                    sms_results.append({
+                        'phone_number': str(phone_number),
+                        'success': False,
+                        'message': str(e)
+                    })
+            
+            logger.info(f"SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
+        else:
+            logger.warning(f"No phone numbers provided for school SMS {school_sms.id}")
             
             response_serializer = SchoolSMSSerializer(school_sms)
             response_data = response_serializer.data
