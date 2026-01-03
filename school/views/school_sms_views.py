@@ -159,9 +159,9 @@ def create_school_sms(request, institute_id):
         # Explicitly remove any id or institute fields if they exist
         # (defensive programming - shouldn't be needed but ensures safety)
         if 'id' in request.data:
-            logger.warning(f"Request data contains 'id' field: {request.data.get('id')} - ignoring")
+            print(f"[WARNING] Request data contains 'id' field: {request.data.get('id')} - ignoring")
         if 'institute' in request.data:
-            logger.warning(f"Request data contains 'institute' field: {request.data.get('institute')} - ignoring (using URL parameter)")
+            print(f"[WARNING] Request data contains 'institute' field: {request.data.get('institute')} - ignoring (using URL parameter)")
         
         # 4. Validate message and phone_numbers using serializer
         serializer = SchoolSMSCreateSerializer(data=serializer_data)
@@ -175,9 +175,9 @@ def create_school_sms(request, institute_id):
         
         # 5. Create SchoolSMS directly with Institute instance
         # Use manual instance creation to avoid any automatic field processing
-        logger.info(f"Creating SchoolSMS: institute_id={institute.id}, message_length={len(serializer.validated_data['message'])}, phone_count={len(serializer.validated_data['phone_numbers'])}")
-        logger.debug(f"Request data keys: {list(request.data.keys())}")
-        logger.debug(f"Request data: {request.data}")
+        print(f"[INFO] Creating SchoolSMS: institute_id={institute.id}, message_length={len(serializer.validated_data['message'])}, phone_count={len(serializer.validated_data['phone_numbers'])}")
+        print(f"[DEBUG] Request data keys: {list(request.data.keys())}")
+        print(f"[DEBUG] Request data: {request.data}")
         
         # Create instance manually to have full control
         school_sms = SchoolSMS()
@@ -189,19 +189,19 @@ def create_school_sms(request, institute_id):
         
         # Double-check that institute is valid and has a valid id
         if not institute or not hasattr(institute, 'id') or institute.id <= 0:
-            logger.error(f"ERROR: Invalid institute: {institute}, id: {getattr(institute, 'id', 'NO_ID')}")
+            print(f"[ERROR] Invalid institute: {institute}, id: {getattr(institute, 'id', 'NO_ID')}")
             return error_response(
                 message="Invalid institute instance",
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
         
-        logger.debug(f"Before save - school_sms.id: {school_sms.id}, institute.id: {institute.id}")
+        print(f"[DEBUG] Before save - school_sms.id: {school_sms.id}, institute.id: {institute.id}")
         
         try:
             school_sms.save()
         except Exception as save_error:
-            logger.error(f"Error during school_sms.save(): {str(save_error)}")
-            logger.error(f"school_sms.__dict__: {school_sms.__dict__}")
+            print(f"[ERROR] Error during school_sms.save(): {str(save_error)}")
+            print(f"[ERROR] school_sms.__dict__: {school_sms.__dict__}")
             raise
         
         # 6. Send SMS to all phone numbers
@@ -222,7 +222,7 @@ def create_school_sms(request, institute_id):
             try:
                 my_setting = MySetting.objects.first()
             except Exception as e:
-                logger.warning(f"Error getting MySetting: {str(e)}")
+                print(f"[WARNING] Error getting MySetting: {str(e)}")
                 my_setting = None
             
             # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
@@ -266,9 +266,9 @@ def create_school_sms(request, institute_id):
                     status_code=HTTP_STATUS['INTERNAL_ERROR']
                 )
             
-            logger.info(f"Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
+            print(f"[INFO] Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
             
-            logger.info(f"Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
+            print(f"[INFO] Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
             
             for phone_number in phone_numbers:
                 try:
@@ -281,10 +281,10 @@ def create_school_sms(request, institute_id):
                     
                     if sms_result.get('success'):
                         sent_count += 1
-                        logger.info(f"SMS sent successfully to {clean_phone} for school SMS {school_sms.id}")
+                        print(f"[INFO] SMS sent successfully to {clean_phone} for school SMS {school_sms.id}")
                     else:
                         failed_count += 1
-                        logger.warning(f"Failed to send SMS to {clean_phone} for school SMS {school_sms.id}: {sms_result.get('message')}")
+                        print(f"[WARNING] Failed to send SMS to {clean_phone} for school SMS {school_sms.id}: {sms_result.get('message')}")
                     
                     sms_results.append({
                         'phone_number': clean_phone,
@@ -293,16 +293,16 @@ def create_school_sms(request, institute_id):
                     })
                 except Exception as e:
                     failed_count += 1
-                    logger.error(f"Error sending SMS to {phone_number} for school SMS {school_sms.id}: {str(e)}")
+                    print(f"[ERROR] Error sending SMS to {phone_number} for school SMS {school_sms.id}: {str(e)}")
                     sms_results.append({
                         'phone_number': str(phone_number),
                         'success': False,
                         'message': str(e)
                     })
             
-            logger.info(f"SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
+            print(f"[INFO] SMS sending completed for school SMS {school_sms.id}: {sent_count} sent, {failed_count} failed")
         else:
-            logger.warning(f"No phone numbers provided for school SMS {school_sms.id}")
+            print(f"[WARNING] No phone numbers provided for school SMS {school_sms.id}")
         
         # Build response (regardless of whether phone numbers exist)
         response_serializer = SchoolSMSSerializer(school_sms)
@@ -328,7 +328,7 @@ def create_school_sms(request, institute_id):
             status_code=HTTP_STATUS['CREATED']
         )
     except Exception as e:
-        logger.error(f"Error creating school SMS: {str(e)}")
+        print(f"[ERROR] Error creating school SMS: {str(e)}")
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
