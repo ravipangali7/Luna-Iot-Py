@@ -56,6 +56,18 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Message cannot be empty")
         return value.strip()
+    
+    def validate_institute(self, value):
+        """Validate institute is a valid positive integer"""
+        if value is None:
+            raise serializers.ValidationError("Institute is required")
+        if value == 0:
+            raise serializers.ValidationError("Institute ID cannot be 0")
+        # Check if institute exists
+        from core.models import Institute
+        if not Institute.objects.filter(id=value).exists():
+            raise serializers.ValidationError(f"Institute with ID {value} does not exist")
+        return value
 
 
 class SchoolSMSListSerializer(serializers.ModelSerializer):

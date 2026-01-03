@@ -138,6 +138,14 @@ def create_school_sms(request):
         serializer = SchoolSMSCreateSerializer(data=request.data)
         
         if serializer.is_valid():
+            # Additional validation: ensure institute is valid before saving
+            institute_id = serializer.validated_data.get('institute')
+            if institute_id is None or institute_id == 0:
+                return error_response(
+                    message="Invalid institute ID. Institute is required and cannot be 0.",
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
+            
             school_sms = serializer.save()
             
             # Send SMS to all phone numbers
