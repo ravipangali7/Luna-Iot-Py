@@ -238,10 +238,52 @@ def create_school_sms(request, institute_id):
                 if phone and token:
                     try:
                         from core.models.user import User
+                        print(f"[DEBUG] Re-fetching user with phone: {phone}")
                         user = User.objects.get(phone=phone)
+                        
+                        # Comprehensive debugging of user object
+                        print(f"[DEBUG] Fetched user object:")
+                        print(f"[DEBUG]   - user.id: {user.id}")
+                        print(f"[DEBUG]   - user.pk: {user.pk}")
+                        print(f"[DEBUG]   - user.phone: {user.phone}")
+                        print(f"[DEBUG]   - user.is_active: {user.is_active}")
+                        print(f"[DEBUG]   - user.__dict__ keys: {list(user.__dict__.keys())}")
+                        if 'id' in user.__dict__:
+                            print(f"[DEBUG]   - user.__dict__['id']: {user.__dict__.get('id')}")
+                        if '_state' in user.__dict__:
+                            print(f"[DEBUG]   - user._state.adding: {user._state.adding}")
+                            print(f"[DEBUG]   - user._state.db: {user._state.db}")
+                        
+                        # Try to get ID using alternative methods
+                        user_id = getattr(user, 'id', None)
+                        user_pk = getattr(user, 'pk', None)
+                        print(f"[DEBUG]   - getattr(user, 'id'): {user_id}")
+                        print(f"[DEBUG]   - getattr(user, 'pk'): {user_pk}")
+                        
+                        # Check if user actually has id=0 in database by querying directly
+                        user_from_db = User.objects.filter(phone=phone).values('id', 'phone', 'is_active').first()
+                        if user_from_db:
+                            print(f"[DEBUG]   - Direct DB query result: {user_from_db}")
+                            db_user_id = user_from_db.get('id')
+                            if db_user_id and db_user_id > 0:
+                                # If DB has valid ID but user object doesn't, refresh the user
+                                print(f"[DEBUG]   - DB has valid ID {db_user_id}, refreshing user object")
+                                user.refresh_from_db()
+                                print(f"[DEBUG]   - After refresh: user.id={user.id}, user.pk={user.pk}")
+                        
                         if user.token == token and user.is_active:
-                            request.user = user
-                            print(f"[INFO] User re-fetched successfully: user.id={user.id}")
+                            # Use pk if id is 0 but pk is valid
+                            final_user_id = user.pk if (user.pk and user.pk > 0) else (user.id if (user.id and user.id > 0) else None)
+                            
+                            if final_user_id and final_user_id > 0:
+                                request.user = user
+                                print(f"[INFO] User re-fetched successfully: user.id={user.id}, user.pk={user.pk}, using_id={final_user_id}")
+                            else:
+                                print(f"[ERROR] User has invalid ID even after refresh: id={user.id}, pk={user.pk}")
+                                return error_response(
+                                    message="User account has invalid ID. Please contact administrator.",
+                                    status_code=HTTP_STATUS.get('INTERNAL_ERROR', 500)
+                                )
                         else:
                             print(f"[ERROR] Token mismatch or user inactive after re-fetch")
                             return error_response(
