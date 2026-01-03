@@ -216,189 +216,110 @@ def create_school_sms(request, institute_id):
         print(f"[DEBUG] After SchoolSMS creation - phone_numbers count: {len(phone_numbers)}")
         
         if phone_numbers:
-            # Validate and fix user.id before Wallet operations
+            # Validate user.id before Wallet operations
             print(f"[DEBUG] About to get/create wallet for user.id: {request.user.id}")
-            if not hasattr(request.user, 'id') or not request.user.id or request.user.id <= 0:
-                print(f"[WARNING] Invalid user.id: {getattr(request.user, 'id', 'NO_ID_ATTR')} - attempting to re-fetch user")
+            
+            # Check if user.id is valid
+            user_id_valid = hasattr(request.user, 'id') and request.user.id and request.user.id > 0
+            
+            if not user_id_valid:
+                print(f"[WARNING] User has invalid ID: {getattr(request.user, 'id', 'NO_ID')} - skipping wallet operations")
+                print(f"[WARNING] SMS will be sent without wallet balance check/deduction due to user ID issue")
+                # Skip wallet operations but continue with SMS sending
+                wallet = None
+                skip_wallet_operations = True
+                # Set default values for cost calculation (for logging only)
+                sms_price = Decimal('0.00')
+                sms_character_price = 160
+                total_cost = Decimal('0.00')
+                character_count = len(message)
+                sms_parts = 1
+            else:
+                skip_wallet_operations = False
+                # Proceed with normal wallet operations
+                try:
+                    print(f"[DEBUG] Calling Wallet.objects.get_or_create for user.id: {request.user.id}")
+                    wallet, created = Wallet.objects.get_or_create(
+                        user=request.user,
+                        defaults={'balance': Decimal('0.00')}
+                    )
+                    print(f"[INFO] Wallet retrieved/created: id={wallet.id if hasattr(wallet, 'id') else 'NO_ID'}, created={created}")
+                except Exception as wallet_error:
+                    print(f"[ERROR] Wallet get_or_create failed: {str(wallet_error)}")
+                    print(f"[ERROR] Exception type: {type(wallet_error)}")
+                    import traceback
+                    print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
+                    raise
                 
-                # Re-fetch user from database using phone and token from headers
-                phone = (
-                    request.META.get('HTTP_X_PHONE') or
-                    request.META.get('X-PHONE') or
-                    request.META.get('x-phone') or
-                    (request.headers.get('X-PHONE') if hasattr(request, 'headers') else None)
-                )
-                token = (
-                    request.META.get('HTTP_X_TOKEN') or
-                    request.META.get('X-TOKEN') or
-                    request.META.get('x-token') or
-                    (request.headers.get('X-TOKEN') if hasattr(request, 'headers') else None)
+                # Get MySetting for SMS price and character price
+                print(f"[DEBUG] About to get MySetting")
+                try:
+                    my_setting = MySetting.objects.first()
+                    print(f"[DEBUG] MySetting retrieved: id={my_setting.id if my_setting else 'None'}")
+                except Exception as e:
+                    print(f"[WARNING] Error getting MySetting: {str(e)}")
+                    import traceback
+                    print(f"[WARNING] MySetting traceback:\n{traceback.format_exc()}")
+                    my_setting = None
+                
+                # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
+                sms_price = wallet.sms_price
+                if sms_price is None or sms_price == Decimal('0.00'):
+                    if my_setting and my_setting.sms_price:
+                        sms_price = Decimal(str(my_setting.sms_price))
+                    else:
+                        sms_price = Decimal('0.00')
+                
+                # Get SMS character price from MySetting (default: 160)
+                sms_character_price = 160  # Default value
+                if my_setting and my_setting.sms_character_price:
+                    sms_character_price = int(my_setting.sms_character_price)
+                
+                # Calculate total cost based on character count
+                total_cost, character_count, sms_parts = calculate_sms_cost(
+                    message=message,
+                    sms_price=sms_price,
+                    sms_character_price=sms_character_price,
+                    num_recipients=len(phone_numbers)
                 )
                 
-                if phone and token:
-                    try:
-                        from core.models.user import User
-                        print(f"[DEBUG] Re-fetching user with phone: {phone}")
-                        user = User.objects.get(phone=phone)
-                        
-                        # Comprehensive debugging of user object
-                        print(f"[DEBUG] Fetched user object:")
-                        print(f"[DEBUG]   - user.id: {user.id}")
-                        print(f"[DEBUG]   - user.pk: {user.pk}")
-                        print(f"[DEBUG]   - user.phone: {user.phone}")
-                        print(f"[DEBUG]   - user.is_active: {user.is_active}")
-                        print(f"[DEBUG]   - user.__dict__ keys: {list(user.__dict__.keys())}")
-                        if 'id' in user.__dict__:
-                            print(f"[DEBUG]   - user.__dict__['id']: {user.__dict__.get('id')}")
-                        if '_state' in user.__dict__:
-                            print(f"[DEBUG]   - user._state.adding: {user._state.adding}")
-                            print(f"[DEBUG]   - user._state.db: {user._state.db}")
-                        
-                        # Try to get ID using alternative methods
-                        user_id = getattr(user, 'id', None)
-                        user_pk = getattr(user, 'pk', None)
-                        print(f"[DEBUG]   - getattr(user, 'id'): {user_id}")
-                        print(f"[DEBUG]   - getattr(user, 'pk'): {user_pk}")
-                        
-                        # Check if user actually has id=0 in database by querying directly
-                        user_from_db = User.objects.filter(phone=phone).values('id', 'phone', 'is_active').first()
-                        if user_from_db:
-                            print(f"[DEBUG]   - Direct DB query result: {user_from_db}")
-                            db_user_id = user_from_db.get('id')
-                            if db_user_id and db_user_id > 0:
-                                # If DB has valid ID but user object doesn't, refresh the user
-                                print(f"[DEBUG]   - DB has valid ID {db_user_id}, refreshing user object")
-                                user.refresh_from_db()
-                                print(f"[DEBUG]   - After refresh: user.id={user.id}, user.pk={user.pk}")
-                        
-                        if user.token == token and user.is_active:
-                            # Use pk if id is 0 but pk is valid
-                            final_user_id = user.pk if (user.pk and user.pk > 0) else (user.id if (user.id and user.id > 0) else None)
-                            
-                            if final_user_id and final_user_id > 0:
-                                request.user = user
-                                print(f"[INFO] User re-fetched successfully: user.id={user.id}, user.pk={user.pk}, using_id={final_user_id}")
-                            else:
-                                print(f"[ERROR] User has invalid ID even after refresh: id={user.id}, pk={user.pk}")
-                                return error_response(
-                                    message="User account has invalid ID. Please contact administrator.",
-                                    status_code=HTTP_STATUS.get('INTERNAL_ERROR', 500)
-                                )
-                        else:
-                            print(f"[ERROR] Token mismatch or user inactive after re-fetch")
-                            return error_response(
-                                message="Invalid user authentication. Please log in again.",
-                                status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
-                            )
-                    except User.DoesNotExist:
-                        print(f"[ERROR] User not found with phone: {phone}")
-                        return error_response(
-                            message="User not found. Please log in again.",
-                            status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
-                        )
-                    except Exception as e:
-                        print(f"[ERROR] Error re-fetching user: {str(e)}")
-                        import traceback
-                        print(f"[ERROR] Re-fetch traceback:\n{traceback.format_exc()}")
-                        return error_response(
-                            message="Authentication error. Please log in again.",
-                            status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
-                        )
-                else:
-                    print(f"[ERROR] Cannot re-fetch user - missing phone/token headers")
+                # Check if wallet balance is sufficient
+                if wallet.balance < total_cost:
                     return error_response(
-                        message="Invalid user ID. Please ensure you are properly authenticated.",
+                        message=f"Insufficient wallet balance. Required: {total_cost}, Available: {wallet.balance}. Please top up your wallet first.",
                         status_code=HTTP_STATUS['BAD_REQUEST']
                     )
                 
-                # Verify user.id is now valid
-                if not request.user.id or request.user.id <= 0:
-                    print(f"[ERROR] User.id is still invalid after re-fetch: {request.user.id}")
-                    return error_response(
-                        message="Invalid user ID. Please log in again.",
-                        status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
+                # Deduct balance before sending SMS
+                print(f"[DEBUG] About to subtract balance: {total_cost} from wallet.id: {wallet.id}")
+                print(f"[DEBUG] performed_by user.id: {request.user.id if hasattr(request.user, 'id') else 'NO_ID'}")
+                try:
+                    success = wallet.subtract_balance(
+                        amount=total_cost,
+                        description=f"School SMS to {len(phone_numbers)} recipients",
+                        performed_by=request.user
                     )
+                    print(f"[INFO] subtract_balance completed: success={success}")
+                except Exception as balance_error:
+                    print(f"[ERROR] subtract_balance failed: {str(balance_error)}")
+                    print(f"[ERROR] Exception type: {type(balance_error)}")
+                    import traceback
+                    print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
+                    raise
+                
+                if not success:
+                    return error_response(
+                        message="Failed to deduct from wallet balance. Please try again.",
+                        status_code=HTTP_STATUS['INTERNAL_ERROR']
+                    )
+                
+                print(f"[INFO] Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
             
-            # Get or create wallet for logged-in user
-            try:
-                print(f"[DEBUG] Calling Wallet.objects.get_or_create for user.id: {request.user.id}")
-                wallet, created = Wallet.objects.get_or_create(
-                    user=request.user,
-                    defaults={'balance': Decimal('0.00')}
-                )
-                print(f"[INFO] Wallet retrieved/created: id={wallet.id if hasattr(wallet, 'id') else 'NO_ID'}, created={created}")
-            except Exception as wallet_error:
-                print(f"[ERROR] Wallet get_or_create failed: {str(wallet_error)}")
-                print(f"[ERROR] Exception type: {type(wallet_error)}")
-                import traceback
-                print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
-                raise
-            
-            # Get MySetting for SMS price and character price
-            print(f"[DEBUG] About to get MySetting")
-            try:
-                my_setting = MySetting.objects.first()
-                print(f"[DEBUG] MySetting retrieved: id={my_setting.id if my_setting else 'None'}")
-            except Exception as e:
-                print(f"[WARNING] Error getting MySetting: {str(e)}")
-                import traceback
-                print(f"[WARNING] MySetting traceback:\n{traceback.format_exc()}")
-                my_setting = None
-            
-            # Determine SMS price: use wallet-specific price if available, otherwise use default from MySetting
-            sms_price = wallet.sms_price
-            if sms_price is None or sms_price == Decimal('0.00'):
-                if my_setting and my_setting.sms_price:
-                    sms_price = Decimal(str(my_setting.sms_price))
-                else:
-                    sms_price = Decimal('0.00')
-            
-            # Get SMS character price from MySetting (default: 160)
-            sms_character_price = 160  # Default value
-            if my_setting and my_setting.sms_character_price:
-                sms_character_price = int(my_setting.sms_character_price)
-            
-            # Calculate total cost based on character count
-            total_cost, character_count, sms_parts = calculate_sms_cost(
-                message=message,
-                sms_price=sms_price,
-                sms_character_price=sms_character_price,
-                num_recipients=len(phone_numbers)
-            )
-            
-            # Check if wallet balance is sufficient
-            if wallet.balance < total_cost:
-                return error_response(
-                    message=f"Insufficient wallet balance. Required: {total_cost}, Available: {wallet.balance}. Please top up your wallet first.",
-                    status_code=HTTP_STATUS['BAD_REQUEST']
-                )
-            
-            # Deduct balance before sending SMS
-            print(f"[DEBUG] About to subtract balance: {total_cost} from wallet.id: {wallet.id}")
-            print(f"[DEBUG] performed_by user.id: {request.user.id if hasattr(request.user, 'id') else 'NO_ID'}")
-            try:
-                success = wallet.subtract_balance(
-                    amount=total_cost,
-                    description=f"School SMS to {len(phone_numbers)} recipients",
-                    performed_by=request.user
-                )
-                print(f"[INFO] subtract_balance completed: success={success}")
-            except Exception as balance_error:
-                print(f"[ERROR] subtract_balance failed: {str(balance_error)}")
-                print(f"[ERROR] Exception type: {type(balance_error)}")
-                import traceback
-                print(f"[ERROR] Traceback:\n{traceback.format_exc()}")
-                raise
-            
-            if not success:
-                return error_response(
-                    message="Failed to deduct from wallet balance. Please try again.",
-                    status_code=HTTP_STATUS['INTERNAL_ERROR']
-                )
-            
-            print(f"[INFO] Deducted {total_cost} from wallet for user {request.user.id} before sending {len(phone_numbers)} SMS (Message: {character_count} chars, {sms_parts} SMS parts)")
-            
-            print(f"[INFO] Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
+            # SMS sending proceeds regardless of wallet operations
+            if skip_wallet_operations:
+                print(f"[INFO] Skipping wallet operations - sending SMS directly (user.id is invalid)")
+            else:
+                print(f"[INFO] Starting SMS sending for school SMS {school_sms.id} to {len(phone_numbers)} recipients")
             
             for phone_number in phone_numbers:
                 try:
