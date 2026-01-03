@@ -216,14 +216,66 @@ def create_school_sms(request, institute_id):
         print(f"[DEBUG] After SchoolSMS creation - phone_numbers count: {len(phone_numbers)}")
         
         if phone_numbers:
-            # Validate user.id before Wallet operations
+            # Validate and fix user.id before Wallet operations
             print(f"[DEBUG] About to get/create wallet for user.id: {request.user.id}")
             if not hasattr(request.user, 'id') or not request.user.id or request.user.id <= 0:
-                print(f"[ERROR] Invalid user.id: {getattr(request.user, 'id', 'NO_ID_ATTR')}")
-                return error_response(
-                    message="Invalid user ID. Please ensure you are properly authenticated.",
-                    status_code=HTTP_STATUS['BAD_REQUEST']
+                print(f"[WARNING] Invalid user.id: {getattr(request.user, 'id', 'NO_ID_ATTR')} - attempting to re-fetch user")
+                
+                # Re-fetch user from database using phone and token from headers
+                phone = (
+                    request.META.get('HTTP_X_PHONE') or
+                    request.META.get('X-PHONE') or
+                    request.META.get('x-phone') or
+                    (request.headers.get('X-PHONE') if hasattr(request, 'headers') else None)
                 )
+                token = (
+                    request.META.get('HTTP_X_TOKEN') or
+                    request.META.get('X-TOKEN') or
+                    request.META.get('x-token') or
+                    (request.headers.get('X-TOKEN') if hasattr(request, 'headers') else None)
+                )
+                
+                if phone and token:
+                    try:
+                        from core.models.user import User
+                        user = User.objects.get(phone=phone)
+                        if user.token == token and user.is_active:
+                            request.user = user
+                            print(f"[INFO] User re-fetched successfully: user.id={user.id}")
+                        else:
+                            print(f"[ERROR] Token mismatch or user inactive after re-fetch")
+                            return error_response(
+                                message="Invalid user authentication. Please log in again.",
+                                status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
+                            )
+                    except User.DoesNotExist:
+                        print(f"[ERROR] User not found with phone: {phone}")
+                        return error_response(
+                            message="User not found. Please log in again.",
+                            status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
+                        )
+                    except Exception as e:
+                        print(f"[ERROR] Error re-fetching user: {str(e)}")
+                        import traceback
+                        print(f"[ERROR] Re-fetch traceback:\n{traceback.format_exc()}")
+                        return error_response(
+                            message="Authentication error. Please log in again.",
+                            status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
+                        )
+                else:
+                    print(f"[ERROR] Cannot re-fetch user - missing phone/token headers")
+                    return error_response(
+                        message="Invalid user ID. Please ensure you are properly authenticated.",
+                        status_code=HTTP_STATUS['BAD_REQUEST']
+                    )
+                
+                # Verify user.id is now valid
+                if not request.user.id or request.user.id <= 0:
+                    print(f"[ERROR] User.id is still invalid after re-fetch: {request.user.id}")
+                    return error_response(
+                        message="Invalid user ID. Please log in again.",
+                        status_code=HTTP_STATUS.get('UNAUTHORIZED', 401)
+                    )
             
             # Get or create wallet for logged-in user
             try:
