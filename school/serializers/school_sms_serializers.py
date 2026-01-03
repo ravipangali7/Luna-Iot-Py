@@ -69,6 +69,24 @@ class SchoolSMSCreateSerializer(serializers.ModelSerializer):
         if not Institute.objects.filter(id=value).exists():
             raise serializers.ValidationError(f"Institute with ID {value} does not exist")
         return value
+    
+    def create(self, validated_data):
+        """Create SchoolSMS instance, converting institute ID to Institute instance"""
+        from core.models import Institute
+        
+        # Extract institute ID from validated_data
+        institute_id = validated_data.pop('institute')
+        
+        # Get the Institute instance
+        institute = Institute.objects.get(id=institute_id)
+        
+        # Create SchoolSMS with Institute instance
+        school_sms = SchoolSMS.objects.create(
+            institute=institute,
+            **validated_data
+        )
+        
+        return school_sms
 
 
 class SchoolSMSListSerializer(serializers.ModelSerializer):
