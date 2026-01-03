@@ -174,11 +174,35 @@ def create_school_sms(request, institute_id):
             )
         
         # 5. Create SchoolSMS directly with Institute instance
-        school_sms = SchoolSMS.objects.create(
-            institute=institute,  # Always a valid Institute instance
-            message=serializer.validated_data['message'],
-            phone_numbers=serializer.validated_data['phone_numbers']
-        )
+        # Use manual instance creation to avoid any automatic field processing
+        logger.info(f"Creating SchoolSMS: institute_id={institute.id}, message_length={len(serializer.validated_data['message'])}, phone_count={len(serializer.validated_data['phone_numbers'])}")
+        logger.debug(f"Request data keys: {list(request.data.keys())}")
+        logger.debug(f"Request data: {request.data}")
+        
+        # Create instance manually to have full control
+        school_sms = SchoolSMS()
+        # Explicitly ensure id is None (should be None for new instance, but force it)
+        school_sms.id = None
+        school_sms.institute = institute
+        school_sms.message = serializer.validated_data['message']
+        school_sms.phone_numbers = serializer.validated_data['phone_numbers']
+        
+        # Double-check that institute is valid and has a valid id
+        if not institute or not hasattr(institute, 'id') or institute.id <= 0:
+            logger.error(f"ERROR: Invalid institute: {institute}, id: {getattr(institute, 'id', 'NO_ID')}")
+            return error_response(
+                message="Invalid institute instance",
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        logger.debug(f"Before save - school_sms.id: {school_sms.id}, institute.id: {institute.id}")
+        
+        try:
+            school_sms.save()
+        except Exception as save_error:
+            logger.error(f"Error during school_sms.save(): {str(save_error)}")
+            logger.error(f"school_sms.__dict__: {school_sms.__dict__}")
+            raise
         
         # 6. Send SMS to all phone numbers
         phone_numbers = school_sms.phone_numbers if school_sms.phone_numbers else []
