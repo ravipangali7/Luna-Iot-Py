@@ -3,6 +3,11 @@ Phone Book Number Views
 Handles phone book number management endpoints
 """
 from rest_framework.decorators import api_view
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from io import BytesIO
+from openpyxl import Workbook
 from phone_call.models import PhoneBookNumber, PhoneBook
 from phone_call.serializers import (
     PhoneBookNumberSerializer,
@@ -10,6 +15,7 @@ from phone_call.serializers import (
     PhoneBookNumberUpdateSerializer,
     PhoneBookNumberListSerializer
 )
+from phone_call.services.phone_book_number_importer import PhoneBookNumberImporter
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
@@ -395,6 +401,131 @@ def bulk_create_phone_book_numbers(request, phone_book_id):
             message=str(e),
             status_code=HTTP_STATUS['NOT_FOUND']
         )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@require_auth
+@require_phone_book_number_access('phone_book_id')
+@api_response
+def upload_phone_book_numbers_excel(request, phone_book_id):
+    """Upload Excel/CSV file to import phone book numbers"""
+    try:
+        try:
+            phone_book = PhoneBook.objects.get(id=phone_book_id)
+        except PhoneBook.DoesNotExist:
+            raise NotFoundError("Phone book not found")
+        
+        if 'file' not in request.FILES:
+            return error_response(
+                message='No file provided',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        uploaded_file = request.FILES['file']
+        file_name = uploaded_file.name.lower()
+        
+        # Determine file type
+        if file_name.endswith('.csv'):
+            file_type = 'csv'
+        elif file_name.endswith('.xlsx') or file_name.endswith('.xls'):
+            file_type = 'xlsx'
+        else:
+            return error_response(
+                message='Unsupported file type. Please upload CSV or XLSX file.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Validate file size (max 10MB)
+        if uploaded_file.size > 10 * 1024 * 1024:
+            return error_response(
+                message='File size exceeds 10MB limit',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        
+        # Import data
+        importer = PhoneBookNumberImporter()
+        result = importer.import_phone_book_numbers(uploaded_file, phone_book_id, file_type)
+        
+        if result.get('success', False):
+            return success_response(
+                data=result,
+                message=f"Import completed. {result.get('successful', 0)} contacts imported, {result.get('failed', 0)} failed"
+            )
+        else:
+            return error_response(
+                result.get('error', 'Import failed'),
+                HTTP_STATUS['BAD_REQUEST'],
+                data=result
+            )
+    
+    except NotFoundError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['NOT_FOUND']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
+            data=str(e)
+        )
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+@require_auth
+@require_phone_book_number_access('phone_book_id')
+def download_phone_book_template(request, phone_book_id):
+    """Download Excel template file for phone book numbers"""
+    try:
+        try:
+            phone_book = PhoneBook.objects.get(id=phone_book_id)
+        except PhoneBook.DoesNotExist:
+            return error_response(
+                message='Phone book not found',
+                status_code=HTTP_STATUS['NOT_FOUND']
+            )
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Phone Book Template"
+        
+        # Add headers
+        ws['A1'] = 'Name'
+        ws['B1'] = 'Phone'
+        
+        # Make headers bold
+        from openpyxl.styles import Font
+        header_font = Font(bold=True)
+        ws['A1'].font = header_font
+        ws['B1'].font = header_font
+        
+        # Add sample rows
+        ws['A2'] = 'John Doe'
+        ws['B2'] = '1234567890'
+        ws['A3'] = 'Jane Smith'
+        ws['B3'] = '9876543210'
+        
+        # Create in-memory file
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Create HTTP response
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="phone_book_template.xlsx"'
+        
+        return response
+    
     except Exception as e:
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),

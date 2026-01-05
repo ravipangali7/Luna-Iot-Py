@@ -3046,9 +3046,8 @@ def export_vehicles_to_excel(request):
         wb.save(output)
         output.seek(0)
         
-        # Generate filename with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'vehicles_export_{timestamp}.xlsx'
+        # Set filename to GiftSample.xlsx
+        filename = 'GiftSample.xlsx'
         
         # Create HTTP response
         response = HttpResponse(
