@@ -119,7 +119,7 @@ class SMSService:
         Returns:
             Dict[str, Any]: Result containing success status and message
         """
-        message = f"SERVER,0,{server_ip},{port},0#"
+        message = f"SERVER,1,tcp.mylunago.com,6699,0#"
         return self.send_sms(phone_number, message)
     
     def send_reset_command(self, phone_number: str) -> Dict[str, Any]:

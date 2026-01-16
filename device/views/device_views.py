@@ -735,7 +735,7 @@ def send_server_point(request):
             )
         
         # Server point command message
-        server_point_message = 'SERVER,0,38.54.71.218,6666,0#'
+        server_point_message = 'SERVER,1,tcp.mylunago.com,6699,0#'
         
         # Send SMS using SMS service
         sms_result = sms_service.send_server_point_command(phone)
