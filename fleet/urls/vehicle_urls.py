@@ -5,6 +5,7 @@ urlpatterns = [
     # Main vehicle endpoints - specific patterns first
     path('vehicle', vehicle_views.get_all_vehicles, name='get_all_vehicles'),
     path('vehicle/detailed', vehicle_views.get_all_vehicles_detailed, name='get_all_vehicles_detailed'),
+    path('vehicle/filtered', vehicle_views.get_vehicles_filtered, name='get_vehicles_filtered'),
     path('vehicle/paginated', vehicle_views.get_vehicles_paginated, name='get_vehicles_paginated'),
     path('vehicle/search', vehicle_views.search_vehicles, name='search_vehicles'),
     path('vehicle/expire-search', vehicle_views.search_vehicles_by_expire, name='search_vehicles_by_expire'),
