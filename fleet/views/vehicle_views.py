@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 import json
 import re
+import logging
 
 from api_common.utils.response_utils import success_response, error_response
 from api_common.decorators.auth_decorators import require_auth, require_role
@@ -2178,28 +2179,43 @@ def get_vehicles_filtered(request):
             if target_state is not None:
                 # Filter vehicles by state
                 filtered_vehicles = []
+                logger = logging.getLogger(__name__)
+                
                 for vehicle in vehicles_list:
+                    # Defensive check: skip vehicles without IMEI
+                    if not vehicle or not hasattr(vehicle, 'imei') or not vehicle.imei:
+                        logger.warning(f"Skipping vehicle without IMEI: {vehicle}")
+                        continue
+                    
                     # Get latest status and location for this vehicle
                     try:
                         latest_status = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
-                    except Exception:
+                    except Exception as e:
+                        logger.error(f"Error fetching status for vehicle {vehicle.imei}: {e}")
                         latest_status = None
                     
                     try:
                         latest_location = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
-                    except Exception:
+                    except Exception as e:
+                        logger.error(f"Error fetching location for vehicle {vehicle.imei}: {e}")
                         latest_location = None
                     
-                    # Calculate vehicle state
-                    vehicle_state = VehicleStateService.get_vehicle_state(
-                        vehicle, 
-                        latest_status=latest_status, 
-                        latest_location=latest_location
-                    )
-                    
-                    # Add to filtered list if state matches
-                    if vehicle_state == target_state:
-                        filtered_vehicles.append(vehicle)
+                    # Calculate vehicle state with error handling
+                    try:
+                        vehicle_state = VehicleStateService.get_vehicle_state(
+                            vehicle, 
+                            latest_status=latest_status, 
+                            latest_location=latest_location
+                        )
+                        
+                        # Add to filtered list if state matches
+                        if vehicle_state == target_state:
+                            filtered_vehicles.append(vehicle)
+                    except Exception as e:
+                        # Log error but continue processing other vehicles
+                        logger.error(f"Error calculating state for vehicle {vehicle.imei}: {e}", exc_info=True)
+                        # Skip this vehicle and continue with next
+                        continue
                 
                 vehicles_list = filtered_vehicles
         
