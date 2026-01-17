@@ -22,6 +22,7 @@ from shared.models.recharge import Recharge
 from shared.models import SimBalance
 from shared_utils.constants import VehicleType
 from shared_utils.numeral_utils import get_search_variants
+from fleet.services.vehicle_state_service import VehicleStateService
 from datetime import datetime, timedelta
 import math
 from openpyxl import Workbook
@@ -1833,6 +1834,7 @@ def search_vehicles_with_access(request):
 def get_vehicles_paginated(request):
     """
     Get paginated vehicles with detailed data for table display (includes device, user, recharge info)
+    Supports filtering by vehicle state (All, Running, Idle, Stopped, Overspeed, Inactive, No Data)
     """
     try:
         user = request.user
@@ -1841,22 +1843,61 @@ def get_vehicles_paginated(request):
         page_number = int(request.GET.get('page', 1))
         page_size = 25  # Fixed page size as requested
         
-        # Get vehicles based on user role
+        # Get filter parameter
+        filter_param = request.GET.get('filter', 'All').strip()
+        
+        # Get vehicles based on user role (get ALL vehicles first, before filtering)
         user_group = user.groups.first()
         if user_group and user_group.name == 'Super Admin':
-            vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
+            all_vehicles = Vehicle.objects.select_related('device').prefetch_related('userVehicles__user').all()
         else:
             # Build query for vehicles where user has access
-            vehicles = Vehicle.objects.filter(
+            all_vehicles = Vehicle.objects.filter(
                 Q(userVehicles__user=user) |  # Direct vehicle access
                 Q(device__userDevices__user=user)  # Device access
             ).select_related('device').prefetch_related('userVehicles__user').distinct()
             
             # Exclude school bus vehicles for parents (they access via school bus endpoints)
-            vehicles = exclude_school_bus_for_parents(vehicles, user)
+            all_vehicles = exclude_school_bus_for_parents(all_vehicles, user)
         
-        # Create paginator
-        paginator = Paginator(vehicles, page_size)
+        # Convert queryset to list for filtering
+        vehicles_list = list(all_vehicles)
+        
+        # Filter by state if filter is not 'All'
+        if filter_param and filter_param != 'All':
+            # Map filter name to state value
+            target_state = VehicleStateService.map_filter_name_to_state(filter_param)
+            
+            if target_state is not None:
+                # Filter vehicles by state
+                filtered_vehicles = []
+                for vehicle in vehicles_list:
+                    # Get latest status and location for this vehicle
+                    try:
+                        latest_status = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                    except Exception:
+                        latest_status = None
+                    
+                    try:
+                        latest_location = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                    except Exception:
+                        latest_location = None
+                    
+                    # Calculate vehicle state
+                    vehicle_state = VehicleStateService.get_vehicle_state(
+                        vehicle, 
+                        latest_status=latest_status, 
+                        latest_location=latest_location
+                    )
+                    
+                    # Add to filtered list if state matches
+                    if vehicle_state == target_state:
+                        filtered_vehicles.append(vehicle)
+                
+                vehicles_list = filtered_vehicles
+        
+        # Create paginator with filtered vehicles
+        paginator = Paginator(vehicles_list, page_size)
         
         # Get the requested page
         try:

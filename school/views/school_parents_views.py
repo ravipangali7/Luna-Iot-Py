@@ -20,6 +20,7 @@ from fleet.models import Vehicle, UserVehicle
 from device.models import Device
 from device.models.location import Location
 from device.models.status import Status
+from fleet.services.vehicle_state_service import VehicleStateService
 from shared.models.recharge import Recharge
 from datetime import datetime
 import math
@@ -247,6 +248,7 @@ def get_my_school_vehicles(request):
     """
     Get vehicles associated with the logged-in school parent through school_parent -> school_buses -> vehicle relationship
     Returns paginated vehicle data with the same structure as get_vehicles_paginated()
+    Supports filtering by vehicle state (All, Running, Idle, Stopped, Overspeed, Inactive, No Data)
     """
     try:
         user = request.user
@@ -254,6 +256,9 @@ def get_my_school_vehicles(request):
         # Get page number from query parameters, default to 1
         page_number = int(request.GET.get('page', 1))
         page_size = 25  # Fixed page size to match frontend
+        
+        # Get filter parameter
+        filter_param = request.GET.get('filter', 'All').strip()
         
         # Check if user is a school parent
         school_parents = SchoolParent.objects.filter(parent=user).prefetch_related('school_buses__bus')
@@ -312,14 +317,50 @@ def get_my_school_vehicles(request):
                 'No school vehicles found for this user'
             )
         
-        # Get vehicles with complete data - only vehicles that are in school_buses
-        vehicles = Vehicle.objects.filter(
+        # Get vehicles with complete data - only vehicles that are in school_buses (get ALL first)
+        all_vehicles = Vehicle.objects.filter(
             id__in=vehicle_ids,
             is_active=True
         ).select_related('device').prefetch_related('userVehicles__user').distinct()
         
-        # Create paginator
-        paginator = Paginator(vehicles, page_size)
+        # Convert queryset to list for filtering
+        vehicles_list = list(all_vehicles)
+        
+        # Filter by state if filter is not 'All'
+        if filter_param and filter_param != 'All':
+            # Map filter name to state value
+            target_state = VehicleStateService.map_filter_name_to_state(filter_param)
+            
+            if target_state is not None:
+                # Filter vehicles by state
+                filtered_vehicles = []
+                for vehicle in vehicles_list:
+                    # Get latest status and location for this vehicle
+                    try:
+                        latest_status = Status.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                    except Exception:
+                        latest_status = None
+                    
+                    try:
+                        latest_location = Location.objects.filter(imei=vehicle.imei).order_by('-createdAt').first()
+                    except Exception:
+                        latest_location = None
+                    
+                    # Calculate vehicle state
+                    vehicle_state = VehicleStateService.get_vehicle_state(
+                        vehicle, 
+                        latest_status=latest_status, 
+                        latest_location=latest_location
+                    )
+                    
+                    # Add to filtered list if state matches
+                    if vehicle_state == target_state:
+                        filtered_vehicles.append(vehicle)
+                
+                vehicles_list = filtered_vehicles
+        
+        # Create paginator with filtered vehicles
+        paginator = Paginator(vehicles_list, page_size)
         
         # Get the requested page
         try:
