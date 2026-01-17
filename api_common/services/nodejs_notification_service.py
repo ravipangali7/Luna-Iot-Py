@@ -11,7 +11,7 @@ from shared.models import Notification, UserNotification
 logger = logging.getLogger(__name__)
 
 # Node.js API configuration
-NODEJS_API_BASE_URL = getattr(settings, 'NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
+NODEJS_API_BASE_URL = getattr(settings, 'NODEJS_API_BASE_URL', 'https://node.mylunago.com')
 NODEJS_PUSH_NOTIFICATION_ENDPOINT = f"{NODEJS_API_BASE_URL}/api/push-notification"
 
 def send_push_notification_via_nodejs(notification_id, title, message, target_user_ids=None):

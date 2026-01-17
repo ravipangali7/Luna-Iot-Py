@@ -18,7 +18,7 @@ class TCPService:
     
     def __init__(self):
         self.config = {
-            'API_BASE_URL': getattr(settings, 'NODEJS_API_BASE_URL', 'https://www.system.mylunago.com'),
+            'API_BASE_URL': getattr(settings, 'NODEJS_API_BASE_URL', 'https://node.mylunago.com'),
             'RELAY_COMMAND_ENDPOINT': '/api/relay-command'
         }
     

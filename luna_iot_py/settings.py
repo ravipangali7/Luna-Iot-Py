@@ -235,7 +235,7 @@ SMS_CAMPAIGN_ID = '9148'
 SMS_ROUTE_ID = '130'
 SMS_SENDER_ID = 'SMSBit'
 
-NODEJS_API_BASE_URL="https://www.system.mylunago.com"
+NODEJS_API_BASE_URL="https://node.mylunago.com"
 
 # TingTing API Configuration
 TINGTING_API_KEY = 'OAkAIaWCBzx6KE-CtavqcO-1MxKjXvd0RwchlQ2t_8lmAjOBiDePQn-jwVRUNvwj'
@@ -300,7 +300,7 @@ LOGGING = {
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
 
 # Node.js API Configuration
-NODEJS_API_BASE_URL = os.getenv('NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
+NODEJS_API_BASE_URL = os.getenv('NODEJS_API_BASE_URL', 'https://node.mylunago.com')
 
 # Cache Configuration
 # Use in-memory cache for development (locmem)

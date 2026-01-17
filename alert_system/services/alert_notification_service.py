@@ -10,7 +10,7 @@ from alert_system.models import AlertHistory, AlertRadar, AlertGeofence
 logger = logging.getLogger(__name__)
 
 # Node.js API configuration
-NODEJS_API_BASE_URL = getattr(settings, 'NODEJS_API_BASE_URL', 'https://www.system.mylunago.com')
+NODEJS_API_BASE_URL = getattr(settings, 'NODEJS_API_BASE_URL', 'https://node.mylunago.com')
 NODEJS_ALERT_NOTIFICATION_ENDPOINT = f"{NODEJS_API_BASE_URL}/api/alert-notification"
 
 
