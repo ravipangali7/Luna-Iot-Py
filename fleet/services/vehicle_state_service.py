@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from device.models.status import Status
 from device.models.location import Location
@@ -80,8 +80,8 @@ class VehicleStateService:
                     most_recent_timestamp = timezone.make_aware(most_recent_timestamp)
                 
                 # Convert both to UTC for safe comparison
-                now_utc = now.astimezone(timezone.utc)
-                timestamp_utc = most_recent_timestamp.astimezone(timezone.utc)
+                now_utc = now.astimezone(dt_timezone.utc)
+                timestamp_utc = most_recent_timestamp.astimezone(dt_timezone.utc)
                 
                 difference = now_utc - timestamp_utc
                 
