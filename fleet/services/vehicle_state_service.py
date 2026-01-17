@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from device.models.status import Status
 from device.models.location import Location
+import logging
 
 
 class VehicleStateService:
@@ -71,15 +72,28 @@ class VehicleStateService:
         
         # Check for inactive (no update in last 12 hours)
         if most_recent_timestamp is not None:
-            now = timezone.now()
-            # Ensure both are timezone-aware for comparison
-            if timezone.is_naive(most_recent_timestamp):
-                most_recent_timestamp = timezone.make_aware(most_recent_timestamp)
-            
-            difference = now - most_recent_timestamp
-            
-            if difference.total_seconds() > 12 * 3600:  # 12 hours in seconds
-                return VehicleStateService.INACTIVE
+            try:
+                now = timezone.now()  # timezone.now() always returns timezone-aware datetime
+                # Convert both to UTC to ensure they're in the same timezone for comparison
+                if timezone.is_naive(most_recent_timestamp):
+                    # Make naive datetime aware using default timezone
+                    most_recent_timestamp = timezone.make_aware(most_recent_timestamp)
+                
+                # Convert both to UTC for safe comparison
+                now_utc = now.astimezone(timezone.utc)
+                timestamp_utc = most_recent_timestamp.astimezone(timezone.utc)
+                
+                difference = now_utc - timestamp_utc
+                
+                if difference.total_seconds() > 12 * 3600:  # 12 hours in seconds
+                    return VehicleStateService.INACTIVE
+            except (ValueError, TypeError, AttributeError) as e:
+                # If timezone conversion fails, skip inactive check
+                # Log error for debugging but continue with state calculation
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Timezone conversion error for vehicle {vehicle.imei}: {e}")
+                # Continue without inactive check - will fall through to other state checks
+                pass
         
         # Check ignition status
         if latest_status is not None and latest_status.ignition is False:
