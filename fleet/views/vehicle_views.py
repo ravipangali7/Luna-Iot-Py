@@ -2303,7 +2303,9 @@ def get_vehicles_filtered(request):
             
             # Get latest recharge info
             try:
-                latest_recharge_obj = Recharge.objects.filter(device=vehicle.device).order_by('-createdAt').first()
+                latest_recharge_obj = None
+                if vehicle.device:  # Check if device exists before querying
+                    latest_recharge_obj = Recharge.objects.filter(device=vehicle.device).order_by('-createdAt').first()
                 latest_recharge = {
                     'id': latest_recharge_obj.id,
                     'deviceId': latest_recharge_obj.device.id,
