@@ -406,11 +406,16 @@ def instant_launch_campaign(request, campaign_id):
             )
         
         # Check if campaign has contacts
-        if not campaign_data.get('user_phone') or len(campaign_data.get('user_phone', [])) == 0:
-            return error_response(
-                message='Cannot launch a campaign without contacts. Please add contacts to the campaign first.',
-                status_code=HTTP_STATUS['BAD_REQUEST']
-            )
+        # Use campaign_action_count as it reflects the actual number of contacts
+        campaign_action_count = campaign_data.get('campaign_action_count', 0)
+        if campaign_action_count == 0:
+            # Fallback: also check user_phone for backward compatibility
+            user_phone = campaign_data.get('user_phone', [])
+            if not user_phone or len(user_phone) == 0:
+                return error_response(
+                    message='Cannot launch a campaign without contacts. Please add contacts to the campaign first.',
+                    status_code=HTTP_STATUS['BAD_REQUEST']
+                )
         
         # Use instant launch method which clears schedule and runs immediately
         result = tingting_service.instant_launch_campaign(campaign_id)
