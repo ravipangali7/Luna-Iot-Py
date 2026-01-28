@@ -13,11 +13,14 @@ from alert_system.serializers import (
     AlertGeofenceUpdateSerializer,
     AlertGeofenceListSerializer
 )
+from alert_system.services.geofence_boundary_import import file_to_geojson_boundary
 from api_common.utils.response_utils import success_response, error_response
 from api_common.constants.api_constants import SUCCESS_MESSAGES, ERROR_MESSAGES, HTTP_STATUS
 from api_common.decorators.response_decorators import api_response
 from api_common.decorators.auth_decorators import require_auth, require_super_admin
 from api_common.exceptions.api_exceptions import NotFoundError
+
+ALLOWED_IMPORT_EXTENSIONS = ('.kmz', '.kml', '.zip')
 
 
 @api_view(['GET'])
@@ -230,5 +233,44 @@ def get_sos_alert_geofences(request):
     except Exception as e:
         return error_response(
             message='Failed to retrieve SOS alert geofences',
+            data=str(e)
+        )
+
+
+@api_view(['POST'])
+@require_super_admin
+@api_response
+def import_boundary(request):
+    """
+    Import geofence boundary from file (.kmz, .kml, or .zip shapefile).
+    Returns GeoJSON Polygon or MultiPolygon in WGS84 [lng, lat] for use in create/update.
+    """
+    try:
+        if 'file' not in request.FILES:
+            return error_response(
+                message='No file provided. Upload a .kmz, .kml, or .zip (shapefile) file.',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        uploaded_file = request.FILES['file']
+        name = getattr(uploaded_file, 'name', '') or ''
+        ext = name.lower().rsplit('.', 1)[-1] if '.' in name else ''
+        if not any(name.lower().endswith(e) for e in ALLOWED_IMPORT_EXTENSIONS):
+            return error_response(
+                message='Unsupported file type. Use .kmz, .kml, or .zip (shapefile).',
+                status_code=HTTP_STATUS['BAD_REQUEST']
+            )
+        boundary = file_to_geojson_boundary(uploaded_file)
+        return success_response(
+            data={'boundary': boundary},
+            message='Boundary imported successfully'
+        )
+    except ValueError as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['BAD_REQUEST']
+        )
+    except Exception as e:
+        return error_response(
+            message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
         )
