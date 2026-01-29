@@ -2,6 +2,8 @@
 Alert History Serializers
 Handles serialization for alert history management endpoints
 """
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework import serializers
 from alert_system.models import AlertHistory
 from core.models import Institute
@@ -84,6 +86,51 @@ class AlertHistoryCreateSerializer(serializers.ModelSerializer):
         if value < -180 or value > 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180")
         return value
+    
+    def validate(self, attrs):
+        """
+        Cross-field validation for rate limiting.
+        For app source alerts, check if the same user (by phone) has sent
+        an alert of the same type within the last 5 minutes.
+        """
+        source = attrs.get('source')
+        primary_phone = attrs.get('primary_phone')
+        alert_type = attrs.get('alert_type')
+        
+        # Only apply rate limiting for app source alerts
+        if source == 'app' and primary_phone and alert_type:
+            five_mins_ago = timezone.now() - timedelta(minutes=5)
+            
+            # Check for recent alert of the same type from the same phone
+            recent_alert = AlertHistory.objects.filter(
+                source='app',
+                primary_phone=primary_phone,
+                alert_type=alert_type,
+                datetime__gte=five_mins_ago
+            ).order_by('-datetime').first()
+            
+            if recent_alert:
+                # Calculate remaining time
+                time_since_alert = timezone.now() - recent_alert.datetime
+                remaining_seconds = 300 - int(time_since_alert.total_seconds())  # 5 minutes = 300 seconds
+                
+                if remaining_seconds > 0:
+                    remaining_minutes = remaining_seconds // 60
+                    remaining_secs = remaining_seconds % 60
+                    
+                    if remaining_minutes > 0:
+                        time_str = f"{remaining_minutes} minute{'s' if remaining_minutes > 1 else ''}"
+                        if remaining_secs > 0:
+                            time_str += f" {remaining_secs} second{'s' if remaining_secs > 1 else ''}"
+                    else:
+                        time_str = f"{remaining_secs} second{'s' if remaining_secs > 1 else ''}"
+                    
+                    alert_type_name = alert_type.name if hasattr(alert_type, 'name') else str(alert_type)
+                    raise serializers.ValidationError({
+                        'rate_limit': f'Please wait {time_str} before sending another {alert_type_name} alert.'
+                    })
+        
+        return attrs
 
 
 class AlertHistoryUpdateSerializer(serializers.ModelSerializer):
