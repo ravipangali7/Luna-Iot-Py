@@ -225,22 +225,10 @@ def get_alert_history_statistics(request):
 def create_alert_history(request):
     """Create new alert history"""
     try:
-        # #region agent log
-        import json, os
-        log_path = r'c:\Mine\Projects\Luna_IOT\LUNA\.cursor\debug.log'
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        with open(log_path, 'a') as f:
-            f.write(json.dumps({"hypothesisId": "E", "location": "alert_history_views.py:create_alert_history", "message": "Request received", "data": {"content_type": request.content_type, "data_keys": list(request.data.keys()) if hasattr(request.data, 'keys') else str(type(request.data)), "files_keys": list(request.FILES.keys()) if request.FILES else [], "has_image_in_data": "image" in request.data if hasattr(request.data, '__contains__') else False, "image_type": str(type(request.data.get('image'))) if hasattr(request.data, 'get') and request.data.get('image') else None}}) + '\n')
-        # #endregion
-
         serializer = AlertHistoryCreateSerializer(data=request.data)
         
         if serializer.is_valid():
             history = serializer.save()
-            # #region agent log
-            with open(log_path, 'a') as f:
-                f.write(json.dumps({"hypothesisId": "E", "location": "alert_history_views.py:create_alert_history", "message": "Alert created successfully", "data": {"history_id": history.id, "has_image": bool(history.image), "image_path": str(history.image) if history.image else None}}) + '\n')
-            # #endregion
             response_serializer = AlertHistorySerializer(history)
             
             return success_response(
@@ -249,21 +237,12 @@ def create_alert_history(request):
                 status_code=HTTP_STATUS['CREATED']
             )
         else:
-            # #region agent log
-            with open(log_path, 'a') as f:
-                f.write(json.dumps({"hypothesisId": "E", "location": "alert_history_views.py:create_alert_history", "message": "Validation failed", "data": {"errors": serializer.errors}}) + '\n')
-            # #endregion
             return error_response(
                 message=ERROR_MESSAGES.get('VALIDATION_ERROR', 'Validation error'),
                 data=serializer.errors,
                 status_code=HTTP_STATUS['BAD_REQUEST']
             )
     except Exception as e:
-        # #region agent log
-        import traceback
-        with open(log_path, 'a') as f:
-            f.write(json.dumps({"hypothesisId": "E", "location": "alert_history_views.py:create_alert_history", "message": "Exception occurred", "data": {"error": str(e), "traceback": traceback.format_exc()}}) + '\n')
-        # #endregion
         return error_response(
             message=ERROR_MESSAGES.get('INTERNAL_ERROR', 'Internal server error'),
             data=str(e)
