@@ -311,6 +311,11 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
+        'tcp_service': {
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     },
 }
 
