@@ -79,7 +79,6 @@ class JT808Server:
             writer: StreamWriter for sending responses
         """
         addr = writer.get_extra_info('peername')
-        print(f"[JT808] NEW CONNECTION from {addr}", flush=True)
         logger.info(f"[JT808] New connection from {addr}")
         
         buffer = b""
@@ -95,9 +94,6 @@ class JT808Server:
                 
                 if not data:
                     break
-                
-                # Print raw received data
-                print(f"[JT808] RAW DATA from {addr}: {data.hex().upper()}", flush=True)
                 
                 buffer += data
                 
@@ -121,13 +117,11 @@ class JT808Server:
                     message_data = buffer[:end + 1]
                     buffer = buffer[end + 1:]
                     
-                    # Print complete message frame
-                    print(f"[JT808] MESSAGE FRAME: {message_data.hex().upper()}", flush=True)
-                    
                     # Parse and handle message
                     msg = parse_message(message_data)
                     if msg:
-                        print(f"[JT808] PARSED: msg_id=0x{msg.get('msg_id', 0):04X}, phone={msg.get('phone')}, seq={msg.get('seq_num')}", flush=True)
+                        # Log parsed message details
+                        logger.info(f"[JT808] Received: msg_id=0x{msg.get('msg_id', 0):04X}, phone={msg.get('phone')}, seq={msg.get('seq_num')}, body={msg.get('body', b'').hex().upper() if msg.get('body') else 'None'}")
                         phone = msg.get("phone", phone)
                         
                         # Store IP address for device
