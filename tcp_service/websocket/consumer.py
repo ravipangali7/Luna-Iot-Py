@@ -58,6 +58,7 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         - stop_live: Stop live video stream
         """
         action = content.get('action')
+        logger.info(f"[WebSocket] Received action: {action}, content: {content}")
         
         try:
             if action == 'get_devices':
