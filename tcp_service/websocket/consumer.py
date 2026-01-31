@@ -37,6 +37,8 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.subscribed_devices = set()
         self.current_phone = None
+        # Track active streams to prevent duplicate requests: {(serial_number, channel): True}
+        self.active_streams = {}
     
     async def connect(self):
         """Handle WebSocket connection."""
@@ -49,6 +51,9 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         # Leave all video groups
         for phone in self.subscribed_devices:
             await self.channel_layer.group_discard(f'video_{phone}', self.channel_name)
+        
+        # Clear active streams tracking
+        self.active_streams.clear()
         
         logger.info(f"[WebSocket] Client disconnected (code={close_code})")
     
@@ -168,6 +173,22 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         
         logger.info(f"[WebSocket] Device connected in DB: {serial_number}, sending stream command via channel layer")
         
+        # Check if this stream is already active (deduplicate requests)
+        stream_key = (serial_number, channel)
+        if stream_key in self.active_streams:
+            logger.info(f"[WebSocket] Stream already active for {serial_number} ch{channel}, skipping duplicate request")
+            await self.send_json({
+                'type': 'response',
+                'action': 'start_live',
+                'success': True,
+                'phone': phone,  # Return original IMEI to frontend
+                'channel': channel
+            })
+            return
+        
+        # Mark stream as active
+        self.active_streams[stream_key] = True
+        
         # Join video group for this device to receive video data
         await self.channel_layer.group_add(f'video_{serial_number}', self.channel_name)
         self.subscribed_devices.add(serial_number)
@@ -217,6 +238,10 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         
         # Translate IMEI to serial_number
         serial_number = await self._get_serial_number(phone)
+        
+        # Remove from active streams tracking
+        stream_key = (serial_number, channel)
+        self.active_streams.pop(stream_key, None)
         
         # Leave video group for this device
         await self.channel_layer.group_discard(f'video_{serial_number}', self.channel_name)
