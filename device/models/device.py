@@ -5,6 +5,7 @@ class Device(models.Model):
     id = models.BigAutoField(primary_key=True)
     imei = models.CharField(max_length=15, unique=True)
     phone = models.CharField(max_length=20)
+    serial_number = models.CharField(max_length=20, null=True, blank=True, db_index=True)
     sim = models.CharField(max_length=10, choices=SimType.choices)
     protocol = models.CharField(max_length=20, choices=ProtocolType.choices, default=ProtocolType.GT06)
     iccid = models.CharField(max_length=255, null=True, blank=True, default="")
@@ -19,6 +20,7 @@ class Device(models.Model):
         indexes = [
             models.Index(fields=['imei']),
             models.Index(fields=['phone']),
+            models.Index(fields=['serial_number']),
         ]
     
     def __str__(self):

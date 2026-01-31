@@ -13,8 +13,8 @@ class DeviceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = [
-            'id', 'imei', 'phone', 'sim', 'protocol', 
-            'iccid', 'model', 'subscription_plan', 'created_at', 'updated_at'
+            'id', 'imei', 'phone', 'serial_number', 'sim', 'protocol', 
+            'iccid', 'model', 'type', 'subscription_plan', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -25,8 +25,8 @@ class DeviceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = [
-            'imei', 'phone', 'sim', 'protocol', 
-            'iccid', 'model', 'subscription_plan'
+            'imei', 'phone', 'serial_number', 'sim', 'protocol', 
+            'iccid', 'model', 'type', 'subscription_plan'
         ]
     
     def validate_imei(self, value):
@@ -45,6 +45,17 @@ class DeviceCreateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Phone number cannot be empty")
         return value.strip()
+    
+    def validate(self, attrs):
+        """Validate serial_number is required for dashcam devices"""
+        device_type = attrs.get('type', '')
+        serial_number = attrs.get('serial_number', '')
+        
+        if device_type == 'dashcam' and not serial_number:
+            raise serializers.ValidationError({
+                'serial_number': 'Serial number is required for dashcam devices'
+            })
+        return attrs
 
 
 class DeviceUpdateSerializer(serializers.ModelSerializer):
@@ -53,7 +64,7 @@ class DeviceUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = [
-            'phone', 'sim', 'protocol', 'iccid', 'model', 'subscription_plan'
+            'phone', 'serial_number', 'sim', 'protocol', 'iccid', 'model', 'type', 'subscription_plan'
         ]
     
     def validate_phone(self, value):
@@ -61,6 +72,17 @@ class DeviceUpdateSerializer(serializers.ModelSerializer):
         if not value or not value.strip():
             raise serializers.ValidationError("Phone number cannot be empty")
         return value.strip()
+    
+    def validate(self, attrs):
+        """Validate serial_number is required for dashcam devices"""
+        device_type = attrs.get('type', self.instance.type if self.instance else '')
+        serial_number = attrs.get('serial_number', self.instance.serial_number if self.instance else '')
+        
+        if device_type == 'dashcam' and not serial_number:
+            raise serializers.ValidationError({
+                'serial_number': 'Serial number is required for dashcam devices'
+            })
+        return attrs
 
 
 class DeviceListSerializer(serializers.ModelSerializer):
@@ -69,8 +91,8 @@ class DeviceListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Device
         fields = [
-            'id', 'imei', 'phone', 'sim', 'protocol', 
-            'model', 'subscription_plan', 'created_at'
+            'id', 'imei', 'phone', 'serial_number', 'sim', 'protocol', 
+            'model', 'type', 'subscription_plan', 'created_at'
         ]
         read_only_fields = ['id', 'created_at']
 

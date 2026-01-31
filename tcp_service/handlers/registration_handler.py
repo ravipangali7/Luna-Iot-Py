@@ -50,7 +50,7 @@ class RegistrationHandler(BaseHandler):
             response = build_registration_response(
                 phone=phone,
                 resp_seq=seq_num,
-                result=JT808RegistrationResult.TERMINAL_NOT_REGISTERED,
+                result=JT808RegistrationResult.NO_TERMINAL,
                 auth_code="",
                 seq_num=next_seq
             )

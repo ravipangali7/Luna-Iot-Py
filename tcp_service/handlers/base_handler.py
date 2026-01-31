@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 from datetime import datetime
 from asgiref.sync import sync_to_async
+from django.db.models import Q
 
 from device.models import Device
 
@@ -63,20 +64,22 @@ class BaseHandler(ABC):
         """Log a message event."""
         logger.info(f"[{msg_type}] Phone: {phone} {details}")
     
-    async def validate_device_exists(self, imei: str) -> bool:
+    async def validate_device_exists(self, identifier: str) -> bool:
         """
-        Check if device IMEI exists in database.
+        Check if device exists in database by serial_number or IMEI.
         
         Args:
-            imei: Device IMEI to validate
+            identifier: Device serial_number or IMEI to validate
         
         Returns:
             True if device exists, False otherwise
         """
         exists = await sync_to_async(
-            Device.objects.filter(imei=imei).exists,
+            Device.objects.filter(
+                Q(serial_number=identifier) | Q(imei=identifier)
+            ).exists,
             thread_sensitive=True
         )()
         if not exists:
-            logger.warning(f"[{self.__class__.__name__}] IMEI NOT REGISTERED: {imei}")
+            logger.warning(f"[{self.__class__.__name__}] Device NOT REGISTERED: {identifier}")
         return exists
