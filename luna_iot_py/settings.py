@@ -254,6 +254,11 @@ NODEJS_API_BASE_URL="https://node.mylunago.com"
 TINGTING_API_KEY = 'OAkAIaWCBzx6KE-CtavqcO-1MxKjXvd0RwchlQ2t_8lmAjOBiDePQn-jwVRUNvwj'
 TINGTING_API_BASE_URL = 'https://app.tingting.io/api/v1'
 
+# TCP Service Configuration (JT808/JT1078 Dashcam)
+TCP_SERVICE_PUBLIC_IP = '82.180.145.220'
+TCP_SERVICE_JT808_PORT = 6665
+TCP_SERVICE_JT1078_PORT = 6664
+
 # NCHL ConnectIPS Payment Gateway Configuration
 NCHL_MERCHANT_ID = os.getenv('NCHL_MERCHANT_ID', '3856')
 NCHL_APP_ID = os.getenv('NCHL_APP_ID', 'MER-3856-APP-1')

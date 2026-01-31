@@ -6,6 +6,7 @@ Handles WebSocket connections from browser clients for live video streaming.
 import json
 import logging
 from typing import Optional
+from django.conf import settings
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from ..tcp.device_manager import device_manager
@@ -194,8 +195,6 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         Returns:
             True if request sent successfully
         """
-        import os
-        
         writer = device_manager.get_connection(phone)
         if not writer:
             logger.warning(f"[WebSocket] No JT808 connection for {phone}")
@@ -203,8 +202,8 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         
         try:
             # Build stream request message
-            server_ip = os.environ.get('PUBLIC_IP', '82.180.145.220')
-            video_port = int(os.environ.get('JT1078_PORT', 6664))
+            server_ip = settings.TCP_SERVICE_PUBLIC_IP
+            video_port = settings.TCP_SERVICE_JT1078_PORT
             seq_num = device_manager.get_next_seq(phone)
             
             message = build_realtime_av_request(

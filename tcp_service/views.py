@@ -3,8 +3,8 @@ TCP Service Views
 
 API endpoints for dashcam device management and SMS commands.
 """
-import os
 import logging
+from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -67,8 +67,8 @@ def dashcam_command(request):
     
     # Build SMS message
     if action == 'server_point':
-        server_ip = os.environ.get('PUBLIC_IP', '82.180.145.220')
-        server_port = os.environ.get('JT808_PORT', '6665')
+        server_ip = settings.TCP_SERVICE_PUBLIC_IP
+        server_port = settings.TCP_SERVICE_JT808_PORT
         message = SMS_COMMAND_SERVER_POINT.format(ip=server_ip, port=server_port)
     else:  # reset
         message = SMS_COMMAND_RESET

@@ -7,7 +7,7 @@ Run with: python manage.py start_tcp_servers
 import asyncio
 import signal
 import logging
-import os
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--jt808-port',
             type=int,
-            default=int(os.environ.get('JT808_PORT', 6665)),
+            default=settings.TCP_SERVICE_JT808_PORT,
             help='JT808 server port (default: 6665)'
         )
         parser.add_argument(
@@ -36,7 +36,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--jt1078-port',
             type=int,
-            default=int(os.environ.get('JT1078_PORT', 6664)),
+            default=settings.TCP_SERVICE_JT1078_PORT,
             help='JT1078 server port (default: 6664)'
         )
         parser.add_argument(
