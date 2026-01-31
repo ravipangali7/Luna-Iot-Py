@@ -8,7 +8,9 @@ import logging
 from typing import Optional
 from django.conf import settings
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from asgiref.sync import sync_to_async
 
+from device.models import Device
 from ..tcp.device_manager import device_manager
 from ..protocol.jt808_parser import build_realtime_av_request, build_av_control
 from ..protocol.constants import JT808MsgID
@@ -88,6 +90,31 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
             'devices': devices
         })
     
+    async def _get_serial_number(self, identifier: str) -> Optional[str]:
+        """
+        Translate IMEI to serial_number by querying database.
+        
+        The frontend sends IMEI but devices register with serial_number.
+        This method looks up the device by IMEI and returns its serial_number.
+        
+        Args:
+            identifier: IMEI or serial_number
+        
+        Returns:
+            serial_number if found, otherwise returns identifier as-is
+        """
+        try:
+            device = await sync_to_async(
+                Device.objects.filter(imei=identifier).first,
+                thread_sensitive=True
+            )()
+            if device and device.serial_number:
+                logger.debug(f"[WebSocket] Translated IMEI {identifier} to serial_number {device.serial_number}")
+                return device.serial_number
+        except Exception as e:
+            logger.error(f"[WebSocket] Error looking up device {identifier}: {e}")
+        return identifier  # Fallback to original identifier
+    
     async def _handle_start_live(self, content):
         """
         Handle start_live action.
@@ -95,12 +122,12 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         Args:
             content: {
                 'action': 'start_live',
-                'phone': '123456789012',
+                'phone': '123456789012',  # IMEI from frontend
                 'channel': 1,  # 1=Front, 2=Rear
                 'stream_type': 0  # 0=Main (HD), 1=Sub (SD)
             }
         """
-        phone = content.get('phone')
+        phone = content.get('phone')  # This is actually IMEI from frontend
         channel = content.get('channel', 1)
         stream_type = content.get('stream_type', 0)
         
@@ -111,8 +138,11 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
             })
             return
         
-        # Check if device is connected
-        device = device_manager.get_device(phone)
+        # Translate IMEI to serial_number (devices register with serial_number)
+        serial_number = await self._get_serial_number(phone)
+        
+        # Check if device is connected (using serial_number)
+        device = device_manager.get_device(serial_number)
         if not device:
             await self.send_json({
                 'type': 'error',
@@ -120,26 +150,26 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
             })
             return
         
-        # Subscribe to video updates
-        device_manager.add_websocket_client(phone, self)
-        self.subscribed_devices.add(phone)
-        self.current_phone = phone
+        # Subscribe to video updates (using serial_number)
+        device_manager.add_websocket_client(serial_number, self)
+        self.subscribed_devices.add(serial_number)
+        self.current_phone = serial_number
         
-        # Send stream request to device
-        success = await self._send_stream_request(phone, channel, stream_type)
+        # Send stream request to device (using serial_number)
+        success = await self._send_stream_request(serial_number, channel, stream_type)
         
         # Update streaming status
-        device_manager.set_streaming(phone, True, channel)
+        device_manager.set_streaming(serial_number, True, channel)
         
         await self.send_json({
             'type': 'response',
             'action': 'start_live',
             'success': success,
-            'phone': phone,
+            'phone': phone,  # Return original IMEI to frontend
             'channel': channel
         })
         
-        logger.info(f"[WebSocket] Started live stream for {phone} ch{channel}")
+        logger.info(f"[WebSocket] Started live stream for {serial_number} (IMEI: {phone}) ch{channel}")
     
     async def _handle_stop_live(self, content):
         """
@@ -148,11 +178,11 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         Args:
             content: {
                 'action': 'stop_live',
-                'phone': '123456789012',
+                'phone': '123456789012',  # IMEI from frontend
                 'channel': 1
             }
         """
-        phone = content.get('phone')
+        phone = content.get('phone')  # This is actually IMEI from frontend
         channel = content.get('channel', 1)
         
         if not phone:
@@ -162,25 +192,28 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
             })
             return
         
-        # Unsubscribe from video updates
-        device_manager.remove_websocket_client(phone, self)
-        self.subscribed_devices.discard(phone)
+        # Translate IMEI to serial_number
+        serial_number = await self._get_serial_number(phone)
         
-        # Send stop command to device
-        await self._send_stop_request(phone, channel)
+        # Unsubscribe from video updates (using serial_number)
+        device_manager.remove_websocket_client(serial_number, self)
+        self.subscribed_devices.discard(serial_number)
+        
+        # Send stop command to device (using serial_number)
+        await self._send_stop_request(serial_number, channel)
         
         # Update streaming status
-        device_manager.set_streaming(phone, False)
+        device_manager.set_streaming(serial_number, False)
         
         await self.send_json({
             'type': 'response',
             'action': 'stop_live',
             'success': True,
-            'phone': phone,
+            'phone': phone,  # Return original IMEI to frontend
             'channel': channel
         })
         
-        logger.info(f"[WebSocket] Stopped live stream for {phone} ch{channel}")
+        logger.info(f"[WebSocket] Stopped live stream for {serial_number} (IMEI: {phone}) ch{channel}")
     
     async def _send_stream_request(self, phone: str, channel: int, 
                                     stream_type: int) -> bool:
