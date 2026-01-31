@@ -23,6 +23,12 @@ def require_auth(view_func):
                 message='Authentication required',
                 status_code=401
             )
+        # Reject users with invalid ID (id=0 is not valid in MySQL/MariaDB)
+        if not request.user.pk or request.user.pk == 0:
+            return error_response(
+                message='Invalid user account. Please contact administrator.',
+                status_code=401
+            )
         return view_func(request, *args, **kwargs)
     return wrapper
 
