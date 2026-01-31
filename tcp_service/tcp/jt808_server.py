@@ -95,8 +95,8 @@ class JT808Server:
                 if not data:
                     break
                 
-                # Log raw received data
-                logger.info(f"[JT808] Raw data received from {addr}: {data.hex().upper()}")
+                # Print raw received data
+                print(f"[JT808] RAW DATA from {addr}: {data.hex().upper()}")
                 
                 buffer += data
                 
@@ -120,13 +120,13 @@ class JT808Server:
                     message_data = buffer[:end + 1]
                     buffer = buffer[end + 1:]
                     
-                    # Log complete message frame
-                    logger.info(f"[JT808] Complete message frame: {message_data.hex().upper()}")
+                    # Print complete message frame
+                    print(f"[JT808] MESSAGE FRAME: {message_data.hex().upper()}")
                     
                     # Parse and handle message
                     msg = parse_message(message_data)
                     if msg:
-                        logger.info(f"[JT808] Parsed message: msg_id=0x{msg.get('msg_id', 0):04X}, phone={msg.get('phone')}, seq={msg.get('seq_num')}")
+                        print(f"[JT808] PARSED: msg_id=0x{msg.get('msg_id', 0):04X}, phone={msg.get('phone')}, seq={msg.get('seq_num')}")
                         phone = msg.get("phone", phone)
                         
                         # Store IP address for device
