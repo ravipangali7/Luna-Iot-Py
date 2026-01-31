@@ -29,6 +29,9 @@ from finance.models import Wallet
 
 def get_or_create_cart(user):
     """Helper function to get or create user's cart"""
+    # Validate user has a valid ID
+    if not user or not user.pk or user.pk == 0:
+        raise ValueError(f"Invalid user: user must have a valid ID (got user={user}, pk={getattr(user, 'pk', None)})")
     cart, created = DeviceCart.objects.get_or_create(user=user)
     return cart
 
