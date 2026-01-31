@@ -160,7 +160,7 @@ class JT808Server:
         finally:
             # Clean up connection
             if phone:
-                self._handle_disconnect(phone)
+                await self._handle_disconnect(phone)
             
             writer.close()
             try:
@@ -170,14 +170,17 @@ class JT808Server:
             
             logger.info(f"[JT808] Connection closed from {addr}")
     
-    def _handle_disconnect(self, phone: str):
+    async def _handle_disconnect(self, phone: str):
         """Handle device disconnection."""
         try:
-            from asgiref.sync import async_to_sync
+            from asgiref.sync import sync_to_async
             from ..models import DashcamConnection
             
-            # Update database
-            DashcamConnection.objects.filter(imei=phone).update(
+            # Update database using sync_to_async
+            await sync_to_async(
+                DashcamConnection.objects.filter(imei=phone).update,
+                thread_sensitive=True
+            )(
                 is_connected=False,
                 disconnected_at=self._get_nepal_datetime()
             )
