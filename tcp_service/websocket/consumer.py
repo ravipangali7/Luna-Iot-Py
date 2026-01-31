@@ -109,9 +109,12 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
                 Device.objects.filter(imei=identifier).first,
                 thread_sensitive=True
             )()
-            if device and device.serial_number:
-                logger.debug(f"[WebSocket] Translated IMEI {identifier} to serial_number {device.serial_number}")
-                return device.serial_number
+            if device:
+                logger.info(f"[WebSocket] Found device: imei={device.imei}, serial_number={device.serial_number}")
+                if device.serial_number:
+                    return device.serial_number
+            else:
+                logger.info(f"[WebSocket] No device found with IMEI: {identifier}")
         except Exception as e:
             logger.error(f"[WebSocket] Error looking up device {identifier}: {e}")
         return identifier  # Fallback to original identifier
