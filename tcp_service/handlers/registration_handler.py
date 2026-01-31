@@ -98,13 +98,22 @@ class RegistrationHandler(BaseHandler):
             from asgiref.sync import sync_to_async
             from ..models import DashcamConnection
             
+            # Extract IMEI and other data from registration
+            imei = reg_data.get('terminal_id', '') if reg_data else ''
+            manufacturer = reg_data.get('manufacturer', '') if reg_data else ''
+            terminal_model = reg_data.get('terminal_model', '') if reg_data else ''
+            
+            # Use IMEI as the primary identifier if available, otherwise use phone
+            device_identifier = imei if imei else phone
+            
             # Get or create connection record
             connection, created = await sync_to_async(
                 DashcamConnection.objects.update_or_create,
                 thread_sensitive=True
             )(
-                imei=phone,
+                imei=device_identifier,
                 defaults={
+                    'phone': phone,
                     'auth_code': auth_code,
                     'is_connected': True,
                     'connected_at': self.get_nepal_datetime(),
@@ -112,12 +121,19 @@ class RegistrationHandler(BaseHandler):
                 }
             )
             
-            # Register in memory manager
+            # Register in memory manager with all registration data
             if self.device_manager:
-                self.device_manager.register_device(phone, auth_code, writer)
+                self.device_manager.register_device(
+                    phone=phone,
+                    auth_code=auth_code,
+                    writer=writer,
+                    imei=imei,
+                    manufacturer=manufacturer,
+                    terminal_model=terminal_model
+                )
             
             action = "Created" if created else "Updated"
-            logger.info(f"[REGISTRATION] {action} connection record for {phone}")
+            logger.info(f"[REGISTRATION] {action} connection record: phone={phone}, imei={imei}, manufacturer={manufacturer}, model={terminal_model}")
             
         except Exception as e:
             logger.error(f"[REGISTRATION] Failed to register device {phone}: {e}")

@@ -18,9 +18,11 @@ class DeviceInfo:
     """Information about a connected device."""
     device_id: str
     phone: str
+    imei: str = ""  # Terminal ID / IMEI from registration
     auth_code: str = ""
     manufacturer: str = ""
     model: str = ""
+    terminal_model: str = ""
     connected_at: datetime = field(default_factory=datetime.now)
     last_heartbeat: datetime = field(default_factory=datetime.now)
     location: Dict[str, float] = field(default_factory=dict)
@@ -49,7 +51,8 @@ class DeviceManager:
         self.websocket_clients: Dict[str, set] = {}  # phone -> set of websocket consumers
         self._lock = asyncio.Lock()
     
-    def register_device(self, phone: str, auth_code: str = "", writer=None) -> DeviceInfo:
+    def register_device(self, phone: str, auth_code: str = "", writer=None,
+                        imei: str = "", manufacturer: str = "", terminal_model: str = "") -> DeviceInfo:
         """
         Register a new device or update existing.
         
@@ -57,6 +60,9 @@ class DeviceManager:
             phone: Device phone/SIM number (used as ID)
             auth_code: Authentication code
             writer: asyncio.StreamWriter for the connection
+            imei: Device IMEI / Terminal ID from registration
+            manufacturer: Device manufacturer from registration
+            terminal_model: Device model from registration
         
         Returns:
             DeviceInfo object
@@ -65,13 +71,19 @@ class DeviceManager:
             # Update existing device
             device = self.devices[phone]
             device.auth_code = auth_code or device.auth_code
+            device.imei = imei or device.imei
+            device.manufacturer = manufacturer or device.manufacturer
+            device.terminal_model = terminal_model or device.terminal_model
             device.last_heartbeat = datetime.now()
         else:
             # Create new device entry
             device = DeviceInfo(
                 device_id=phone,
                 phone=phone,
+                imei=imei,
                 auth_code=auth_code,
+                manufacturer=manufacturer,
+                terminal_model=terminal_model,
                 connected_at=datetime.now(),
                 last_heartbeat=datetime.now()
             )
@@ -81,7 +93,7 @@ class DeviceManager:
         if writer:
             self.connections[phone] = writer
         
-        logger.info(f"[DeviceManager] Registered device: {phone}")
+        logger.info(f"[DeviceManager] Registered device: phone={phone}, imei={imei}, manufacturer={manufacturer}, model={terminal_model}")
         return device
     
     def get_device(self, phone: str) -> Optional[Dict[str, Any]]:
@@ -91,7 +103,10 @@ class DeviceManager:
             return {
                 'device_id': device.device_id,
                 'phone': device.phone,
+                'imei': device.imei,
                 'auth_code': device.auth_code,
+                'manufacturer': device.manufacturer,
+                'terminal_model': device.terminal_model,
                 'connected_at': device.connected_at,
                 'last_heartbeat': device.last_heartbeat,
                 'location': device.location,
@@ -202,7 +217,10 @@ class DeviceManager:
         return [
             {
                 'phone': d.phone,
+                'imei': d.imei,
                 'device_id': d.device_id,
+                'manufacturer': d.manufacturer,
+                'terminal_model': d.terminal_model,
                 'connected_at': d.connected_at.isoformat(),
                 'last_heartbeat': d.last_heartbeat.isoformat(),
                 'is_streaming': d.is_streaming,

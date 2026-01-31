@@ -120,8 +120,21 @@ class JT808Server:
                     # Parse and handle message
                     msg = parse_message(message_data)
                     if msg:
+                        # Get message type name
+                        msg_id = msg.get('msg_id', 0)
+                        msg_names = {
+                            0x0001: "TERMINAL_RESPONSE",
+                            0x0002: "HEARTBEAT",
+                            0x0100: "REGISTRATION",
+                            0x0102: "AUTH",
+                            0x0200: "LOCATION",
+                        }
+                        msg_name = msg_names.get(msg_id, "UNKNOWN")
+                        
                         # Log parsed message details
-                        logger.info(f"[JT808] Received: msg_id=0x{msg.get('msg_id', 0):04X}, phone={msg.get('phone')}, seq={msg.get('seq_num')}, body={msg.get('body', b'').hex().upper() if msg.get('body') else 'None'}")
+                        body_hex = msg.get('body', b'').hex().upper()[:100] if msg.get('body') else 'None'
+                        logger.info(f"[JT808] Received {msg_name}(0x{msg_id:04X}): phone={msg.get('phone')}, seq={msg.get('seq_num')}, body_len={len(msg.get('body', b''))}")
+                        
                         phone = msg.get("phone", phone)
                         
                         # Store IP address for device

@@ -194,11 +194,7 @@ def parse_message(data: bytes) -> Optional[Dict[str, Any]]:
         body_start += 4  # Skip subpackage info (total_packets: 2, packet_seq: 2)
     
     body = data[body_start:-1] if body_start < len(data) - 1 else b""
-    print(f"Body: {body}")
-    print(f"Body length: {body_length}")
-    print(f"Is encrypted: {is_encrypted}")
-    print(f"Is subpackage: {is_subpackage}")
-    print(f"Raw data: {data}")
+    
     return {
         "msg_id": msg_id,
         "phone": phone,
