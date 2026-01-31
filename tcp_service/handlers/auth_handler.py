@@ -41,6 +41,19 @@ class AuthHandler(BaseHandler):
         
         self.log_message("AUTH", phone, f"seq={seq_num}, auth_code={auth_code}")
         
+        # Validate device exists in system
+        if not await self.validate_device_exists(phone):
+            # Return auth failure - device not registered
+            next_seq = self.device_manager.get_next_seq(phone) if self.device_manager else 0
+            response = build_general_response(
+                phone=phone,
+                resp_seq=seq_num,
+                resp_msg_id=JT808MsgID.TERMINAL_AUTH,
+                result=JT808ResponseResult.FAIL,
+                seq_num=next_seq
+            )
+            return response
+        
         # Validate authentication
         is_valid = await self._validate_auth(phone, auth_code, writer)
         

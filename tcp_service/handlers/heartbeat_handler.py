@@ -35,6 +35,11 @@ class HeartbeatHandler(BaseHandler):
         phone = message.get("phone", "")
         seq_num = message.get("seq_num", 0)
         
+        # Validate device exists in system
+        if not await self.validate_device_exists(phone):
+            # Silently ignore unregistered device heartbeat
+            return None
+        
         # Update last heartbeat time
         await self._update_heartbeat(phone)
         

@@ -7,6 +7,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 from datetime import datetime
+from asgiref.sync import sync_to_async
+
+from device.models import Device
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +62,21 @@ class BaseHandler(ABC):
     def log_message(self, msg_type: str, phone: str, details: str = ""):
         """Log a message event."""
         logger.info(f"[{msg_type}] Phone: {phone} {details}")
+    
+    async def validate_device_exists(self, imei: str) -> bool:
+        """
+        Check if device IMEI exists in database.
+        
+        Args:
+            imei: Device IMEI to validate
+        
+        Returns:
+            True if device exists, False otherwise
+        """
+        exists = await sync_to_async(
+            Device.objects.filter(imei=imei).exists,
+            thread_sensitive=True
+        )()
+        if not exists:
+            logger.warning(f"[{self.__class__.__name__}] IMEI NOT REGISTERED: {imei}")
+        return exists

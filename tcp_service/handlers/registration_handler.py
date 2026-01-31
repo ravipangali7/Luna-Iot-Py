@@ -43,6 +43,19 @@ class RegistrationHandler(BaseHandler):
         
         self.log_message("REGISTRATION", phone, f"seq={seq_num}")
         
+        # Validate device exists in system
+        if not await self.validate_device_exists(phone):
+            # Return registration failure - device not registered
+            next_seq = self.device_manager.get_next_seq(phone) if self.device_manager else 0
+            response = build_registration_response(
+                phone=phone,
+                resp_seq=seq_num,
+                result=JT808RegistrationResult.TERMINAL_NOT_REGISTERED,
+                auth_code="",
+                seq_num=next_seq
+            )
+            return response
+        
         # Parse registration details
         reg_data = parse_registration(body)
         if reg_data:

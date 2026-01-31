@@ -39,6 +39,11 @@ class LocationHandler(BaseHandler):
         seq_num = message.get("seq_num", 0)
         body = message.get("body", b"")
         
+        # Validate device exists in system
+        if not await self.validate_device_exists(phone):
+            # Silently ignore unregistered device data
+            return None
+        
         # Parse location data
         location_data = parse_location_report(body)
         
