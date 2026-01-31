@@ -51,4 +51,5 @@ pandas>=2.2.3
 pyshp==2.3.1
 pyproj==3.6.1
 channels>=4.0.0
+channels-redis>=4.0.0
 daphne>=4.0.0

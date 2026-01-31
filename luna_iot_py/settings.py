@@ -68,10 +68,13 @@ INSTALLED_APPS = [
 # ASGI Application for Django Channels
 ASGI_APPLICATION = 'luna_iot_py.asgi.application'
 
-# Channel Layers Configuration (in-memory for development)
+# Channel Layers Configuration (Redis for cross-process communication)
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('127.0.0.1', 6379)],
+        },
     }
 }
 

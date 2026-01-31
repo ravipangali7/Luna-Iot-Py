@@ -3,12 +3,15 @@ JT808 TCP Server
 
 Asyncio-based TCP server for handling JT808 protocol communication with dashcam devices.
 Listens on port 6665 for GPS signaling and control messages.
+Uses Redis channel layer for cross-process communication with WebSocket consumers.
 """
 import asyncio
 import logging
 from typing import Optional
 
-from ..protocol.jt808_parser import parse_message
+from django.conf import settings
+
+from ..protocol.jt808_parser import parse_message, build_realtime_av_request, build_av_control
 from ..protocol.constants import JT808_FLAG
 from ..handlers.message_router import MessageRouter
 from .device_manager import DeviceManager
@@ -47,7 +50,7 @@ class JT808Server:
         self._running = False
     
     async def start(self):
-        """Start the TCP server."""
+        """Start the TCP server and channel layer listener."""
         self.server = await asyncio.start_server(
             self._handle_client,
             self.host,
@@ -58,8 +61,129 @@ class JT808Server:
         addr = self.server.sockets[0].getsockname()
         logger.info(f"JT808 Server started on {addr[0]}:{addr[1]}")
         
+        # Start channel layer listener for stream commands
+        asyncio.create_task(self._listen_channel_layer())
+        
         async with self.server:
             await self.server.serve_forever()
+    
+    async def _listen_channel_layer(self):
+        """Listen for stream commands from WebSocket consumers via Redis channel layer."""
+        try:
+            from channels.layers import get_channel_layer
+            channel_layer = get_channel_layer()
+            
+            if not channel_layer:
+                logger.warning("[JT808] No channel layer configured, stream commands disabled")
+                return
+            
+            # Create a unique channel name for this server instance
+            channel_name = f'tcp_server_{id(self)}'
+            
+            # Join the tcp_commands group
+            await channel_layer.group_add('tcp_commands', channel_name)
+            logger.info(f"[JT808] Joined tcp_commands group as {channel_name}")
+            
+            while self._running:
+                try:
+                    # Receive message from channel layer
+                    message = await asyncio.wait_for(
+                        channel_layer.receive(channel_name),
+                        timeout=5.0
+                    )
+                    
+                    msg_type = message.get('type', '')
+                    
+                    if msg_type == 'stream.request':
+                        await self._handle_stream_request(message)
+                    elif msg_type == 'stream.stop':
+                        await self._handle_stream_stop(message)
+                    else:
+                        logger.debug(f"[JT808] Unknown channel message type: {msg_type}")
+                        
+                except asyncio.TimeoutError:
+                    # No message received, continue listening
+                    continue
+                except Exception as e:
+                    logger.error(f"[JT808] Error processing channel message: {e}")
+                    await asyncio.sleep(1)
+                    
+        except Exception as e:
+            logger.error(f"[JT808] Channel layer listener error: {e}")
+    
+    async def _handle_stream_request(self, message: dict):
+        """Handle stream request from WebSocket consumer."""
+        phone = message.get('phone')
+        channel = message.get('channel', 1)
+        stream_type = message.get('stream_type', 0)
+        server_ip = message.get('server_ip', settings.TCP_SERVICE_PUBLIC_IP)
+        video_port = message.get('video_port', settings.TCP_SERVICE_JT1078_PORT)
+        
+        logger.info(f"[JT808] Received stream request for {phone} ch{channel}")
+        
+        # Get device connection
+        writer = self.device_manager.get_connection(phone)
+        if not writer:
+            logger.warning(f"[JT808] No connection for device {phone}")
+            return
+        
+        try:
+            # Build and send stream request
+            seq_num = self.device_manager.get_next_seq(phone)
+            request = build_realtime_av_request(
+                phone=phone,
+                channel=channel,
+                server_ip=server_ip,
+                tcp_port=video_port,
+                stream_type=stream_type,
+                seq_num=seq_num
+            )
+            
+            writer.write(request)
+            await writer.drain()
+            
+            # Update streaming status
+            self.device_manager.set_streaming(phone, True, channel)
+            
+            logger.info(f"[JT808] Sent stream request to {phone} ch{channel}")
+            
+        except Exception as e:
+            logger.error(f"[JT808] Failed to send stream request to {phone}: {e}")
+    
+    async def _handle_stream_stop(self, message: dict):
+        """Handle stream stop request from WebSocket consumer."""
+        phone = message.get('phone')
+        channel = message.get('channel', 1)
+        
+        logger.info(f"[JT808] Received stream stop for {phone} ch{channel}")
+        
+        # Get device connection
+        writer = self.device_manager.get_connection(phone)
+        if not writer:
+            logger.warning(f"[JT808] No connection for device {phone}")
+            return
+        
+        try:
+            # Build and send stop request
+            seq_num = self.device_manager.get_next_seq(phone)
+            request = build_av_control(
+                phone=phone,
+                channel=channel,
+                control_cmd=0,  # Close
+                close_type=0,   # Close all
+                seq_num=seq_num
+            )
+            
+            writer.write(request)
+            await writer.drain()
+            
+            # Update streaming status
+            self.device_manager.set_streaming(phone, False)
+            
+            logger.info(f"[JT808] Sent stop request to {phone} ch{channel}")
+            
+        except Exception as e:
+            logger.error(f"[JT808] Failed to send stop request to {phone}: {e}")
     
     async def stop(self):
         """Stop the TCP server."""

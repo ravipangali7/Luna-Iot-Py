@@ -209,7 +209,7 @@ class JT1078Server:
     async def _broadcast_video(self, sim: str, data: bytes, is_init: bool = False,
                                 codec: str = None, channel: int = 1) -> None:
         """
-        Broadcast video data to WebSocket clients.
+        Broadcast video data to WebSocket clients via Redis channel layer.
         
         Args:
             sim: Device SIM/phone number
@@ -218,14 +218,36 @@ class JT1078Server:
             codec: Codec string (for init segment)
             channel: Camera channel
         """
-        if self.device_manager:
-            await self.device_manager.broadcast_video(
-                phone=sim,
-                data=data,
-                is_init=is_init,
-                codec=codec,
-                channel=channel
-            )
+        try:
+            import base64
+            from channels.layers import get_channel_layer
+            
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                # Encode data as base64
+                data_b64 = base64.b64encode(data).decode('utf-8')
+                
+                # Send to video group for this device
+                await channel_layer.group_send(f'video_{sim}', {
+                    'type': 'video.data',
+                    'video_type': 'init_segment' if is_init else 'video',
+                    'phone': sim,
+                    'channel': channel,
+                    'data': data_b64,
+                    'codec': codec if is_init else None,
+                })
+            else:
+                # Fallback to legacy device_manager broadcast
+                if self.device_manager:
+                    await self.device_manager.broadcast_video(
+                        phone=sim,
+                        data=data,
+                        is_init=is_init,
+                        codec=codec,
+                        channel=channel
+                    )
+        except Exception as e:
+            logger.error(f"[JT1078] Error broadcasting video for {sim}: {e}")
     
     def _cleanup_device(self, sim: str) -> None:
         """Clean up resources for a disconnected device."""

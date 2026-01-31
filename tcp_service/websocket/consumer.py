@@ -2,15 +2,19 @@
 Django Channels WebSocket Consumer for Dashcam Video Streaming
 
 Handles WebSocket connections from browser clients for live video streaming.
+Uses Redis channel layer for cross-process communication with TCP server.
 """
 import json
 import logging
 from typing import Optional
 from django.conf import settings
+from django.db.models import Q
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async
 
 from device.models import Device
+from ..models import DashcamConnection
 from ..tcp.device_manager import device_manager
 from ..protocol.jt808_parser import build_realtime_av_request, build_av_control
 from ..protocol.constants import JT808MsgID
@@ -42,9 +46,9 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
     
     async def disconnect(self, close_code):
         """Handle WebSocket disconnection."""
-        # Unsubscribe from all devices
+        # Leave all video groups
         for phone in self.subscribed_devices:
-            device_manager.remove_websocket_client(phone, self)
+            await self.channel_layer.group_discard(f'video_{phone}', self.channel_name)
         
         logger.info(f"[WebSocket] Client disconnected (code={close_code})")
     
@@ -145,30 +149,45 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         # Translate IMEI to serial_number (devices register with serial_number)
         serial_number = await self._get_serial_number(phone)
         
-        # Check if device is connected (using serial_number)
-        device = device_manager.get_device(serial_number)
-        if not device:
+        # Check database for connection status (cross-process safe)
+        connection = await sync_to_async(
+            DashcamConnection.objects.filter(
+                Q(imei=serial_number) | Q(phone=serial_number),
+                is_connected=True
+            ).first,
+            thread_sensitive=True
+        )()
+        
+        if not connection:
+            logger.info(f"[WebSocket] Device not connected in DB: {serial_number}")
             await self.send_json({
                 'type': 'error',
                 'message': 'Device not connected'
             })
             return
         
-        # Subscribe to video updates (using serial_number)
-        device_manager.add_websocket_client(serial_number, self)
+        logger.info(f"[WebSocket] Device connected in DB: {serial_number}, sending stream command via channel layer")
+        
+        # Join video group for this device to receive video data
+        await self.channel_layer.group_add(f'video_{serial_number}', self.channel_name)
         self.subscribed_devices.add(serial_number)
         self.current_phone = serial_number
         
-        # Send stream request to device (using serial_number)
-        success = await self._send_stream_request(serial_number, channel, stream_type)
-        
-        # Update streaming status
-        device_manager.set_streaming(serial_number, True, channel)
+        # Send stream request via channel layer to TCP server process
+        channel_layer = get_channel_layer()
+        await channel_layer.group_send('tcp_commands', {
+            'type': 'stream.request',
+            'phone': serial_number,
+            'channel': channel,
+            'stream_type': stream_type,
+            'server_ip': settings.TCP_SERVICE_PUBLIC_IP,
+            'video_port': settings.TCP_SERVICE_JT1078_PORT,
+        })
         
         await self.send_json({
             'type': 'response',
             'action': 'start_live',
-            'success': success,
+            'success': True,
             'phone': phone,  # Return original IMEI to frontend
             'channel': channel
         })
@@ -199,15 +218,17 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
         # Translate IMEI to serial_number
         serial_number = await self._get_serial_number(phone)
         
-        # Unsubscribe from video updates (using serial_number)
-        device_manager.remove_websocket_client(serial_number, self)
+        # Leave video group for this device
+        await self.channel_layer.group_discard(f'video_{serial_number}', self.channel_name)
         self.subscribed_devices.discard(serial_number)
         
-        # Send stop command to device (using serial_number)
-        await self._send_stop_request(serial_number, channel)
-        
-        # Update streaming status
-        device_manager.set_streaming(serial_number, False)
+        # Send stop command via channel layer to TCP server process
+        channel_layer = get_channel_layer()
+        await channel_layer.group_send('tcp_commands', {
+            'type': 'stream.stop',
+            'phone': serial_number,
+            'channel': channel,
+        })
         
         await self.send_json({
             'type': 'response',
@@ -300,9 +321,24 @@ class DashcamVideoConsumer(AsyncJsonWebsocketConsumer):
     
     async def send_video_data(self, data: dict):
         """
-        Send video data to client (called by device_manager).
+        Send video data to client (called by device_manager - legacy).
         
         Args:
             data: Video data dict with type, phone, channel, data (base64)
         """
         await self.send_json(data)
+    
+    async def video_data(self, event):
+        """
+        Handle video data from channel layer (sent by TCP server).
+        
+        Args:
+            event: Video data dict with type, phone, channel, data (base64)
+        """
+        await self.send_json({
+            'type': event.get('video_type', 'video'),
+            'phone': event.get('phone'),
+            'channel': event.get('channel'),
+            'data': event.get('data'),
+            'codec': event.get('codec'),
+        })
