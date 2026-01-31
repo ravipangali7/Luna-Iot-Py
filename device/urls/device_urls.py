@@ -23,5 +23,6 @@ urlpatterns = [
     path('gps/paginated', device_views.get_gps_devices_paginated, name='get_gps_devices_paginated'),
     path('buzzer/paginated', device_views.get_buzzer_devices_paginated, name='get_buzzer_devices_paginated'),
     path('sos/paginated', device_views.get_sos_devices_paginated, name='get_sos_devices_paginated'),
+    path('dashcam/paginated', device_views.get_dashcam_devices_paginated, name='get_dashcam_devices_paginated'),
     path('<str:imei>', device_views.get_device_by_imei, name='get_device_by_imei'),
 ]

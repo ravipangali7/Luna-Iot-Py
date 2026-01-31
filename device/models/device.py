@@ -6,7 +6,7 @@ class Device(models.Model):
     imei = models.CharField(max_length=15, unique=True)
     phone = models.CharField(max_length=20)
     sim = models.CharField(max_length=10, choices=SimType.choices)
-    protocol = models.CharField(max_length=10, choices=ProtocolType.choices, default=ProtocolType.GT06)
+    protocol = models.CharField(max_length=20, choices=ProtocolType.choices, default=ProtocolType.GT06)
     iccid = models.CharField(max_length=255, null=True, blank=True, default="")
     model = models.CharField(max_length=10, choices=DeviceModelType.choices)
     type = models.CharField(max_length=10, choices=DeviceType.choices, default=DeviceType.GPS, null=True, blank=True)

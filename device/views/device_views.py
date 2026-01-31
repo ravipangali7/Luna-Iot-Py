@@ -6,7 +6,7 @@ Matches Node.js device_controller.js functionality exactly
 from django.http import JsonResponse
 from django.core.paginator import Paginator
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -2281,6 +2281,181 @@ def get_sos_devices_paginated(request):
         return success_response(
             data=response_data,
             message='SOS devices retrieved successfully'
+        )
+    except Exception as e:
+        return error_response(
+            message=str(e),
+            status_code=HTTP_STATUS['INTERNAL_ERROR']
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_dashcam_devices_paginated(request):
+    """
+    Get paginated Dashcam devices with search functionality
+    """
+    try:
+        from django.db.models import Q
+        from django.core.paginator import Paginator
+        
+        user = request.user
+        search_query = request.GET.get('q', '').strip()
+        page_number = int(request.GET.get('page', 1))
+        page_size = 25  # Fixed page size
+        
+        # Get user groups (Django's role system)
+        user_groups = user.groups.all()
+        is_super_admin = any(group.name == 'Super Admin' for group in user_groups)
+        is_dealer = any(group.name == 'Dealer' for group in user_groups)
+        
+        # Super Admin: all Dashcam devices
+        if is_super_admin:
+            devices = Device.objects.filter(type='dashcam').prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
+            ).all()
+        # Dealer: only assigned Dashcam devices
+        elif is_dealer:
+            devices = Device.objects.filter(
+                type='dashcam',
+                userDevices__user=user
+            ).prefetch_related(
+                'userDevices__user__groups',
+                'vehicles__userVehicles__user__groups',
+                'subscription_plan'
+            ).distinct()
+        # Customer: no access to devices
+        else:
+            return error_response(
+                message='Access denied. Customers cannot view devices',
+                status_code=HTTP_STATUS['FORBIDDEN']
+            )
+        
+        # Apply search filter if query provided
+        if search_query:
+            search_filter = Q()
+            search_filter |= Q(imei__icontains=search_query)
+            search_filter |= Q(phone__icontains=search_query)
+            search_filter |= Q(protocol__icontains=search_query)
+            search_filter |= Q(sim__icontains=search_query)
+            search_filter |= Q(model__icontains=search_query)
+            search_filter |= Q(iccid__icontains=search_query)
+            search_filter |= Q(userDevices__user__name__icontains=search_query)
+            search_filter |= Q(userDevices__user__phone__icontains=search_query)
+            search_filter |= Q(vehicles__vehicleNo__icontains=search_query)
+            search_filter |= Q(vehicles__name__icontains=search_query)
+            search_filter |= Q(vehicles__userVehicles__user__name__icontains=search_query)
+            search_filter |= Q(vehicles__userVehicles__user__phone__icontains=search_query)
+            devices = devices.filter(search_filter).distinct()
+        
+        # Create paginator
+        paginator = Paginator(devices, page_size)
+        
+        # Get the requested page
+        try:
+            page_obj = paginator.get_page(page_number)
+        except:
+            return error_response('Invalid page number', HTTP_STATUS['BAD_REQUEST'])
+        
+        devices_data = []
+        for device in page_obj:
+            # Get user devices with user info and roles
+            user_devices_data = []
+            for user_device in device.userDevices.all():
+                user_data = {
+                    'id': user_device.user.id,
+                    'name': user_device.user.name,
+                    'phone': user_device.user.phone,
+                    'status': 'active',
+                    'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_device.user.groups.all()],
+                    'createdAt': user_device.createdAt.isoformat(),
+                    'updatedAt': user_device.createdAt.isoformat()
+                }
+                user_devices_data.append({
+                    'id': user_device.id,
+                    'userId': user_device.user.id,
+                    'deviceId': device.id,
+                    'user': user_data,
+                    'createdAt': user_device.createdAt.isoformat(),
+                    'updatedAt': user_device.createdAt.isoformat()
+                })
+            
+            # Get vehicles with user vehicles
+            vehicles_data = []
+            for vehicle in device.vehicles.all():
+                user_vehicles_data = []
+                for user_vehicle in vehicle.userVehicles.all():
+                    user_data = {
+                        'id': user_vehicle.user.id,
+                        'name': user_vehicle.user.name,
+                        'phone': user_vehicle.user.phone,
+                        'status': 'active',
+                        'roles': [{'id': group.id, 'name': group.name, 'description': ''} for group in user_vehicle.user.groups.all()],
+                        'createdAt': user_vehicle.createdAt.isoformat(),
+                        'updatedAt': user_vehicle.createdAt.isoformat()
+                    }
+                    user_vehicles_data.append({
+                        'id': user_vehicle.id,
+                        'userId': user_vehicle.user.id,
+                        'vehicleId': vehicle.id,
+                        'isMain': user_vehicle.isMain,
+                        'user': user_data,
+                        'createdAt': user_vehicle.createdAt.isoformat(),
+                        'updatedAt': user_vehicle.createdAt.isoformat()
+                    })
+                
+                vehicles_data.append({
+                    'id': vehicle.id,
+                    'imei': vehicle.imei,
+                    'name': vehicle.name,
+                    'vehicleNo': vehicle.vehicleNo,
+                    'vehicleType': vehicle.vehicleType,
+                    'userVehicles': user_vehicles_data
+                })
+            
+            devices_data.append({
+                'id': device.id,
+                'imei': device.imei,
+                'phone': device.phone,
+                'sim': device.sim,
+                'protocol': device.protocol,
+                'iccid': device.iccid,
+                'model': device.model,
+                'type': device.type,
+                'status': 'active',
+                'subscription_plan': {
+                    'id': device.subscription_plan.id,
+                    'title': device.subscription_plan.title,
+                    'price': float(device.subscription_plan.price)
+                } if device.subscription_plan else None,
+                'userDevices': user_devices_data,
+                'vehicles': vehicles_data,
+                'createdAt': device.createdAt.isoformat(),
+                'updatedAt': device.updatedAt.isoformat()
+            })
+        
+        # Prepare pagination info
+        pagination_info = {
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+            'page_size': page_size,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'next_page': page_obj.next_page_number() if page_obj.has_next() else None,
+            'previous_page': page_obj.previous_page_number() if page_obj.has_previous() else None
+        }
+        
+        response_data = {
+            'devices': devices_data,
+            'pagination': pagination_info
+        }
+        
+        return success_response(
+            data=response_data,
+            message='Dashcam devices retrieved successfully'
         )
     except Exception as e:
         return error_response(

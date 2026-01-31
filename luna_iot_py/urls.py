@@ -62,6 +62,9 @@ urlpatterns = [
     # Vehicle Tag module URLs
     path('api/vehicle-tag/', include('vehicle_tag.urls')),
     
+    # TCP Service module URLs (Dashcam/JT808/JT1078)
+    path('api/tcp-service/', include('tcp_service.urls')),
+    
     # Admin URLs
     path('admin/', admin.site.urls),
 ]

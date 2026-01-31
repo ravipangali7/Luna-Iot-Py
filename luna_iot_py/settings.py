@@ -34,6 +34,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -56,12 +57,23 @@ INSTALLED_APPS = [
     'finance',
     'phone_call',
     'vehicle_tag',
-    
+    'tcp_service',
     
     # Third party
     'rest_framework',
-    'corsheaders'
+    'corsheaders',
+    'channels',
 ]
+
+# ASGI Application for Django Channels
+ASGI_APPLICATION = 'luna_iot_py.asgi.application'
+
+# Channel Layers Configuration (in-memory for development)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+    }
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -165,7 +177,8 @@ DATABASES = {
         # 'USER': 'root', 
         # 'PASSWORD': '214fa86d5dfe4729', 
         # 'HOST': '38.54.71.218', 
-        'HOST': 'localhost', 
+        'HOST': '82.180.145.220', 
+        # 'HOST': 'localhost', 
         'PORT': '3306',
         'OPTIONS': {
             'connect_timeout': 600,  # 10 minutes

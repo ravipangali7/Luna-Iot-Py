@@ -17,15 +17,18 @@ class SimType(models.TextChoices):
 class ProtocolType(models.TextChoices):
     GT06 = 'GT06', 'GT06'
     FMB003 = 'FMB003', 'FMB003'
+    JT808_JT1078 = 'JT808_JT1078', 'JT808/JT1078'
 
 class DeviceModelType(models.TextChoices):
     EC08 = 'EC08', 'EC08'
     VL149 = 'VL149', 'VL149'
+    T98_BSJ = 'T98_BSJ', 'T98/BSJ'
 
 class DeviceType(models.TextChoices):
     GPS = 'gps', 'GPS'
     BUZZER = 'buzzer', 'Buzzer'
     SOS = 'sos', 'SOS'
+    DASHCAM = 'dashcam', 'Dashcam'
 
 class AlarmType(models.TextChoices):
     NORMAL = 'normal', 'Normal'
