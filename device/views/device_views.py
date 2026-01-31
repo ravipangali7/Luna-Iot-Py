@@ -400,6 +400,7 @@ def get_device_by_imei(request, imei):
             'id': device.id,
             'imei': device.imei,
             'phone': device.phone,
+            'serial_number': device.serial_number,
             'sim': device.sim,
             'protocol': device.protocol,
             'iccid': device.iccid,
